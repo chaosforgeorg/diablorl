@@ -1,0 +1,5 @@
+DiabloRL, Copyright (C) 2013 Kornel Kisielewicz / ChaosForge.
+
+DiabloRL comes with ABSOLUTELY NO WARRANTY; for details see LICENSE document. This is free software, and you are welcome to redistribute it under certain conditions.
+
+Diablo is a trademark of Blizzard Entertainment, Inc.. Many of the names in this game may be trademarks of Blizzard Entertainment, Inc.. Using them in this free public fan game is not supposed to challenge the rights of Blizzard Entertainment, Inc..

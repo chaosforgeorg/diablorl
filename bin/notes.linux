@@ -1,0 +1,4 @@
+This version of DiabloRL has beed built on Kubuntu 10.04 and tested to run on Kubuntu 10.04 and Fedora 13 live cd's.
+
+The game is run by executing the 'rl' binary - just open your terminal emulator, set it's size to 80x25 characters or more (works best with 80x25 though) and run ./rl in this directory. If you get a notice about missing libraries either install them on your system or run "./run_diablo_with_provided_libs.sh" to use the bundled versions.
+

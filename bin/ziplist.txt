@@ -1,0 +1,13 @@
+diablorl.exe
+diablorl.ini
+diablorl.mpq
+lua5.1.dll
+manual.txt
+readme.txt
+version.txt
+SDL_mixer.dll
+SDL.dll
+sound/readme.txt
+sound/mpqx.exe
+sound/StormLib.dll
+sound/listfile.txt

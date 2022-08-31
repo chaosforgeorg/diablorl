@@ -1,0 +1,137 @@
+0.5.0
+[add] Graphical mode by default (see config.lua)
+[add] Async animations added
+[add] Catacombs and Caves implemented (the latter w/o quests)
+[add] Highscores!
+[add] Sound and Music support integrated - simply pass the full path to your
+      DIABDAT.MPQ in the config.lua file, and you're set!
+[add] wall/floor coloring schemes in pseudoconsole
+[add] color effects in pseudoconsole
+[add] fast travel to known locations (TAB)
+[add] reveal_town option for starting with town (and it's waypoints!) revealed
+[add] Target switching during firing (TAB)
+[add] full resistances support both for enemies as well as player
+[add] resistances related prefixes and resistances on uniques
+[add] Game will attempt to save on crash
+[add] prefixes that have double-chance of appearing are now recognized properly
+[add] sources that shouldn't generate negative affixes will not generate them
+[add] full information on character screen (tohit, damage, resistances)
+[add] +fire and +lightning damage implemented (added to suffixes and uniques)
+[add] game menu (ESCAPE) instead of "S"ave, "Q"uit and "?"elp
+[add] added running (SHIFT+direction) and attack lock (CTRL+direction - wait if no enemy)
+[mod] stairs are activated by bumping into them (enter key removed)
+[mod] better positioning of main menu screen and plot screens on larger res
+[mod] levels made 100x100
+[mod] cleaned up achievements - now % based score additions
+[mod] changed scoring algorithm
+[mod] screenshots can be taken any time
+[mod] dungeon layout is more connected
+[mod] you can 'q'uickslot from inventory
+[mod] you can 'd'rop or put to 'i'nventory from 'q'uickslot window
+[mod] amount of money displayed when using Repair, Recharge and Identify
+[fix] Pepin has infinite full healing potions
+[fix] targeting allowed withing light range, not vision range
+[fix] update after spell cast from inventory
+[fix] item prices over 65k handled correctly in shops
+[fix] fixed teleport spell
+[fix] fixed player sounds after load
+[fix] serious crash bug related to requirements
+[fix] glimmering shrine fixed
+[fix] fixed dmgmin and dmgmax calculation for Player (based on Jarulf)
+[fix] flag based abilities (Knockback, Indestructible, Trap resist) appear and work
+[fix] UI is no longer usable on death
+[fix] gold volume is properly recalculated at load
+[fix] double stairs won't generate
+[fix] spell damage calls no longer report an error
+[fix] fixed snotspill quest issues
+[fix] mysterious shrine fixed
+[fix] resistance values are properly shown on player screen
+[fix] Wirt menu looks and behaves better
+[fix] inventory menu maintains position
+[fix] unique fallen ones fixed
+[fix] un-prepare spell if level drops to 0
+[fix] OnSpot and OnHit mixup fixed
+[fix] OnKillAll hook fixed
+[fix] protection against spawning in a special room
+[fix] special room monsters are generated again
+[fix] staffs don't have double "of (...)" names
+[fix] Sorcerer's Staff has full charges
+[fix] uniques monsters won't permanently retreat
+[fix] keys with modifiers should now be usable for Panel assignment
+[fix] escape closes character window
+[fix] fixed zero experience kills
+[fix] Journal and Spellbook windows input hook in no more global (you)
+[fix] fixed price-related bugs (you)
+[fix] neither Griswold nor Adria would try to buy your equipped items (you)
+[fix] COMMAND_QUICKSKILL, COMMAND_QUICKSLOT are showing corresponding ui windows now. (you)
+[fix] fixed monster drops
+[fix] drop command fixed
+[fix] better messages for 2h weapon handling
+[fix] shop item lists will scroll if amount is big
+[fix] temporary fix for generator connectivity (flipping doesn't work)
+[fix] AI crash fixes for changable AI
+[fix] fixes for the room generator
+[fix] UI keys are now properly recognized from keybindings
+[fix] town portal fixed
+[fix] special stairs will work again
+[fix] fixed all shrines dependent on max stat values
+[fix] escape properly escapes talk topic screens
+-- untracked changes (lots)
+
+0.4.5
+[add] Save/Load
+[add] Random items on the ground
+[add] Shrines
+[add] Twohanded weapons equipping/unequipping with shield
+[add] Unique items added
+[add] Recent messages command
+[add] Recent messages mortem section
+[add] All church quests
+[add] Unique random monsters
+[add] Sword/spear versions of fallen one monsters
+[add] Story tomes
+[add] Town fountain
+[add] Sound and music support
+[add] Sound extractor
+[add] Icon and version resources
+[add] Spells
+[add] Magical staves
+[add] Game manual in "manual.txt" (can be reviewed from the game using '?' key)
+[add] Moster Info
+[mod] Improver random map generator
+[mod] Barrel explosion rewritten. chain explosions are supported now
+[mod] Auto-identification of all items in mortem
+[mod] Inventory and other item lists slightly modified
+[mod] Quick spell auto assigns to new staff when equipped
+[fix] Invulnerability for NPCs
+[fix] Better conformity with Jarulf rules: spawns, drops, ai, etc.
+[fix] Barrel/sarcophagus should spawn appropriate skeleton
+[fix] Made 'a'ct command take no time if nothing to act on
+[fix] Lots more stuff
+[fix] Typos fixed
+-- untracked massive changes
+
+0.4.3
+-- [add] added Rogue class
+-- [add] added Bows
+-- [mod] potions in starting gear are quicksloted
+-- [mod] some minor changes
+
+0.4.2
+-- [mod] quickslot from ground
+-- [mod] buying in shop doesn't leave shop screen.
+-- [mod] inventory volume shown on inv screen
+-- [add] scroll of Town Portal
+-- [add] weapons and wearable items are swapped by default
+-- [add] added requirement checks
+-- [add] added quickslots
+-- [mod] moved to Valkyrie + Lua
+-- [fix] fixed stat calculation in secondary stats
+-- [fix] fixed inventory messages
+-- [fix] improved monster movement a little
+-- [fix] fixed two handed weapons
+-- [fix] fixed message from butcher
+-- [fix] cant close/open door on monsters
+-- [fix] fixed the turn counter
+
+Version 0.4.0 (7DRL)

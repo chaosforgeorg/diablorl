@@ -1,0 +1,44 @@
+This file is up to date as of svn revision 781.
+
+In order to compile DiabloRL under Linux you will need the following:
+
+packages (Debian names):
+- build-essential
+- fpc
+- lua5.1
+- liblua5.1-0-dev
+- subversion (to get the source ;-) )
+
+other:
+- FPC Valkyrie (at least svn revision 121) - get it from: http://sourceforge.net/projects/fpcvalkyrie/
+
+Next you need to arrange the project directories like this:
+
+|
++-diablorl
+| +-bin
+| +-src
+|
++-fpcvalkyrie
+  +-lua
+  +-src
+
+When ready you open the terminal in diablorl/src directory and execute:
+(you might need to change the FPCDIR to match your system)
+
+$ FPCDIR=/usr/lib/fpc/2.4.0/ fpcmake
+
+and after it finishes:
+
+$ make
+
+This should create a "rl" and "mpq" executable files inside diablorl/bin directory.
+
+Next you need to cd into diablorl/bin directory and run:
+
+$ mpq
+
+To create the game data file. After it finishes you can run the game by executing:
+
+$ rl
+

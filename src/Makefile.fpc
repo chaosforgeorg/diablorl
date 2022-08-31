@@ -1,0 +1,29 @@
+[target]
+programs=rl mpq
+
+[prerules]
+VALKYRIEPATH := ../../fpcvalkyrie/src/
+LUAPATH := ../../fpcvalkyrie/lua
+
+[require]
+packages=
+
+[install]
+fpcpackage=n
+
+[compiler]
+unitdir=$(VALKYRIEPATH) $(LUAPATH)
+unittargetdir=../temp
+includedir=../bin/lua
+options=-O2 -S2
+targetdir=../bin
+version=0.4.5
+
+[dist]
+destdir=../
+zipname=diablorl
+ziptarget=all
+
+[clean]
+files=$(wildcard *$(OEXT)) $(wildcard *$(PPUEXT)) $(wildcard *$(RSTEXT)) \
+	  $(wildcard ../temp/*$(OEXT)) $(wildcard ../temp/*$(PPUEXT)) $(wildcard ../temp/*$(RSTEXT)) \

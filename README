@@ -1,0 +1,15 @@
+DiabloRL is a small roguelike game created for the 2005 Seven Day Roguelike challange. It is based on Diablo by Blizzard.
+
+http://diablo.chaosforge.org/
+http://sourceforge.net/projects/diablorl/
+
+DiabloRL was created using the Free Pascal Compiler:
+http://freepascal.org/
+
+To compile DiabloRL, you will need the SVN HEAD version of the Valkyrie library (FreePascal version)
+https://sourceforge.net/projects/fpcvalkyrie/
+
+The SVN HEAD version may be obtained by using svn command:
+svn co https://fpcvalkyrie.svn.sourceforge.net/svnroot/fpcvalkyrie/trunk/ fpcvalkyrie
+
+Diablo is a trademark of Blizzard Entertainment, Inc.. Many of the names in this game may be trademarks of Blizzard Entertainment, Inc.. Using them in this free public fan game is not supposed to challenge the rights of Blizzard Entertainment, Inc..

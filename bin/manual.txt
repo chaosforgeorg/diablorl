@@ -1,0 +1,268 @@
+ Welcome to Sanctuary! The wonderful world of magic and mayhem where DiabloRL
+ takes place. The pages herein are your introduction to the town of Tristram
+ and the danger that lurks beneath it.
+ 
+-- Getting Started ------------------------------------------------------------
+ 
+ Upon execution, DiabloRL gives you a choice of classes, the Warrior, Rogue, or
+ Sorcerer. Each of these has different starting and maximum stats, as well as
+ completely different playstyles.
+ 
+ The Warrior wades through the minions of hell, wielding deadly melee weapons
+ with ease. Because of this he often uses a shield, and regardless will adorn
+ himself with the most protective armor he can find. He has even been known to
+ repair his own armor when the need arises. While he can learn a spell or two,
+ he will never be able to master them.
+ 
+ The Rogue slips between groups of enemies with subtle grace, firing volleys
+ from her bow to quickly bring down faraway enemies. She tends to wear lighter
+ armors than the Warrior, so as to enable better mobility. With her keen sight
+ she can deduce when something is trapped, and usually disarm it as well. Her
+ fluid movements help her in casting spells, as well.
+ 
+ The Sorcerer wields powerful magic, calling upon them both from his knowledge
+ and from the powers woven inside of particular staves. His amazing power comes
+ with a price, though for he tends to be too weak to wear the strongest armors.
+ His deep study of magic will allow him to recharge staves using the innate
+ magic in his surroundings.
+ 
+ Having selected one of these options, you'll need to pick a name. Better pick
+ one that you won't regret later in life. Having done so, you will find that
+ you are starting at a somewhat odd looking screen:
+ 
+-------------------------------------------------------------------------------
+ 
+ 
+                                   ..==..==.
+                                  #..==..==...
+                                  #...==.==....
+                                  #....====....
+                                  #.....===....
+                                  ......==.... ..
+                                   ...%.==..T....
+                                    T.%.==........
+                                     #...==.......
+                                     +:@.==.......
+                                     #0...==......
+                                     #....==......
+                                     #....==.....
+                                     ......==....
+                                     ..:...==...
+                                    ::::...==...
+                                    #......T==.
+                                    +......==.
+                                    #......=
+    ####                             .T^^.                             ####
+---######- [!!......] ------------------------------------- Tristram -######---
+   ######                                                             ######
+    ####                                                               ####
+ 
+-------------------------------------------------------------------------------
+ 
+ At the bottom of the screen you'll find two globes: one blue, one red. These
+ are indicative of your mana and life, which are explained a bit later.
+ Remember, you'll want these globes to be as full as possible to maintain
+ maximum effectiveness at battling hell's minions!
+ 
+ The ! marks to the right of the red globe are your quick slots. Potions and
+ scrolls may be placed here, and you can get a better look at what your belt
+ contains via the '`' key (It's to the left of the number 1 on your keyboard).
+ 
+ The colored @ symbol in the center of the screen is your character. If you
+ find yourself ever uncertain of what any of the other symbols mean, simply
+ press the 'l' key to enter look mode. This mode is highly useful, and will
+ even divulge how damaged enemies are if you ever have the bad fortune to come
+ across one.
+ 
+ If you're bored of staying in one spot, movement is best performed via the
+ numerical keypad, though the four directional keys are an option as well.
+ 
+-- Gathering Information ------------------------------------------------------
+ 
+ Once you've gotten the hang of movement via the numpad, you might notice that
+ there are a few other @ symbols out there. If you're lonely and feel like
+ having a chat, wander up and simply try to move into their square. Should you
+ ever be faced with evil looking monsters, this method will instead make a
+ melee attack.
+ 
+ These faithful townsfolk will provide you with (somewhat) useful information,
+ and might even make the occasional request of you. They could even provide you
+ with the services of buying, selling, repairing and recharging, should your
+ character be able to persuade them to do so with the proper dialogue options.
+ 
+ Most likely they will direct you to their local church - the areas underneath
+ have become a hardship for them of late. But before you delve downwards, take
+ a moment to understand your strengths and weaknesses.
+ 
+ The 'c' key will bring up the Character screen, giving all your vital stats.
+ Gaining experience will result in gaining levels, which will let you edit your
+ Strength, Magic, Dexterity and Vitality. These will effect the rest of your
+ character in the following fashion.
+ 
+ Strength determines how hard you can hit with melee weapons, as well as how
+ heavy of armor you can wear. Some larger weapons will require higher Strength
+ values to wield as well.
+ 
+ Magic will allow you to use better staves, and learn more complex spells. The
+ higher your Magic, the more mana there will be at your disposal.
+ 
+ Dexterity rates your overall accuracy and agility. Characters with low amounts
+ of Dexterity will find it difficult to hit anything. Complex bows will require
+ high Dexterity to wield as well.
+ 
+ Vitality is the overall health of your character. Higher Vitality will result
+ in more Life, and perhaps even less sickness for your character.
+ 
+ Life and Mana are the two ratings vital to keep you alive. When Mana reaches
+ zero you can no longer cast spells, and when Life reaches zero, you're dead!
+ 
+ The remaining values are:
+ 
+ Armor will modify how much damage you take from physical attacks. The higher
+ this number is, the better for your health.
+ 
+ To Hit is the rating of how likely you are to hit an enemy of your own level
+ with your current weapon (or lack thereof).
+ 
+ Damage will display a range, which is how hard you can hit the enemy if you
+ do manage to connect with a blow or arrow.
+ 
+ ResMagic, ResFire, ResLight are your ability to resist damage in the form of
+ general magic, fire, and lightning.
+ 
+ Now that you know a bit more about who you are, let's move on to what you're
+ wearing. Best not to go naked into the labyrinth!
+ 
+-- Items and Inventory --------------------------------------------------------
+ 
+ Pressing 'i' will access your inventory, allowing you to see a wealth of
+ knowledge about what you're wearing and are carrying. 'TAB' will switch your
+ cursor to the items you are wearing and back, and the arrow keys will navigate
+ this menu.
+ 
+ Detailed information about the item your cursor is highlighting can be seen at
+ the bottom of the screen. Requirements and any magical enchantments will be
+ displayed here.
+ 
+ Should you decide to equip any item in your inventory, feel free to press
+ 'ENTER' to do so. If you find that an item is not to your liking, you can
+ unequip it by switching to your equipped inventory (TAB) and pressing 'ENTER'
+ once more. If you really don't like an item and want to get rid of it, ’d’
+ will drop it on the ground.
+ 
+ Depending on what an item is, it will affect you differently. Armor, Shields
+ and Helmets will raise your Armor value, while the various types of weapons
+ will all increase your damage. Jewelry of any type is always magically
+ enchanted and can have numerous effects. Try to find the best combination for
+ your style of playing.
+ 
+ Be aware that different weapons have different styles and effects. Swords can
+ easily pierce flesh and armor, while maces break the bones of the undead with
+ satisfying crunches. Axes sacrifice defense, as they cannot be wielded at the
+ same time as a shield. They're generally slow to hit as well, but they possess
+ the highest damage output of any weapon.
+ 
+ Every item than you can equip except jewelry will have a durability value as
+ well. If this reaches zero the item will break, never to be recovered.
+ 
+ You might also find in your travels various potions and scrolls. They can be
+ put into your belt's empty quickslots from the inventory display via the
+ numbers 1-8. Using them simply will require you to press the number of the
+ slot you placed the potion in.
+ 
+-- Spells and Skills ----------------------------------------------------------
+ 
+ If you're magically inclined, pressing 'b' will bring up your spell book, with
+ a full description of all the spells you know. Any skills your character can
+ utilize will be shown here as well.
+ 
+ To cast a spell or use a skill, press 's' to assign what you'd like to use.
+ This skill menu will display your known skills and spells, as well as the
+ spell and charges on any magical stave you are wielding.
+ 
+ Once you've selected a skill or spell, 'z' will activate it. If your actions
+ require a target, a cursor will be displayed, allowing you to rain down
+ magical death on your enemies.
+ 
+ Books are special items you can find in the depths of the dungeons below
+ Tristram, and will enable you to learn new spells, or perfect the ones you
+ already know. Reading them will also allow you to connect briefly with the
+ magical powers in the environment, partially restoring your mana.
+ 
+-- In the Depths --------------------------------------------------------------
+ 
+ Rumors have it that underneath the Church in Tristram there may be enemies of
+ various sizes and temperaments. Be sure not to disturb them too much. If you do
+ happen to find yourself being attacked, walking into their position will
+ perform a melee attack. If you're using a bow, 'f' will let you shoot your
+ deadly arrows at whatever comes your way.
+ 
+ If you're uncertain of what you're facing, remember to look! This can also be
+ very helpful when coming across the various features of the Church like
+ chests, barrels, and shrines.
+ 
+ Shrines can be invoked to various effects, and you'll never know what they are
+ until you've activated them. Your prayers may benefit you, but regardless of
+ how helpful they are, their effects are permanent. Use them wisely.
+ 
+-- Miscellaneous Information --------------------------------------------------
+ 
+ Through the course your travels, you may find yourself in a situation where
+ you're asked or required to complete various tasks. Such important events will
+ be recorded in your Journal, which you can access via 'j'. You can replay the
+ request from this screen.
+
+-- Default Keybindings --------------------------------------------------------
+
+Walk           - Arrow keys (numlock off)
+Run            - Shift+Arrow keys (numlock off)
+Attack Lock    - Ctrl+Arrow keys (numlock off) (performs wait if no enemy)
+
+Wait           - Numpad 5
+Fast travel    - TAB
+Act            - SPACE
+Pickup         - g
+Inventory      - i
+Player info    - c
+Look mode      - l
+Shoot          - f
+Journal        - j
+Cast           - z
+Spellbook      - b
+Quickskill     - s
+Messages       - m
+Screenshot     - F10
+Screenshot(BB) - F9
+
+Quickskill     - F5..F8
+Quickslots     - 1..8
+Quickslot Menu - q
+
+Character Screen Commands on Level:
+Increase Str   - s
+Increase Dex   - d
+Increase Mag   - m
+Increase Vit   - v
+
+Inventory Specific Commands:
+Drop       - d
+Quickslot  - `
+Quickslots - 1..8
+Switch mode - TAB
+Equip/Use  - ENTER
+
+Quickslot Menu Specific Commands:
+Move to inventory - i
+Drop              - d
+
+Targeting Specific Commands:
+Change target - TAB
+
+You can edit keybindings in keybindings.lua
+
+-------------------------------------------------------------------------------
+
+Diablo is a trademark of Blizzard Entertainment, Inc.. Many of the names in 
+this game may be trademarks of Blizzard Entertainment, Inc.. Using them in this
+free public fan game is not supposed to challenge the rights of Blizzard 
+Entertainment, Inc..

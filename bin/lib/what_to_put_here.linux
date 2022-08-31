@@ -1,0 +1,8 @@
+This is a directory where additional Linux libraries are to be placed. As of r177 these are:
+
+/usr/lib/liblua5.1.so.0
+/usr/lib/liblua5.1.so.0.0.0
+
+Make sure that these are compiled for the same architecture as the game binary.
+
+This text file should be deleted in the shipped game bundle.
