@@ -1,0 +1,5 @@
+tmp/
+src/backup/
+*.res
+*.lps
+bin/diablorl.mpq
