@@ -5,7 +5,6 @@
 unit rlui;
 
 interface
-{$DEFINE BEARLIB}
 uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils, vioevent, rlviews, rlgviews, vcolor, vuielement, viotypes, vioconsole, vuiconsole, vluastate,
   viorl, vrltools, rlglobal, rlthing, vconuirl,
   vutil, rlplayer, rlitem, rlconfig;
