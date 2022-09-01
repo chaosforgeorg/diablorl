@@ -101,9 +101,12 @@ var
 
 implementation
 
-uses DateUtils, variants, vtextio, vtextconsole, vuitypes, vluasystem, rlshop, rllua, rlgame, rlpersistence,
-     vsystems, vstormlibrary, {$IFDEF BEARLIB}vbeario, vbearconsole,{$ELSE}vsdlio, vglulibrary, vglconsole,{$ENDIF}
-     vlog, vdebug, vmath, rllevel, vsound, vfmodsound, vsdlsound;
+uses DateUtils, variants, 
+    {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF}
+    vuitypes, vluasystem, rlshop, rllua, rlgame, rlpersistence,
+    vsystems, vstormlibrary,
+    {$IFDEF BEARLIB}vbeario, vbearconsole,{$ELSE}vsdlio, vglulibrary, vglconsole,{$ENDIF}
+    vlog, vdebug, vmath, rllevel, vsound, vfmodsound, vsdlsound;
 
 function CommandDirection(Command: byte): TDirection;
 begin
@@ -196,9 +199,17 @@ begin
     Log( LOGINFO, 'Setting up console mode...' );
     FGraphicsMode := False;
     Log( LOGINFO, 'Initializing driver...' );
+    {$IFDEF UNIX}
+    FIODriver := TCursesIODriver.Create( FSizeX, FSizeY );
+    {$ELSE}
     FIODriver := TTextIODriver.Create( FSizeX, FSizeY );
+    {$ENDIF}
     Log( LOGINFO, 'Creating renderer...' );
+    {$IFDEF UNIX}
+    FConsole  := TCursesConsoleRenderer.Create( FSizeX, FSizeY, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
+    {$ELSE}
     FConsole  := TTextConsoleRenderer.Create( FSizeX, FSizeY, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
+    {$ENDIF}
     if (FIODriver.GetSizeX < FSizeX) or (FIODriver.GetSizeY < FSizeY) then
     begin
       Log( LOGERROR, 'Too small console available (%dx%d)!', [ FIODriver.GetSizeX, FIODriver.GetSizeY ] );
