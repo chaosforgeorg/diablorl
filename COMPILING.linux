@@ -1,5 +1,3 @@
-This file is up to date as of svn revision 781.
-
 In order to compile DiabloRL under Linux you will need the following:
 
 packages (Debian names):
@@ -7,10 +5,11 @@ packages (Debian names):
 - fpc
 - lua5.1
 - liblua5.1-0-dev
-- subversion (to get the source ;-) )
 
 other:
-- FPC Valkyrie (at least svn revision 121) - get it from: http://sourceforge.net/projects/fpcvalkyrie/
+- FPC Valkyrie - get it from: https://github.com/chaosforgeorg/fpcvalkyrie/ 
+  (you'll need Valkyrie development branch if building DiabloRL development
+  branch)
 
 Next you need to arrange the project directories like this:
 
@@ -26,7 +25,7 @@ Next you need to arrange the project directories like this:
 When ready you open the terminal in diablorl/src directory and execute:
 (you might need to change the FPCDIR to match your system)
 
-$ FPCDIR=/usr/lib/fpc/2.4.0/ fpcmake
+$ FPCDIR=/usr/lib/fpc/3.2.2/ fpcmake
 
 and after it finishes:
 
