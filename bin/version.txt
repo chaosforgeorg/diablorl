@@ -1,3 +1,9 @@
+0.5.x
+TODO: add SVN changes!
+[mod] Linux console version uses ncurses
+[mod] path configuration for data, writeable and score files
+[mod] AlwaysName option, -name= command line option
+
 0.5.0
 [add] Graphical mode by default (see config.lua)
 [add] Async animations added
