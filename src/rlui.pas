@@ -144,14 +144,8 @@ begin
 
   FSizeX        := aConfig.Configure('console_x',80);
   FSizeY        := aConfig.Configure('console_y',25);
-  FGraphicsMode := aConfig.Configure('graphics',False);
+  FGraphicsMode := Option_Graphics;
   FMPQHandle    := 0;
-
-  for i := 1 to ParamCount do
-  begin
-    if ParamStr(i) = '-console' then
-      FGraphicsMode := False;
-  end;
 
   if FGraphicsMode then
   begin
@@ -171,7 +165,7 @@ begin
     FGraphicsMode := True;
     {$IFDEF BEARLIB}
     iFlags := [];
-    if aConfig.Configure( 'fullscreen', false ) then
+    if Option_FullScreen then
       Include( iFlags, Bear_Fullscreen );
     Log( LOGINFO, 'Initializing driver...' );
     FIODriver := TBearIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), iFlags );
@@ -179,7 +173,7 @@ begin
     FConsole := TBearConsoleRenderer.Create( FSizeX, FSizeY, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR, VIO_CON_EXTOUT] );
     {$ELSE}
     iFlags := [ SDLIO_OpenGL, SDLIO_Resizable ];
-    if aConfig.Configure( 'fullscreen', false ) then
+    if Option_FullScreen then
       Include( iFlags, SDLIO_Fullscreen );
     Log( LOGINFO, 'Initializing driver...' );
     FIODriver := TSDLIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), 32, iFlags );

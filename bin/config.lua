@@ -3,6 +3,10 @@ dofile "keybindings.lua"
 graphics  = true
 fullscreen = true
 
+-- set to make the name always the same (also -name= on command line)
+always_name = ""
+
+
 console_x = 100
 console_y = 33
 

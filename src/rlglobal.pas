@@ -182,6 +182,9 @@ const MapSizeX  = 100;
       Option_WalkSound  : Boolean = True;
       Option_RunDelay   : DWord = 10;
       Option_TownReveal : Boolean = False;
+      Option_AlwaysName : AnsiString = '';
+      Option_Graphics   : Boolean = True;
+      Option_FullScreen : Boolean = True;
 
 const ExpTable : array[1..50] of DWord = (
       0,          2000,       4620,       8040,       12489,

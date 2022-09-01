@@ -60,11 +60,20 @@ begin
   WritePath := Config.Configure( 'WritePath', WritePath );
   ScorePath := Config.Configure( 'ScorePath', ScorePath );
   SoundPath := Config.Configure( 'SoundPath', SoundPath );
+
+  Option_AlwaysName := Config.Configure( 'always_name',   Option_AlwaysName );
+  Option_Graphics   := Config.Configure( 'graphics',      Option_Graphics );
+  Option_FullScreen := Config.Configure( 'fullscreen',    Option_FullScreen );
   
   if CmdLine.isSet('datapath')   then DataPath          := CmdLine.get('datapath');
   if CmdLine.isSet('writepath')  then WritePath         := CmdLine.get('writepath');
   if CmdLine.isSet('scorepath')  then ScorePath         := CmdLine.get('scorepath');
   if CmdLine.isSet('soundpath')  then SoundPath         := CmdLine.get('soundpath');
+  if CmdLine.isSet('name')       then Option_AlwaysName := CmdLine.get('name');
+  if CmdLine.isSet('console')    then Option_Graphics   := False;
+  if CmdLine.isSet('graphics')   then Option_Graphics   := True;
+  if CmdLine.isSet('fullscreen') then Option_FullScreen := True;
+  if CmdLine.isSet('windowed')   then Option_FullScreen := False;
 
   FreeAndNil( CmdLine );
 
@@ -79,8 +88,8 @@ begin
   if ScorePath = '' then ScorePath := WritePath;
   ErrorLogFileName := WritePath + 'error.log';
 
-  Config := TDiabloConfig.Create( ConfigurationPath );
   Game := Systems.Add( TGame.Create( Config ) ) as TGame;
+
   Game.Prepare;
   try
     Game.Run;

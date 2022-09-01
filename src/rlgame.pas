@@ -82,7 +82,11 @@ begin
       // We create a new player
       if FileExists( WritePath + 'save' ) then DeleteFile( WritePath + 'save' );
       UI.RunUILoop( TUIKlassScreen.Create( UI.Root ) );
-      UI.RunUILoop( TUINameScreen.Create( UI.Root ) );
+      if Option_AlwaysName = '' then
+        UI.RunUILoop( TUINameScreen.Create( UI.Root ) )
+      else
+        GameName := Option_AlwaysName;
+
       Player := TPlayer.Create(LuaSystem.Get(['klasses', GameClass, 'id']));
       if GameName <> '' then
         Player.Name := GameName;
