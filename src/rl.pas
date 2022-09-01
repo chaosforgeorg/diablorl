@@ -27,6 +27,7 @@ uses
 
 var RootPath : AnsiString = '';
     Config   : TDiabloConfig;
+    CmdLine  : TParams;
 
 begin
   Randomize;
@@ -48,6 +49,24 @@ begin
   WritePath         := RootPath;
   SoundPath         := RootPath + 'sound' + PathDelim;
   {$ENDIF}
+
+  CmdLine := TParams.Create;
+  if CmdLine.isSet('god')    then GodMode := True;
+  if CmdLine.isSet('config') then 
+    ConfigurationPath := CmdLine.get('config');
+
+  Config    := TDiabloConfig.Create( ConfigurationPath );
+  DataPath  := Config.Configure( 'DataPath',  DataPath );
+  WritePath := Config.Configure( 'WritePath', WritePath );
+  ScorePath := Config.Configure( 'ScorePath', ScorePath );
+  SoundPath := Config.Configure( 'SoundPath', SoundPath );
+  
+  if CmdLine.isSet('datapath')   then DataPath          := CmdLine.get('datapath');
+  if CmdLine.isSet('writepath')  then WritePath         := CmdLine.get('writepath');
+  if CmdLine.isSet('scorepath')  then ScorePath         := CmdLine.get('scorepath');
+  if CmdLine.isSet('soundpath')  then SoundPath         := CmdLine.get('soundpath');
+
+  FreeAndNil( CmdLine );
 
   {$IFDEF HEAPTRACE}
   SetHeapTraceOutput( WritePath + 'heap.txt' );

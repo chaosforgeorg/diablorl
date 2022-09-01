@@ -47,11 +47,6 @@ begin
   Game := Self;
   NextLevelID := 'town';
   TurnCount   := 0;
-  for i := 1 to ParamCount do
-  begin
-    if ParamStr(i) = '-god' then
-      GodMode := True;
-  end;
   UI := Systems.Add(TGameUI.Create( aConfig ) ) as TGameUI;
   Lua := TRLLua.Create;
   LuaSystem := Systems.Add(Lua) as TLuaSystem;
