@@ -704,7 +704,8 @@ begin
   with UI.Player do
   begin
     LevelUp := False;
-    DrawStat( 1, 1, 'Name', Name );            DrawStat( 1, 2, 'Class', UpCase(LuaSystem.Get(['klasses',Klass,'name'])) );
+    
+    DrawStat( 1, 1, 'Name', Name );           DrawStat( 1, 2, 'Class', UpCase(AnsiString(LuaSystem.Get(['klasses',Klass,'name']))) );
     DrawStat( 2, 1, 'Level', IntToStr(Level) );DrawStat( 2, 2, 'Exp', IntToStr(Exp) );
     if Level < 50 then                         DrawStat( 3, 2, 'NextLev', IntToStr(ExpTable[Level + 1]) )
                   else                         DrawStat( 3, 2, 'NextLev', 'MAX' );
