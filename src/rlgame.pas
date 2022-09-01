@@ -301,6 +301,8 @@ begin
       flags   := GetFlags('flags');
       color   := GetInteger('color');
       pic     := GetString('pic')[1];
+      if not Option_Graphics then
+        pic     := GetString('piclow')[1];
       name    := GetString('name');
       cost    := GetFloat('cost',1.0);
       Hooks := [];
