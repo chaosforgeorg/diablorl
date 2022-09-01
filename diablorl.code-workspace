@@ -2,6 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "..\\fpcvalkyrie\\src"
 		}
 	],
 	"settings": {}

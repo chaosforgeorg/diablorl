@@ -9,7 +9,7 @@ unit rlgame;
 interface
 uses classes, zstream,
      vsystem, vnode,
-     rllevel, rlglobal, rlplayer, rllua, rlui, rlshop, rlpersistence;
+     rllevel, rlconfig, rlglobal, rlplayer, rllua, rlui, rlshop, rlpersistence;
 
 type
 
@@ -24,7 +24,7 @@ TGame = class(TSystem)
        Lua         : TRLLua;
        TurnCount   : DWord;
        GraveYard   : TNode;
-       constructor Create; override;
+       constructor Create( aConfig : TDiabloConfig );
        procedure Prepare;
        procedure Run;
        destructor Destroy; override;
@@ -40,7 +40,7 @@ implementation
 uses sysutils, vutil, vuid, vioevent,
      rlviews, vrltools, vluasystem, vsystems, rlnpc;
 
-constructor TGame.Create;
+constructor TGame.Create( aConfig : TDiabloConfig );
 var i: byte;
 begin
   inherited Create;
@@ -52,7 +52,7 @@ begin
     if ParamStr(i) = '-god' then
       GodMode := True;
   end;
-  UI := Systems.Add(TGameUI.Create) as TGameUI;
+  UI := Systems.Add(TGameUI.Create( aConfig ) ) as TGameUI;
   Lua := TRLLua.Create;
   LuaSystem := Systems.Add(Lua) as TLuaSystem;
   if GodMode then

@@ -23,7 +23,7 @@ uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils, vioevent, rlviews, rlgv
 type
   TGameUI = class(TIORL, IConUIASCIIMap)
   public
-    constructor Create;
+    constructor Create( aConfig : TDiabloConfig );
     function getGylph( const aCoord : TCoord2D ): TIOGylph;
     destructor Destroy; override;
     procedure Draw();
@@ -127,7 +127,7 @@ end;
 
 { TGameUI }
 
-constructor TGameUI.Create();
+constructor TGameUI.Create( aConfig : TDiabloConfig );
 var iStyle  : TUIStyle;
     {$IFDEF BEARLIB}
     iFlags  : TBearFlags;
@@ -137,16 +137,14 @@ var iStyle  : TUIStyle;
     iSound  : AnsiString;
     iMPQ    : AnsiString;
     i       : byte;
-    iConfig : TDiabloConfig;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
   Log( LOGINFO, 'Loading configuration file "'+ConfigurationPath+'"...' );
-  iConfig := TDiabloConfig.Create( ConfigurationPath );
 
-  FSizeX        := iConfig.Configure('console_x',80);
-  FSizeY        := iConfig.Configure('console_y',25);
-  FGraphicsMode := iConfig.Configure('graphics',False);
+  FSizeX        := aConfig.Configure('console_x',80);
+  FSizeY        := aConfig.Configure('console_y',25);
+  FGraphicsMode := aConfig.Configure('graphics',False);
   FMPQHandle    := 0;
 
   for i := 1 to ParamCount do
@@ -173,18 +171,18 @@ begin
     FGraphicsMode := True;
     {$IFDEF BEARLIB}
     iFlags := [];
-    if iConfig.Configure( 'fullscreen', false ) then
+    if aConfig.Configure( 'fullscreen', false ) then
       Include( iFlags, Bear_Fullscreen );
     Log( LOGINFO, 'Initializing driver...' );
-    FIODriver := TBearIODriver.Create( iConfig.Configure('screen_x',1024), iConfig.Configure('screen_y',768), iFlags );
+    FIODriver := TBearIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), iFlags );
     Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
     FConsole := TBearConsoleRenderer.Create( FSizeX, FSizeY, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR, VIO_CON_EXTOUT] );
     {$ELSE}
     iFlags := [ SDLIO_OpenGL, SDLIO_Resizable ];
-    if iConfig.Configure( 'fullscreen', false ) then
+    if aConfig.Configure( 'fullscreen', false ) then
       Include( iFlags, SDLIO_Fullscreen );
     Log( LOGINFO, 'Initializing driver...' );
-    FIODriver := TSDLIODriver.Create( iConfig.Configure('screen_x',1024), iConfig.Configure('screen_y',768), 32, iFlags );
+    FIODriver := TSDLIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), 32, iFlags );
     Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
     FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
     Log( LOGINFO, 'Loading GLU' );
@@ -219,12 +217,12 @@ begin
   Log( LOGINFO, 'IO driver and console initialized.' );
   FIODriver.SetTitle('DiabloRL','DiabloRL');
 
-  iSound := iConfig.Configure('sound','NONE');
+  iSound := aConfig.Configure('sound','NONE');
   if iSound <> 'NONE' then
   begin
     Log( LOGINFO, 'Sound mode requested, loading StormLib...' );
     LoadStorm;
-    iMPQ := iConfig.Configure('mpq','DIABDAT.MPQ');
+    iMPQ := aConfig.Configure('mpq','DIABDAT.MPQ');
     if not SFileOpenArchive( PChar(iMPQ), 0, STREAM_FLAG_READ_ONLY, @FMPQHandle ) then
     begin
       Log('Failed to open MPQ!');
@@ -233,8 +231,8 @@ begin
     if iSound = 'FMOD'
       then Sound := Systems.Add(TFMODSound.Create) as TSound
       else Sound := Systems.Add(TSDLSound.Create) as TSound;
-    Sound.SetMusicVolume( iConfig.Configure('music_volume',100) );
-    Sound.SetSoundVolume( iConfig.Configure('sound_volume',100) );
+    Sound.SetMusicVolume( aConfig.Configure('music_volume',100) );
+    Sound.SetSoundVolume( aConfig.Configure('sound_volume',100) );
   end;
   Log( LOGINFO, 'Loading default style...' );
 
@@ -263,7 +261,7 @@ begin
   Log( LOGINFO, 'Initializing core driver...' );
   inherited Create( FIODriver, FConsole, iStyle );
   Log( LOGINFO, 'Configuring...' );
-  Configure( iConfig );
+  Configure( aConfig );
   FUIConsole.Init( FConsole );
   ReadConfig;
   Log( LOGINFO, 'GameIO ready.' );

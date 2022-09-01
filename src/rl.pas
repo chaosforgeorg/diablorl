@@ -17,8 +17,8 @@ TODO:
 uses 
   {$ifdef HEAPTRACE} heaptrc, {$endif}
   SysUtils,
-  vos, vdebug, vsystems, rlgame, vutil, vlog, vparams,
-  rlglobal, rlpersistence;
+  vos, vdebug, vsystems, vutil, vlog, vparams,
+  rlgame, rlconfig, rlglobal, rlpersistence;
 
 //{$IFDEF WINDOWS}{$R rl.rc}{$ENDIF}
 {$IFDEF WINDOWS}
@@ -26,7 +26,7 @@ uses
 {$ENDIF}
 
 var RootPath : AnsiString = '';
-
+    Config   : TDiabloConfig;
 
 begin
   Randomize;
@@ -49,15 +49,19 @@ begin
   SoundPath         := RootPath + 'sound' + PathDelim;
   {$ENDIF}
 
-  Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, RootPath+'log.txt', False ) );
-  LogSystemInfo();
-  Logger.Log( LOGINFO, 'Root path set to - '+RootPath );
-
   {$IFDEF HEAPTRACE}
   SetHeapTraceOutput( WritePath + 'heap.txt' );
   {$ENDIF}
 
-  Game := Systems.Add(TGame.Create) as TGame;
+  Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, WritePath+'log.txt', False ) );
+  LogSystemInfo();
+  Logger.Log( LOGINFO, 'Log path set to - '+WritePath );
+
+  if ScorePath = '' then ScorePath := WritePath;
+  ErrorLogFileName := WritePath + 'error.log';
+
+  Config := TDiabloConfig.Create( ConfigurationPath );
+  Game := Systems.Add( TGame.Create( Config ) ) as TGame;
   Game.Prepare;
   try
     Game.Run;
