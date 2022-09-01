@@ -3,3 +3,12 @@ src/backup/
 *.res
 *.lps
 bin/diablorl.mpq
+temp/
+bin/log.txt
+bin/mortem.txt
+bin/mpq
+bin/rl
+bin/score.mpq
+src/fpcmade.x86_64-linux
+*.a
+src/Makefile
