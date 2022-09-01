@@ -1,7 +1,7 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="9"/>
+    <Version Value="11"/>
     <PathDelim Value="\"/>
     <General>
       <Flags>
@@ -27,62 +27,60 @@
     </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
-      <IncludeFileFilter Value="*.(pas|pp|inc|lfm|lpr|lrs|lpi|lpk|sh|xml)"/>
-      <ExcludeFileFilter Value="*.(bak|ppu|ppw|o|so);*~;backup"/>
     </PublishOptions>
     <RunParams>
       <local>
-        <FormatVersion Value="1"/>
         <CommandLineParams Value="-god -console"/>
         <LaunchingApplication PathPlusParams="C:\Windows\system32\cmd.exe /C &quot;${TargetCmdLine}&quot;"/>
-        <WorkingDirectory Value="E:\Projects\diablorl\bin"/>
+        <WorkingDirectory Value="F:\diablorl\bin"/>
       </local>
+      <FormatVersion Value="2"/>
+      <Modes Count="1">
+        <Mode0 Name="default">
+          <local>
+            <CommandLineParams Value="-god -console"/>
+            <LaunchingApplication PathPlusParams="C:\Windows\system32\cmd.exe /C &quot;${TargetCmdLine}&quot;"/>
+            <WorkingDirectory Value="F:\diablorl\bin"/>
+          </local>
+        </Mode0>
+      </Modes>
     </RunParams>
     <Units Count="18">
       <Unit0>
         <Filename Value="rl.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rl"/>
       </Unit0>
       <Unit1>
         <Filename Value="rlui.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlui"/>
       </Unit1>
       <Unit2>
         <Filename Value="rlglobal.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlglobal"/>
       </Unit2>
       <Unit3>
         <Filename Value="rlgame.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlgame"/>
       </Unit3>
       <Unit4>
         <Filename Value="rlnpc.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlnpc"/>
       </Unit4>
       <Unit5>
         <Filename Value="rlplayer.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlplayer"/>
       </Unit5>
       <Unit6>
         <Filename Value="rllevel.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rllevel"/>
       </Unit6>
       <Unit7>
         <Filename Value="rllua.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rllua"/>
       </Unit7>
       <Unit8>
         <Filename Value="rlitem.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlitem"/>
       </Unit8>
       <Unit9>
         <Filename Value="..\bin\const.inc"/>
@@ -95,27 +93,22 @@
       <Unit11>
         <Filename Value="rlconfig.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlconfig"/>
       </Unit11>
       <Unit12>
         <Filename Value="rlviews.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlviews"/>
       </Unit12>
       <Unit13>
         <Filename Value="rlgviews.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlgviews"/>
       </Unit13>
       <Unit14>
         <Filename Value="rlshop.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlshop"/>
       </Unit14>
       <Unit15>
         <Filename Value="rlthing.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlthing"/>
       </Unit15>
       <Unit16>
         <Filename Value="..\bin\version.txt"/>
@@ -124,7 +117,6 @@
       <Unit17>
         <Filename Value="rlpersistence.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="rlpersistence"/>
       </Unit17>
     </Units>
   </ProjectOptions>
@@ -154,9 +146,7 @@
     <Other>
       <CompilerMessages>
         <IgnoredMessages idx5024="True"/>
-        <UseMsgFile Value="True"/>
       </CompilerMessages>
-      <CompilerPath Value="$(CompPath)"/>
     </Other>
   </CompilerOptions>
 </CONFIG>

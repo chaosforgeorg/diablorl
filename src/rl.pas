@@ -14,7 +14,11 @@ TODO:
 -- item detail window
 }
 
-uses {heaptrc,}SysUtils, vos, vdebug, vsystems, rlgame, vutil, vlog, rlglobal, rlpersistence;
+uses 
+  {$ifdef HEAPTRACE} heaptrc, {$endif}
+  SysUtils,
+  vos, vdebug, vsystems, rlgame, vutil, vlog, vparams,
+  rlglobal, rlpersistence;
 
 //{$IFDEF WINDOWS}{$R rl.rc}{$ENDIF}
 {$IFDEF WINDOWS}
@@ -31,8 +35,8 @@ begin
   {$IFDEF OSX_APP_BUNDLE}
   RootPath := GetResourcesPath();
   DataPath          := RootPath;
-  ConfigurationPath := RootPath;
-  SaveFilePath      := RootPath;
+  ConfigurationPath := RootPath + 'config.lua';
+  WritePath         := RootPath;
   SoundPath         := RootPath + 'sound/';
   {$ENDIF}
   {$ENDIF}
@@ -40,16 +44,19 @@ begin
   {$IFDEF Windows}
   RootPath := ExtractFilePath( ParamStr(0) );
   DataPath          := RootPath;
-  ConfigurationPath := RootPath;
-  SaveFilePath      := RootPath;
-  SoundPath         := RootPath + 'sound\';
+  ConfigurationPath := RootPath + 'config.lua';
+  WritePath         := RootPath;
+  SoundPath         := RootPath + 'sound' + PathDelim;
   {$ENDIF}
 
   Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, RootPath+'log.txt', False ) );
   LogSystemInfo();
   Logger.Log( LOGINFO, 'Root path set to - '+RootPath );
 
-//  {$IFDEF DEBUG}SetHeapTraceOutput('heap.txt');{$ENDIF}
+  {$IFDEF HEAPTRACE}
+  SetHeapTraceOutput( WritePath + 'heap.txt' );
+  {$ENDIF}
+
   Game := Systems.Add(TGame.Create) as TGame;
   Game.Prepare;
   try

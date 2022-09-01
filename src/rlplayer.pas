@@ -1769,7 +1769,7 @@ var iEnemy  : TNPC;
     iScore  : LongInt;
     iResult : AnsiString;
 begin
-  Assign( MemorialText,SaveFilePath+'mortem.txt' );
+  Assign( MemorialText, WritePath + 'mortem.txt' );
   Rewrite( MemorialText );
   WritingMemorial := true;
   iEnemy := nil;

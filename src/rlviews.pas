@@ -258,7 +258,7 @@ begin
   );
   EventFilter := [ VEVENT_KEYDOWN ];
   iRect := aParent.GetDimRect.Shrinked(1,2);
-  iContent := TConUIStringList.Create( Self, iRect, TextFileToUIStringArray(SaveFilePath+'mortem.txt'), True );
+  iContent := TConUIStringList.Create( Self, iRect, TextFileToUIStringArray( WritePath + 'mortem.txt' ), True );
   iContent.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEDOWN ];
   TConUIScrollableIcons.Create( Self, iContent, iRect, Point( FAbsolute.x2 - 7, FAbsolute.y ) );
 end;
@@ -370,7 +370,7 @@ begin
   FMenu := TConUIMenu.Create( iMenuWindow, Point(1,1) );
   FMenu.SelectInactive := False;
   FMenu.Add('   New Game');
-  FMenu.Add('   Load Game', FileExists(SaveFilePath+'save'));
+  FMenu.Add('   Load Game', FileExists( WritePath + 'save' ) );
   FMenu.Add('Show Highscores');
   FMenu.Add('  Show Manual');
   FMenu.Add('   Quit Game');

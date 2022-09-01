@@ -220,7 +220,7 @@ begin
 
   LoadMain( aFileName );
   if GodMode then
-    Load( ConfigurationPath+'godmode.lua' );
+    Load( DataPath+'godmode.lua' );
 
   Option_RunDelay   := Entries['run_delay'];
   Option_TownReveal := Entries['reveal_town'];

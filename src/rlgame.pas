@@ -85,7 +85,7 @@ begin
       FUID := UIDs.Register( Self );
 
       // We create a new player
-      if FileExists(SaveFilePath+'save') then DeleteFile(SaveFilePath+'save');
+      if FileExists( WritePath + 'save' ) then DeleteFile( WritePath + 'save' );
       UI.RunUILoop( TUIKlassScreen.Create( UI.Root ) );
       UI.RunUILoop( TUINameScreen.Create( UI.Root ) );
       Player := TPlayer.Create(LuaSystem.Get(['klasses', GameClass, 'id']));
@@ -215,7 +215,7 @@ begin
   UI.HideCursor;
   LoadCells;
   StairNumber := 0;
-  ISt := TGZFileStream.Create(SaveFilePath+'save', gzOpenRead);
+  ISt := TGZFileStream.Create( WritePath + 'save', gzOpenRead );
   try
     try
       ver := ISt.ReadAnsiString;
@@ -238,13 +238,13 @@ begin
 
     except
       FreeAndNil(ISt);
-      DeleteFile(SaveFilePath+'save');
+      DeleteFile( WritePath + 'save' );
       Log('save file corrupt!');
       Prepare;
     end;
   finally
     FreeAndNil(ISt);
-    DeleteFile(SaveFilePath+'save');
+    DeleteFile( WritePath + 'save' );
   end;
   LuaSystem.ProtectedCall(['world','load_quest_maps'],[]);
 end;
@@ -253,7 +253,7 @@ procedure TGame.Save;
 var OSt: TGZFileStream;
     iChild : TNode;
 begin
-  OSt := TGZFileStream.Create(SaveFilePath+'save', gzOpenWrite);
+  OSt := TGZFileStream.Create( WritePath + 'save', gzOpenWrite );
   OSt.WriteAnsiString(VERSION);
 
   UIDs.WriteToStream( OSt );

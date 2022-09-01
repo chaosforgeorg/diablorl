@@ -141,8 +141,8 @@ var iStyle  : TUIStyle;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
-  Log( LOGINFO, 'Loading configuration file "'+ConfigurationPath+'config.lua"...' );
-  iConfig := TDiabloConfig.Create(ConfigurationPath+'config.lua');
+  Log( LOGINFO, 'Loading configuration file "'+ConfigurationPath+'"...' );
+  iConfig := TDiabloConfig.Create( ConfigurationPath );
 
   FSizeX        := iConfig.Configure('console_x',80);
   FSizeY        := iConfig.Configure('console_y',25);
@@ -518,18 +518,18 @@ var
   key: word;
 begin
   Key := 1;
-  while FileExists(SaveFilePath+'DiabloRL' + IntToStr(Key) + '.txt') do
+  while FileExists( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt' ) do
     Inc(Key);
   if BBCode then
-    FUIConsole.ScreenShot(SaveFilePath+'DiabloRL' + IntToStr(Key) + '.txt', 1)
+    FUIConsole.ScreenShot( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt', 1 )
   else
-    FUIConsole.ScreenShot(SaveFilePath+'DiabloRL' + IntToStr(Key) + '.txt', 0);
-  if not FileExists(SaveFilePath+'DiabloRL' + IntToStr(Key) + '.txt') then
+    FUIConsole.ScreenShot( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt', 0 );
+  if not FileExists( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt' ) then
     exit;
   if BBCode then
-    Msg('BB code screenshot "' + 'DiabloRL' + IntToStr(Key) + '.txt" created.')
+    Msg( 'BB code screenshot "' + 'DiabloRL' + IntToStr(Key) + '.txt" created.' )
   else
-    Msg('Screenshot "' + 'DiabloRL' + IntToStr(Key) + '.txt" created.');
+    Msg( 'Screenshot "' + 'DiabloRL' + IntToStr(Key) + '.txt" created.' );
 end;
 
 procedure TGameUI.PlayMusic(const sID: ansistring);

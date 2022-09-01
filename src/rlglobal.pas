@@ -3,17 +3,31 @@
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
 // @created(January 17, 2005)
 //
-// This unit holds global definiotions for the RL. No functions nor
+// This unit holds global definitions for the RL. No functions nor
 // procedures should be here -- just constants and variables.
 
 unit rlglobal;
 interface
 uses sysutils, vrltools, vutil, vnode;
 
-const ConfigurationPath : AnsiString = '';
+const
+      // All the below paths can be set from the command line (see berserk.pas),
+      // all except config can be set from the configuration file.
+
+      // This is the full path to the configuration file ("config.lua" by default)
+      ConfigurationPath : AnsiString = 'config.lua';
+      // This is the directory path to the read only data folder ("" by default, 
+      // needs slash at end)
       DataPath          : AnsiString = '';
-      SaveFilePath      : AnsiString = '';
-      SoundPath         : AnsiString = '';
+      // This is the directory path for writing (save, log, crash) ("" by default, 
+      // needs slash at end)
+      WritePath         : AnsiString = '';
+      // This is the directory path for score table (by default it will be the
+      // same as WritePath, change for multi-user systems
+      ScorePath         : AnsiString = '';
+      // This is the directory path to the read only sound folder ("sound/" by default, 
+      // needs slash at end)
+      SoundPath         : AnsiString = 'sound' + PathDelim;
 
 type TNameOutputType = (TheName,AName,PlainName);
 type TPriceType  = (COST_NONE, COST_BUY, COST_SELL, COST_REPAIR, COST_RECHARGE, COST_IDENTIFY );

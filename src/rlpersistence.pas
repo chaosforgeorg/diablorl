@@ -28,20 +28,34 @@ uses SysUtils, Classes, vutil, rlglobal;
 
 constructor TPersistence.Create;
 begin
-  FScoreFile := TScoreFile.Create( SaveFilePath+SCORE_FILE_NAME, MAX_SCORE_ENTRIES );
-  FScoreFile.Load;
+  FScoreFile := TScoreFile.Create( ScorePath + SCORE_FILE_NAME, MAX_SCORE_ENTRIES );
+  FScoreFile.Lock;
+  try
+    FScoreFile.Load;
+  finally
+    FScoreFile.Unlock;
+  end;
 end;
 
 procedure TPersistence.Add(aScore: LongInt; const aName: AnsiString; aLevel : DWord; const aGrave, aKlass, aResult: AnsiString);
 var iEntry   : TScoreEntry;
 begin
-  iEntry := FScoreFile.Add( aScore );
-  if iEntry = nil then Exit;
-  iEntry.SetAttribute('level', IntToStr(aLevel) );
-  iEntry.SetAttribute('name', aName );
-  iEntry.SetAttribute('klass', aKlass );
-  iEntry.SetAttribute('grave', aGrave );
-  iEntry.SetAttribute('result', aResult );
+  FScoreFile.Lock;
+  try
+    FScoreFile.Load;
+    iEntry := FScoreFile.Add( aScore );
+    if iEntry <> nil then 
+    begin
+      iEntry.SetAttribute('level', IntToStr(aLevel) );
+      iEntry.SetAttribute('name', aName );
+      iEntry.SetAttribute('klass', aKlass );
+      iEntry.SetAttribute('grave', aGrave );
+      iEntry.SetAttribute('result', aResult );
+      FScoreFile.Save;
+    end;
+  finally
+    FScoreFile.Unlock;
+  end;
 end;
 
 function TPersistence.ScoreList: TUIStringArray;
