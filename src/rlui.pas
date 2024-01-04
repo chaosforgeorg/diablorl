@@ -105,7 +105,7 @@ uses DateUtils, variants,
     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF}
     vuitypes, vluasystem, rlshop, rllua, rlgame, rlpersistence,
     vsystems, vstormlibrary,
-    {$IFDEF BEARLIB}vbeario, vbearconsole,{$ELSE}vsdlio, vglulibrary, vglconsole,{$ENDIF}
+    {$IFDEF BEARLIB}vbeario, vbearconsole,{$ELSE}vsdlio, vglconsole,{$ENDIF}
     vlog, vdebug, vmath, rllevel, vsound, vfmodsound, vsdlsound;
 
 function CommandDirection(Command: byte): TDirection;
@@ -179,9 +179,6 @@ begin
     FIODriver := TSDLIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), 32, iFlags );
     Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
     FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
-    Log( LOGINFO, 'Loading GLU' );
-    LoadGLU;
-    gluOrtho2D(0, FIODriver.GetSizeX, FIODriver.GetSizeY,0 );
     {$ENDIF}
   end
   else
