@@ -105,7 +105,7 @@ uses DateUtils, variants,
     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF}
     vuitypes, vluasystem, rlshop, rllua, rlgame, rlpersistence,
     vsystems, vstormlibrary,
-    {$IFDEF BEARLIB}vbeario, vbearconsole,{$ELSE}vsdlio, vglconsole,{$ENDIF}
+    vsdlio, vglconsole,
     vlog, vdebug, vmath, rllevel, vsound, vfmodsound, vsdlsound;
 
 function CommandDirection(Command: byte): TDirection;
@@ -129,11 +129,7 @@ end;
 
 constructor TGameUI.Create( aConfig : TDiabloConfig );
 var iStyle  : TUIStyle;
-    {$IFDEF BEARLIB}
-    iFlags  : TBearFlags;
-    {$ELSE}
     iFlags  : TSDLIOFlags;
-    {$ENDIF}
     iSound  : AnsiString;
     iMPQ    : AnsiString;
     i       : byte;
@@ -163,15 +159,6 @@ begin
     {$ENDIF}
 
     FGraphicsMode := True;
-    {$IFDEF BEARLIB}
-    iFlags := [];
-    if Option_FullScreen then
-      Include( iFlags, Bear_Fullscreen );
-    Log( LOGINFO, 'Initializing driver...' );
-    FIODriver := TBearIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), iFlags );
-    Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
-    FConsole := TBearConsoleRenderer.Create( FSizeX, FSizeY, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR, VIO_CON_EXTOUT] );
-    {$ELSE}
     iFlags := [ SDLIO_OpenGL, SDLIO_Resizable ];
     if Option_FullScreen then
       Include( iFlags, SDLIO_Fullscreen );
@@ -179,7 +166,6 @@ begin
     FIODriver := TSDLIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), 32, iFlags );
     Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
     FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
-    {$ENDIF}
   end
   else
   begin
