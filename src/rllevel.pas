@@ -169,7 +169,7 @@ begin
 
   ClearAll(CELL_FLOOR);
 
-  RegisterDungen( FGenerator );
+  RegisterDungen( Self );
 
   RunHook( Hook_OnCreate, [] );
   UI.Unmute();
