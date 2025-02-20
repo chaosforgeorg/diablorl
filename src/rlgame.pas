@@ -102,6 +102,15 @@ procedure TGame.Run;
 var iGolem    : TNPC;
     iStartPos : TCoord2D;
     iLevelID  : AnsiString;
+  function FindCell( aCell : DWord ) : TCoord2D;
+  var iCoord : TCoord2D;
+  begin
+    for iCoord in Level.Area do
+      if Level.GetCell( iCoord ) = aCell then
+        Exit( iCoord );
+    raise EException.Create('FindCell for stairs failed!');
+  end;
+
 begin
   if not GameEnd then
   begin
@@ -128,7 +137,7 @@ begin
       if StairNumber <> CELL_TOWN_PORTAL then
         if StairNumber = 0
           then iStartPos := Player.Position
-          else iStartPos := Level.MapArea.FindCell([StairNumber]);
+          else iStartPos := FindCell(StairNumber);
 
       UI.SetLevel( Level );
       // Makes Player a child of TLevel. We don't have to dispose of it manualy.
@@ -141,7 +150,7 @@ begin
       // If player came throgh portal, destroy portal
       if StairNumber = CELL_TOWN_PORTAL then
       begin
-        iStartPos := Level.MapArea.FindCell([StairNumber]);
+        iStartPos := FindCell(StairNumber);
         if Level.Flags[ lfTown ] then
         begin
           Level.AddTravelPoint( iStartPos, 'Portal to Dungeon' );

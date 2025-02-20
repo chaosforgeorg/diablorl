@@ -523,18 +523,21 @@ begin
 end;
 
 function lua_level_find_tile(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
-    Level  : TLevel;
+var iState : TRLLuaState;
+    iLevel : TLevel;
     iCoord : TCoord2D;
+    iCell  : DWord;
 begin
-  State.Init(L);
-  Level := State.ToObject(1) as TLevel;
-  if Level.FMapArea.TryFindCell( iCoord, [State.ToID(2)] ) then
-  begin
-    State.PushCoord( iCoord );
-    Exit(1);
-  end;
-  Result := 0;
+  iState.Init(L);
+  iLevel := iState.ToObject(1) as TLevel;
+  iCell  := iState.ToID(2);
+  for iCoord in iLevel.Area do
+    if iLevel.GetCell( iCoord ) = iCell then
+    begin
+      iState.PushCoord( iCoord );
+      Exit( 1 );
+    end;
+  Exit( 0 );
 end;
 
 function lua_level_find_nearest(L: Plua_State): Integer; cdecl;
@@ -680,19 +683,22 @@ begin
 end;
 
 function TLevel.FindEmptySquare: TCoord2D;
-const CriticalSize = 6000;
-var Critical : word;
+const kCriticalSize = 6000;
+var iCritical : Word;
+    iCoord    : TCoord2D;
 begin
-  Critical := 0;
+  iCritical := 0;
   repeat
-    Inc(Critical);
+    Inc( iCritical );
     Result := FMapArea.RanCoord( [CELL_FLOOR] );
-  until (FMapArea.Around(Result,[CELL_FLOOR]) = 8) or (Critical > CriticalSize);
-  if Critical > CriticalSize then
-  begin
-    Result := FMapArea.FindCell([CELL_FLOOR]);
-    Log('FindBigEmptySpace -- Failed!');
-  end;
+    if FMapArea.Around( Result, [CELL_FLOOR] ) = 8 then Exit( Result );
+  until iCritical > kCriticalSize;
+  Log('FindBigEmptySpace -- Failed!');
+  for iCoord in FArea do
+    if GetCell( iCoord ) = CELL_FLOOR then
+      Exit( iCoord );
+  Log( LOGERROR, 'FindBigEmptySpace -- Critical Failure!' );
+  raise EException.Create( 'FindEmptySquare failure!' );
 end;
 
 function TLevel.GetTileFlags ( const aCoord : TCoord2D ) : TFlags;
