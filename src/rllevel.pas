@@ -255,7 +255,7 @@ var iCoord : TCoord2D;
 begin
   RemovePortals( aPortalID );
   try
-    iCoord := FMapArea.Drop(aWhere,[efNoMonsters,efNoObstacles,efNoItems,efNoChangeRes]);
+    iCoord := DropCoord(aWhere,[efNoMonsters,efNoObstacles,efNoItems,efNoChangeRes]);
     Cell[iCoord] := aPortalID;
     if isVisible(iCoord) then UI.Msg('A portal appears!');
     AddTravelPoint( iCoord, 'Town Portal' );
@@ -552,7 +552,7 @@ begin
   Flags:=[];
   while Count <= State.StackSize do begin include(Flags,State.ToInteger(Count)); inc(Count); end;
   try
-    State.PushCoord( Level.FMapArea.Drop(State.ToPosition(2), flags) );
+    State.PushCoord( Level.DropCoord(State.ToPosition(2), flags) );
     Result := 1;
   except
     Result := 0;
@@ -574,22 +574,36 @@ begin
 end;
 
 function lua_level_find_empty_coord(L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
-    Level : TLevel;
-    Flags : TFlags;
-    Count : byte;
+const kLimit = 10000;
+var iState : TRLLuaState;
+    iLevel : TLevel;
+    iCoord : TCoord2D;
+    iCell  : DWord;
+    iFlags : TFlags;
+    iCount : Word;
 begin
-  State.Init(L);
-  Level := State.ToObject(1) as TLevel;
-  Count := 3;
-  Flags:=[];
-  while Count <= State.StackSize do begin include(Flags,State.ToInteger(Count)); inc(Count); end;
-  try
-    State.PushCoord( Level.FMapArea.EmptyRanCoord([State.ToID(2)],flags) );
-    Result := 1;
-  except
-    Result := 0;
-  end;
+  iState.Init(L);
+  iLevel := iState.ToObject(1) as TLevel;
+  iCell  := iState.ToID(2);
+  iCount := 3;
+  iFlags :=[];
+  while iCount <= iState.StackSize do begin Include( iFlags,iState.ToInteger(iCount)); Inc(iCount); end;
+  iCount := 0;
+  repeat
+    iCoord := iLevel.Area.RandomCoord;
+    if ( iLevel.GetCell( iCoord ) = iCell ) and iLevel.isEmpty( iCoord, iFlags ) then
+    begin
+      iState.PushCoord( iCoord );
+      Exit( 1 );
+    end;
+  until iCount >= kLimit;
+  for iCoord in iLevel.Area do
+    if ( iLevel.GetCell( iCoord ) = iCell ) and iLevel.isEmpty( iCoord, iFlags ) then
+    begin
+      iState.PushCoord( iCoord );
+      Exit( 1 );
+    end;
+  Exit( 0 );
 end;
 
 
@@ -683,15 +697,15 @@ begin
 end;
 
 function TLevel.FindEmptySquare: TCoord2D;
-const kCriticalSize = 6000;
+const kCriticalSize = 60000;
 var iCritical : Word;
     iCoord    : TCoord2D;
 begin
   iCritical := 0;
   repeat
     Inc( iCritical );
-    Result := FMapArea.RanCoord( [CELL_FLOOR] );
-    if FMapArea.Around( Result, [CELL_FLOOR] ) = 8 then Exit( Result );
+    Result := FArea.RandomCoord;
+    if ( GetCell( Result ) = CELL_FLOOR ) and ( CellsAround( Result, [CELL_FLOOR] ) = 8 ) then Exit( Result );
   until iCritical > kCriticalSize;
   Log('FindBigEmptySpace -- Failed!');
   for iCoord in FArea do
