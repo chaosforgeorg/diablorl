@@ -36,8 +36,8 @@ function generator.tile_place_hotspots( level, pos, tile )
 	generator.tile_place( pos, tile )
 
 	for c in place_area() do
-		if level:raw_get_cell( c ) == cell_marker then
-			level:raw_set_cell( c, cell_wall )
+		if level:get_cell( c ) == cell_marker then
+			level:set_cell( c, cell_wall )
 			if area.FULL_SHRINKED:contains( c ) then
 				table.insert( generator.hotspots, c:clone() )
 			end
@@ -131,11 +131,11 @@ end
 function generator.roll_library( self )
 	local x1,y1 = self:find_empty_square():get()
 	local x2,y2 = x1,y1
-	local cell_floor = cells['floor'].id
-	while self:get_cell( coord.new( x1,y1-1 ) ) == cell_floor do y1 = y1 - 1 end
-	while self:get_cell( coord.new( x2,y2+1 ) ) == cell_floor do y2 = y2 + 1 end
-	while self:get_cell( coord.new( x1-1,y1 ) ) == cell_floor do x1 = x1 - 1 end
-	while self:get_cell( coord.new( x2+1,y2 ) ) == cell_floor do x2 = x2 + 1 end
+	local cell_floor = cells['floor'].nid
+	while self:get_cell( x1,y1-1 ) == cell_floor do y1 = y1 - 1 end
+	while self:get_cell( x2,y2+1 ) == cell_floor do y2 = y2 + 1 end
+	while self:get_cell( x1-1,y1 ) == cell_floor do x1 = x1 - 1 end
+	while self:get_cell( x2+1,y2 ) == cell_floor do x2 = x2 + 1 end
 	if (x2-x1<2)or(y2-y1<2) then return end
 	-- limit size of library
 	local limit = math.random(2,6)
@@ -259,9 +259,9 @@ function generator.place_blob( self, start, size, cell )
 		local n   = visit[ idx ]
 		table.remove( visit, idx )
 		if generator.around( n, cells ) == 8 then
-			self:raw_set_cell( n, cell )
+			self:set_cell( n, cell )
 			for c in n:cross_coords() do
-				if self:raw_get_cell( c ) == floor_cell then
+				if self:get_cell( c ) == floor_cell then
 					table.insert( visit, c:clone() )
 				end
 			end
@@ -274,7 +274,7 @@ function generator.get_fence_endpoint( self, point, delta )
 	local p = point:clone()
 	repeat
 		p = p + delta
-	until finish[ self:raw_get_cell( p ) ]
+	until finish[ self:get_cell( p ) ]
 	return p - delta
 end
 
@@ -317,15 +317,15 @@ function generator.cave_level( self, gen_type )
 --	drunk( amount, step+20, fluid )
 
 	for c in level_area:shrinked()() do
-		if self:raw_get_cell(c) == wall_cell and generator.around( c, wall_cell ) < 4 then
-			self:raw_set_cell( c, floor_cell )
+		if self:get_cell(c) == wall_cell and generator.around( c, wall_cell ) < 4 then
+			self:set_cell( c, floor_cell )
 		end
 	end
 
 	for c in level_area:shrinked(2)() do
-		if self:raw_get_cell(c) == floor_cell and generator.cross_around( c, wall_cell ) > 2 then
+		if self:get_cell(c) == floor_cell and generator.cross_around( c, wall_cell ) > 2 then
 			for k in c:cross_coords() do
-				self:raw_set_cell( k, marker )
+				self:set_cell( k, marker )
 			end
 		end
 	end
@@ -440,13 +440,13 @@ function generator.room_level( self, gen_type )
 		end
 
 		local direction = "n"
-		if self:raw_get_cell(entry.x, entry.y+1)==cell_floor then
+		if self:get_cell(entry.x, entry.y+1)==cell_floor then
 			direction = "s"
-		elseif self:raw_get_cell(entry.x, entry.y-1)==cell_floor then
+		elseif self:get_cell(entry.x, entry.y-1)==cell_floor then
 			direction = "n"
-		elseif self:raw_get_cell(entry.x+1, entry.y)==cell_floor then
+		elseif self:get_cell(entry.x+1, entry.y)==cell_floor then
 			direction = "e"
-		elseif self:raw_get_cell(entry.x-1, entry.y)==cell_floor then
+		elseif self:get_cell(entry.x-1, entry.y)==cell_floor then
 			direction = "w"
 		end
 		local tile_entry = table.random_pick( tile.hotspots[ direction ] )
@@ -460,8 +460,8 @@ function generator.room_level( self, gen_type )
 				--check if tile fits into level
 				local place = entry - tile_entry + c
 				--check if tile zone is occupied
-				if ( tile.tile:raw_get( c ) ~= 0 ) and
-					(self:raw_get_cell( place.x, place.y ) ~= cell_wall) then
+				if ( tile.tile:get( c ) ~= 0 ) and
+					(self:get_cell( place.x, place.y ) ~= cell_wall) then
 					gen_ok = false
 					break
 				end
@@ -483,24 +483,24 @@ function generator.room_level( self, gen_type )
 					door_dir_x = coord.new( 1, 0 )
 					door_dir_y = coord.new( 0, 1 )
 				end
-				while ( self:raw_get_cell( doorway_area_a - door_dir_x - door_dir_y ) == cell_floor ) and
-					( self:raw_get_cell( doorway_area_a - door_dir_x + door_dir_y ) == cell_floor ) do
+				while ( self:get_cell( doorway_area_a - door_dir_x - door_dir_y ) == cell_floor ) and
+					( self:get_cell( doorway_area_a - door_dir_x + door_dir_y ) == cell_floor ) do
 					doorway_area_a = doorway_area_a - door_dir_x
 				end
-				while ( self:raw_get_cell( doorway_area_b + door_dir_x - door_dir_y ) == cell_floor ) and
-					( self:raw_get_cell( doorway_area_b + door_dir_x + door_dir_y ) == cell_floor ) do
+				while ( self:get_cell( doorway_area_b + door_dir_x - door_dir_y ) == cell_floor ) and
+					( self:get_cell( doorway_area_b + door_dir_x + door_dir_y ) == cell_floor ) do
 					doorway_area_b = doorway_area_b + door_dir_x
 				end
 
 				local doorway_area = area.new( doorway_area_a, doorway_area_b )
 				local doorway = cells[ table.random_pick( generators[ gen_type ].doorways ) ].nid
 				for c in doorway_area() do
-					self:raw_set_cell( c, doorway )
+					self:set_cell( c, doorway )
 				end
 				--add door if doorway is unpassable
 				if cells[ doorway ].flags[ cfBlockMove ] then
 					entry = doorway_area:random_coord()
-					self:raw_set_cell( entry, generator.roll_door() )
+					self:set_cell( entry, generator.roll_door() )
 				end
 			end
 		end
@@ -508,12 +508,12 @@ function generator.room_level( self, gen_type )
 	until count > limit
 
 	for _,h in ipairs( generator.hotspots ) do
-		if self:raw_get_cell( h ) == cell_wall and
+		if self:get_cell( h ) == cell_wall and
 			generator.cross_around( h, cell_floor ) == 2 and
 			generator.cross_around( h, cell_wall  ) == 2 and
-			self:raw_get_cell( h.x, h.y + 1 ) == self:raw_get_cell( h.x, h.y - 1 )
+			self:get_cell( h.x, h.y + 1 ) == self:get_cell( h.x, h.y - 1 )
 		then
-			self:raw_set_cell( h, generator.roll_door() )
+			self:set_cell( h, generator.roll_door() )
 		end
 	end
 
@@ -541,7 +541,7 @@ function generator.load_tile_data( tiles )
 		local hotspots = { n = {}, s = {}, e = {}, w = {} }
 
 		for c in tarea:edges() do
-			if tile:raw_get( c ) == marker then
+			if tile:get( c ) == marker then
 				if c.y == 1 then table.insert( hotspots["n"], c:clone() )
 				elseif c.y == tarea.b.y then table.insert( hotspots["s"], c:clone() )
 				elseif c.x == 1 then table.insert( hotspots["w"], c:clone() )

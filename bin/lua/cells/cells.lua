@@ -157,7 +157,7 @@ register_cell "barrel"
 			ui.play_sound('sfx/items/barlfire.wav',c)
 			self:explosion( c, RED, 1, 8, 16, 50, DAMAGE_FIRE)
 			for e in c:around_coords() do
-				if self:get_cell(e) == 'barrel' then
+				if self:get_cell_id(e) == 'barrel' then
 					player.flags[nfAffected] = true
 					cells['barrel'].OnAct(self,e)
 					self:set_cell(e,'floor')
@@ -759,7 +759,7 @@ register_cell( "closed_door_catacombs", "solid" )
 	color = BROWN,
 
 	OnAct = function(self,c)
-		if self:get_cell( player.position ) == "floor" then
+		if self:get_cell_id( player.position ) == "floor" then
 			self:set_cell( c, "open_blocked_door" )
 			ui.msg("You open the door. Click.")
 			ui.play_sound('sfx/items/dooropen.wav',c)
