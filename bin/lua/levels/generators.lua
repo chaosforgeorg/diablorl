@@ -242,8 +242,8 @@ function generator.contd_drunkard_walks( amount, steps, cell, edges1, edges2, ig
 	for i=1,amount do
 		repeat
 			c = drunk_area:random_coord()
-		until generator.cross_around( c, edges1 ) > 0 and
-			generator.cross_around( c, edges2 ) > 0
+		until self:cross_around( c, edges1 ) > 0 and
+			self:cross_around( c, edges2 ) > 0
 		generator.run_drunkard_walk( drunk_area, c, steps, cell, ignore, break_on_edge )
 	end
 end
@@ -258,7 +258,7 @@ function generator.place_blob( self, start, size, cell )
 		local idx = math.random( #visit )
 		local n   = visit[ idx ]
 		table.remove( visit, idx )
-		if generator.around( n, cells ) == 8 then
+		if self:around( n, cells ) == 8 then
 			self:set_cell( n, cell )
 			for c in n:cross_coords() do
 				if self:get_cell( c ) == floor_cell then
@@ -282,9 +282,9 @@ function generator.place_stairs( self )
 	-- todo: check for nil
 	local tile
 	tile = self:find_tile( "stairs_down" )
-	if not tile then generator.set_cell( self:find_empty_square(), "stairs_down" ) end
+	if not tile then self:set_cell( self:find_empty_square(), "stairs_down" ) end
 	tile = self:find_tile( "stairs_up" )
-	if not tile then generator.set_cell( self:find_empty_square(), "stairs_up" ) end
+	if not tile then self:set_cell( self:find_empty_square(), "stairs_up" ) end
 end
 
 
@@ -317,13 +317,13 @@ function generator.cave_level( self, gen_type )
 --	drunk( amount, step+20, fluid )
 
 	for c in level_area:shrinked()() do
-		if self:get_cell(c) == wall_cell and generator.around( c, wall_cell ) < 4 then
+		if self:get_cell(c) == wall_cell and self:around( c, wall_cell ) < 4 then
 			self:set_cell( c, floor_cell )
 		end
 	end
 
 	for c in level_area:shrinked(2)() do
-		if self:get_cell(c) == floor_cell and generator.cross_around( c, wall_cell ) > 2 then
+		if self:get_cell(c) == floor_cell and self:cross_around( c, wall_cell ) > 2 then
 			for k in c:cross_coords() do
 				self:set_cell( k, marker )
 			end
@@ -351,7 +351,7 @@ function generator.cave_level( self, gen_type )
 		if generator.scan( a, floor_cell, false ) == 0 then
 			a:shrink()
 			generator.fill( grate, a )
-			generator.set_cell( a:random_inner_edge_coord(), generator.roll_door() )
+			self:set_cell( a:random_inner_edge_coord(), generator.roll_door() )
 			a:shrink()
 			generator.fill( marker, a )
 			count = count + 1
@@ -375,7 +375,7 @@ function generator.cave_level( self, gen_type )
 		local a = area.new( el - l, er - r ):expanded()
 		if generator.scan( a, floor_cell, false ) == 0 then
 			generator.fill( grate, fa )
-			generator.set_cell( p, generator.roll_door() )
+			self:set_cell( p, generator.roll_door() )
 		end
 
 	end
@@ -435,7 +435,7 @@ function generator.room_level( self, gen_type )
 		local tile = table.random_pick( generators[ gen_type ].tile_data )
 		--check if tile fits
 		local entry = table.random_pick( generator.hotspots )
-		while generator.cross_around( entry, cell_floor ) > 1 do
+		while self:cross_around( entry, cell_floor ) > 1 do
 			entry = table.random_pick( generator.hotspots )
 		end
 
@@ -509,8 +509,8 @@ function generator.room_level( self, gen_type )
 
 	for _,h in ipairs( generator.hotspots ) do
 		if self:get_cell( h ) == cell_wall and
-			generator.cross_around( h, cell_floor ) == 2 and
-			generator.cross_around( h, cell_wall  ) == 2 and
+			self:cross_around( h, cell_floor ) == 2 and
+			self:cross_around( h, cell_wall  ) == 2 and
 			self:get_cell( h.x, h.y + 1 ) == self:get_cell( h.x, h.y - 1 )
 		then
 			self:set_cell( h, generator.roll_door() )
