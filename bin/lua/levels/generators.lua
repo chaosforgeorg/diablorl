@@ -304,11 +304,11 @@ function generator.cave_level( self, gen_type )
 		generator.contd_drunkard_walks( amount, step, cell, { floor_cell, fluid }, {wall_cell}, nil, true )
 	end
 
-	generator.fill( wall_cell )
+	self:fill( wall_cell )
 	local sub_area = level_area:shrinked( math.floor( 20 ) )
-	generator.fill( floor_cell, sub_area )
+	self:fill( floor_cell, sub_area )
 	sub_area:shrink( 4 )
-	generator.fill( wall_cell, sub_area )
+	self:fill( wall_cell, sub_area )
 
 	--generator.run_drunkard_walk( area.FULL_SHRINKED, coord.new( math.floor(w/2), math.floor(h/2) ), math.random(100)+400, floor_cell, nil, true )
 	drunk( 10, math.random(100)+400, floor_cell )
@@ -330,7 +330,7 @@ function generator.cave_level( self, gen_type )
 		end
 	end
 
-	generator.transmute( marker, floor_cell )
+	self:transmute( marker, floor_cell )
 
 	local bcount = math.random(10) + 10
 	for i = 1,bcount do
@@ -342,18 +342,18 @@ function generator.cave_level( self, gen_type )
 		generator.place_blob( self, start, count, marker )
 	end
 
-	generator.transmute( marker, wall_cell )
+	self:transmute( marker, wall_cell )
 
 	local count = 0
 	for i = 1,1000 do
 		local dim = coord.new( math.random( 6, 8 ), math.random( 6, 8 ) )
 		local a = area.FULL_SHRINKED:random_subarea( dim )
-		if generator.scan( a, floor_cell, false ) == 0 then
+		if self:scan( a, floor_cell ) then
 			a:shrink()
-			generator.fill( grate, a )
+			self:fill( grate, a )
 			self:set_cell( a:random_inner_edge_coord(), generator.roll_door() )
 			a:shrink()
-			generator.fill( marker, a )
+			self:fill( marker, a )
 			count = count + 1
 		end
 		if count == 10 then break end
@@ -373,8 +373,8 @@ function generator.cave_level( self, gen_type )
 		local er = generator.get_fence_endpoint( self, p, r )
 		local fa = area.new( el, er )
 		local a = area.new( el - l, er - r ):expanded()
-		if generator.scan( a, floor_cell, false ) == 0 then
-			generator.fill( grate, fa )
+		if self:scan( a, floor_cell ) then
+			self:fill( grate, fa )
 			self:set_cell( p, generator.roll_door() )
 		end
 
@@ -390,7 +390,7 @@ function generator.cave_level( self, gen_type )
 		generator.place_blob( self, start, count, fluid )
 	end
 
-	generator.transmute( marker, floor_cell )
+	self:transmute( marker, floor_cell )
 
 	generators[ gen_type ].OnPlaceItems( self )
 	generators[ gen_type ].OnPlaceMonsters( self )
@@ -400,7 +400,7 @@ end
 
 
 function generator.room_level( self, gen_type )
-	generator.fill( "stone_wall" )
+	self:fill( "stone_wall" )
 	if not generators[ gen_type ].tile_data then
 		generators[ gen_type ].tile_data = generator.load_tile_data( generators[ gen_type ].tiles )
 	end
