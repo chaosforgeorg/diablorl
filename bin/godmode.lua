@@ -37,9 +37,9 @@ godkey["F11"] = function()
 	local level  = player:get_level()
 	local target 
 	if level.depth == 0 then 
-		target = level:find_empty_coord( "grass", efNoMonsters, efNoObstacles )
+		target = level:random_empty_coord( { efNoMonsters, efNoObstacles }, "grass" )
 	else
-		target = level:find_empty_coord( "floor", efNoMonsters, efNoObstacles )
+		target = level:random_empty_coord( { efNoMonsters, efNoObstacles }, "floor" )
 	end
 	if target then 
 		player:displace( target )

@@ -738,7 +738,7 @@ register_npc( "blink", "winged_fiend" )
 			x, y = self.x, self.y
 		end
 		local level    = self:get_level()
-		self.targetx, self.targety = level:find_nearest( coord.new(x, y), efNoMonsters, efNoObstacles):get()
+		self.targetx, self.targety = level:drop_coord( coord.new(x, y), { efNoMonsters, efNoObstacles } ):get()
 		if self:is_visible() then
 			ui.msg(self:get_name(0)..' teleports.')
 		end

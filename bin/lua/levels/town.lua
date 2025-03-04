@@ -173,7 +173,7 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 		end
 
 		if quests["water"].enabled then
-			self:set_cell(self:find_tile("fountain"),"poison_fountain")
+			self:set_cell(self:find_coord("fountain"),"poison_fountain")
 		end
 	end,
 
@@ -181,12 +181,12 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 		if not loaded then
 			stats.inc("enter_town")
 		end
-		local c = self:find_tile("stairs_up")
+		local c = self:find_coord("stairs_up")
 		if c then
 	  		self:set_cell(c,"path")
 	  	end
 		if (player.quest["water"] == 3) then
-			self:set_cell(self:find_tile("poison_fountain"),"fountain")
+			self:set_cell(self:find_coord("poison_fountain"),"fountain")
 			player.quest["water"] = 4
 		end
 
@@ -204,7 +204,7 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 			for c in area.FULL() do
 				self.light[ c ][ vlfExplored ] = true
 			end
-			self:add_travel_point( self:find_tile("stairs_down"), cells["stairs_down"].OnTravelName(self) )
+			self:add_travel_point( self:find_coord("stairs_down"), cells["stairs_down"].OnTravelName(self) )
 			for n in self:children("npc") do
 				if n.__proto.waypoint then
 					n:set_travel_point()

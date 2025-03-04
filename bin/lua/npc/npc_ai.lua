@@ -39,7 +39,7 @@ AI(AIZombie,{
 				roll = math.random(100) - 1
 				if roll < chance then
 					local level = self:get_level()
-					self.targetx, self.targety = level:find_nearest( self, efNoMonsters, efNoObstacles):get()
+					self.targetx, self.targety = level:drop_coord( self, { efNoMonsters, efNoObstacles } ):get()
 					if self.targetx*self.targety ~= 0 then
 						self:seek( self:get_target() )
 					end
@@ -276,7 +276,7 @@ AI(AIScavenger,{
 				else
 					-- seek nearest carcass
 					self.flags[nfNoHeal] = false
-					local c = level:find_nearest(self,efCorpse)
+					local c = level:drop_coord( self, { efCorpse } )
 					if c then
 						self:seek( c )
 						self.ai_corpse_found = true

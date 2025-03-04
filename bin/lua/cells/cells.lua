@@ -42,7 +42,7 @@ core.register_blueprint( "bones", "cell" )
 core.register_blueprint( "chest", "cell" )
 {
 	flags   = { false, core.TFLAGS, { cfBlockMove, cfBlockChange } },
-	pic     = "þ",
+	pic     = "ï¿½",
 	piclow  = "?",
 }
 
@@ -176,7 +176,7 @@ register_cell "open_sarcophagus"
 {
 	name   = "open sarcophagus",
 	flags  = { cfBlockMove, cfBlockChange },
-	pic    = "°",
+	pic    = "ï¿½",
 	piclow = "?",
 	color  = DARKGRAY,
 }
@@ -185,7 +185,7 @@ register_cell "sarcophagus"
 {
 	name   = "sarcophagus",
 	flags  = { cfBlockMove, cfBlockChange },
-	pic    = "°",
+	pic    = "ï¿½",
 	piclow = "?",
 	color  = LIGHTGRAY,
 
@@ -273,7 +273,7 @@ register_cell "crucified_skeleton"
 {
 	name   = "crucified skeleton",
 	flags  = { cfBlockMove, cfBlockChange },
-	pic    = "î",
+	pic    = "ï¿½",
 	piclow = "?",
 	color  = BROWN,
 
@@ -287,7 +287,7 @@ register_cell "open_crucified_skeleton"
 {
 	name   = "destroyed crucified skeleton",
 	flags  = { cfBlockMove, cfBlockChange },
-	pic    = "þ",
+	pic    = "ï¿½",
 	piclow = "?",
 	color  = DARKGRAY,
 }
@@ -512,7 +512,7 @@ register_cell( "stairs_up_caves", "stairs" )
 	OnAct = function(self,c)
 		stats.inc("stairs_up")
 		local town = world.get_level( "town" )
-		local c    = town:find_tile( "heavy_stones_caves" )
+		local c    = town:find_coord( "heavy_stones_caves" )
 		if c then
 			town:set_cell( c, "floor" )
 		end
@@ -549,7 +549,7 @@ register_cell( "stairs_up_hell", "stairs" )
 	OnAct = function(self,c)
 		stats.inc("stairs_up")
 		local town = world.get_level( "town" )
-		local c    = town:find_tile( "muddy_grass_hell" )
+		local c    = town:find_coord( "muddy_grass_hell" )
 		if c then
 			town:set_cell( c, "stairs_down_hell" )
 		end

@@ -64,7 +64,7 @@ register_cell( "book_of_the_blind", "story_tome" )
 		quests["halls_of_blind"].OnJournal()
 		if player.quest["halls_of_blind"] == 0 then
 			player.quest["halls_of_blind"] = 1
-			local cc = self:find_tile("blind_marker")
+			local cc = self:find_coord("blind_marker")
 			self:drop_item( "optic_amulet", cc )
 			self:set_cell( cc, "floor" )
 			self:move_walls("moving_wall_1")

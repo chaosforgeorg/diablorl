@@ -569,10 +569,14 @@ end
 table.merge( player, npc )
 setmetatable(player,getmetatable(npc))
 
+function level:find_empty_square()
+	return self:random_square( "floor" ) or self:random_coord( "floor" )
+end
+
 function level:move_walls(s)
 	if cells[s] then
 		while true do
-			local c = self:find_tile(s)
+			local c = self:find_coord(s)
 			if not c then break	end
 			self:set_cell( c, "floor" )
 		end
@@ -600,9 +604,9 @@ end
 function level:roll_monster( id, c )
 	local m, cc
 	if c then
-		cc = self:find_near_coord(c, 2, efNoItems, efNoMonsters)
+		cc = self:random_near_coord( c, 2, { efNoItems, efNoMonsters } )
 	else
-		cc = self:find_empty_coord("floor", efNoItems, efNoMonsters)
+		cc = self:random_empty_coord( { efNoItems, efNoMonsters }, "floor" )
 	end
 	if cc then
 		m = self:drop_npc(id, cc )
@@ -613,9 +617,9 @@ end
 function level:roll_gold( c )
 	local cc
 	if c then
-		cc = self:find_near_coord( c, 2, efNoItems, efNoMonsters )
+		cc = self:random_near_coord( c, 2, { efNoItems, efNoMonsters } )
 	else
-		cc = self:find_empty_coord( "floor", efNoItems, efNoMonsters )
+		cc = self:random_empty_coord( { efNoItems, efNoMonsters }, "floor" )
 	end
 	if cc then
 		self:drop_gold( cc )

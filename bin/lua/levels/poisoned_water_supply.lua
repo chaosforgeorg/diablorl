@@ -57,7 +57,7 @@ register_level "poisoned_water"
 		ui.play_sound("sfx/misc/questdon.wav")
 		player.quest["water"] = 3
 		while true do
-			local c = self:find_tile("poisoned_river")
+			local c = self:find_coord("poisoned_river")
 			if not c then break end
 			self:set_cell(c,"river")
 		end

@@ -596,7 +596,7 @@ register_spell "teleport"
 
 	script   =  function( slvl, caster )
 		local level = caster:get_level()
-		caster.targetx, caster.targety = level:find_nearest( caster:get_target(), efNoMonsters, efNoObstacles, efSpawnOk ):get()
+		caster.targetx, caster.targety = level:drop_coord( caster:get_target(), { efNoMonsters, efNoObstacles, efSpawnOk } ):get()
 		caster:displace( caster:get_target() )
 		return true
 	end,

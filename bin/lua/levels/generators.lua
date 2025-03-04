@@ -178,7 +178,7 @@ function generator.roll_barrels( self, amount, max )
 		local c = self:find_empty_square()
 		local count = math.random( max )
 		for k=1,count do
-			c = self:find_near_coord( c, 2, efNoItems, efNoMonsters )
+			c = self:random_near_coord( c, 2, { efNoItems, efNoMonsters } )
 			if c then
 				self:set_cell( c, "barrel" )
 			else
@@ -197,7 +197,7 @@ end
 
 function generator.roll_potions( self, amount )
 	for i = 1, amount do
-		local c = self:find_empty_coord("floor", efNoItems, efNoMonsters)
+		local c = self:random_empty_coord( { efNoItems, efNoMonsters }, "floor" )
 		if c then
 			self:drop_random_potion( c )
 		end
@@ -207,7 +207,7 @@ end
 function generator.roll_magic_items( self, amount )
 	if amount <= 0 then return end
 	for i = 1, amount do
-		local c = self:find_empty_coord("floor", efNoItems, efNoMonsters)
+		local c = self:random_empty_coord( { efNoItems, efNoMonsters }, "floor" )
 		if c then
 			self:drop_random_item( c, self.depth * 2, 100, false, 0 )
 	end	end
@@ -281,9 +281,9 @@ end
 function generator.place_stairs( self )
 	-- todo: check for nil
 	local tile
-	tile = self:find_tile( "stairs_down" )
+	tile = self:find_coord( "stairs_down" )
 	if not tile then self:set_cell( self:find_empty_square(), "stairs_down" ) end
-	tile = self:find_tile( "stairs_up" )
+	tile = self:find_coord( "stairs_up" )
 	if not tile then self:set_cell( self:find_empty_square(), "stairs_up" ) end
 end
 

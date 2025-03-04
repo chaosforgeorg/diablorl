@@ -82,7 +82,6 @@ type TLevel = class(TLuaMapNode)
        procedure Remove( aNode : TNode ); override;
        // Find space that is near, but not neccesarily right beside
        function FindNearSpace(var Where : TCoord2D; Range : Byte; EmptyFlags : TFlags32) : boolean;
-       function FindEmptySquare : TCoord2D;
        function GetTileFlags( const aCoord : TCoord2D ) : TFlags;
        function GetBeing( const aCoord : TCoord2D ) : TNPC; override;
        function GetItem( const aCoord : TCoord2D ) : TItem; override;
@@ -522,115 +521,23 @@ begin
   Result := 1;
 end;
 
-function lua_level_find_tile(L: Plua_State): Integer; cdecl;
+function lua_level_random_near_coord(L: Plua_State): Integer; cdecl;
 var iState : TRLLuaState;
     iLevel : TLevel;
     iCoord : TCoord2D;
-    iCell  : DWord;
 begin
   iState.Init(L);
   iLevel := iState.ToObject(1) as TLevel;
-  iCell  := iState.ToID(2);
-  for iCoord in iLevel.Area do
-    if iLevel.GetCell( iCoord ) = iCell then
-    begin
-      iState.PushCoord( iCoord );
-      Exit( 1 );
-    end;
-  Exit( 0 );
-end;
-
-function lua_level_find_nearest(L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
-    Level : TLevel;
-    Flags : TFlags;
-    Count : byte;
-begin
-  State.Init(L);
-  Level := State.ToObject(1) as TLevel;
-  Count := 3;
-  Flags:=[];
-  while Count <= State.StackSize do begin include(Flags,State.ToInteger(Count)); inc(Count); end;
-  try
-    State.PushCoord( Level.DropCoord(State.ToPosition(2), flags) );
-    Result := 1;
-  except
-    Result := 0;
-  end;
-end;
-
-function lua_level_find_empty_square(L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
-    Level : TLevel;
-begin
-  State.Init(L);
-  Level := State.ToObject(1) as TLevel;
-  try
-    State.PushCoord( Level.FindEmptySquare );
-    Result := 1;
-  except
-    Result := 0;
-  end;
-end;
-
-function lua_level_find_empty_coord(L: Plua_State): Integer; cdecl;
-const kLimit = 10000;
-var iState : TRLLuaState;
-    iLevel : TLevel;
-    iCoord : TCoord2D;
-    iCell  : DWord;
-    iFlags : TFlags;
-    iCount : Word;
-begin
-  iState.Init(L);
-  iLevel := iState.ToObject(1) as TLevel;
-  iCell  := iState.ToID(2);
-  iCount := 3;
-  iFlags :=[];
-  while iCount <= iState.StackSize do begin Include( iFlags,iState.ToInteger(iCount)); Inc(iCount); end;
-  iCount := 0;
-  repeat
-    iCoord := iLevel.Area.RandomCoord;
-    if ( iLevel.GetCell( iCoord ) = iCell ) and iLevel.isEmpty( iCoord, iFlags ) then
-    begin
-      iState.PushCoord( iCoord );
-      Exit( 1 );
-    end;
-  until iCount >= kLimit;
-  for iCoord in iLevel.Area do
-    if ( iLevel.GetCell( iCoord ) = iCell ) and iLevel.isEmpty( iCoord, iFlags ) then
-    begin
-      iState.PushCoord( iCoord );
-      Exit( 1 );
-    end;
-  Exit( 0 );
-end;
-
-
-
-function lua_level_find_near_coord(L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
-    Level : TLevel;
-    Flags : TFlags;
-    Count : byte;
-    Coord : TCoord2D;
-begin
-  State.Init(L);
-  Level := State.ToObject(1) as TLevel;
-  Count := 4;
-  Flags:=[];
-  while Count <= State.StackSize do begin include(Flags,State.ToInteger(Count)); inc(Count); end;
-  Coord := State.ToCoord(2);
-  if Level.FindNearSpace(Coord, State.ToInteger(3),flags) then
+  iCoord := iState.ToPosition(2);
+  if iLevel.FindNearSpace( iCoord, iState.ToInteger(3), iState.ToFlags32(4) ) then
   begin
-    State.PushCoord( Coord );
-    Result := 1;
-  end
-  else
-    Result := 0;
+    iState.PushCoord( iCoord );
+    Exit( 1 );
+  end;
+  Exit( 0 );
 end;
 
-const lua_level_lib : array[0..13] of luaL_Reg = (
+const lua_level_lib : array[0..9] of luaL_Reg = (
       ( name : 'drop_npc';           func : @lua_level_drop_npc),
       ( name : 'drop_item';          func : @lua_level_drop_item),
       ( name : 'explosion';          func : @lua_level_explosion),
@@ -641,11 +548,7 @@ const lua_level_lib : array[0..13] of luaL_Reg = (
       ( name : 'remove_travel_point';func : @lua_level_remove_travel_point),
 
       ( name : 'find';               func : @lua_level_find),
-      ( name : 'find_tile';          func : @lua_level_find_tile),
-      ( name : 'find_nearest';       func : @lua_level_find_nearest),
-      ( name : 'find_empty_square';  func : @lua_level_find_empty_square),
-      ( name : 'find_empty_coord';   func : @lua_level_find_empty_coord),
-      ( name : 'find_near_coord';    func : @lua_level_find_near_coord),
+      ( name : 'random_near_coord';  func : @lua_level_random_near_coord),
       ( name : nil;                  func : nil; )
 );
 
@@ -694,25 +597,6 @@ begin
   until isProperCoord(GC) and (GetCell(GC) = CELL_FLOOR) and (isEmpty(GC,EmptyFlags));
   Where := GC;
   Exit(true);
-end;
-
-function TLevel.FindEmptySquare: TCoord2D;
-const kCriticalSize = 60000;
-var iCritical : Word;
-    iCoord    : TCoord2D;
-begin
-  iCritical := 0;
-  repeat
-    Inc( iCritical );
-    Result := FArea.RandomCoord;
-    if ( GetCell( Result ) = CELL_FLOOR ) and ( CellsAround( Result, [CELL_FLOOR] ) = 8 ) then Exit( Result );
-  until iCritical > kCriticalSize;
-  Log('FindBigEmptySpace -- Failed!');
-  for iCoord in FArea do
-    if GetCell( iCoord ) = CELL_FLOOR then
-      Exit( iCoord );
-  Log( LOGERROR, 'FindBigEmptySpace -- Critical Failure!' );
-  raise EException.Create( 'FindEmptySquare failure!' );
 end;
 
 function TLevel.GetTileFlags ( const aCoord : TCoord2D ) : TFlags;

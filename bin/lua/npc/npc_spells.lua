@@ -33,7 +33,7 @@ core.declare("NPC_Spells",
 
 	leoric_revive = function(self)
 		local level = self:get_level()
-		local c = level:find_nearest(self,efBones)
+		local c = level:drop_coord( self, { efBones } )
 		if c then
 			local cell = cells[level:get_cell(c)]
 			if cell.raiseto then
