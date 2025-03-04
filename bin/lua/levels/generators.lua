@@ -12,7 +12,7 @@ end
 
 function generator.tile_place_raw( level, map, code, c )
 	local tile_pos    = c or coord.new(1,1)
-	local tile_object = generator.tile_new( map, generator.code_to_translation( code ), true )
+	local tile_object = generator.tile_new( level, map, generator.code_to_translation( code ), true )
 	generator.tile_place_object( level, tile_object, code, tile_pos )
 end
 
@@ -33,7 +33,7 @@ function generator.tile_place_hotspots( level, pos, tile )
 	local cell_marker = cells["marker"].nid
 	local cell_wall   = cells["stone_wall"].nid
 	local place_area  = area.new( pos, pos - coord.UNIT + tile:get_size_coord() )
-	generator.tile_place( pos, tile )
+	generator.tile_place( level, pos, tile )
 
 	for c in place_area() do
 		if level:get_cell( c ) == cell_marker then
@@ -235,7 +235,7 @@ function generator:clear_dead_ends()
 	end	end	end
 end
 
-function generator.contd_drunkard_walks( amount, steps, cell, edges1, edges2, ignore, break_on_edge )
+function generator.contd_drunkard_walks( self, amount, steps, cell, edges1, edges2, ignore, break_on_edge )
 	if amount <= 0 then return end
 	local drunk_area = area.FULL_SHRINKED
 	local c
@@ -244,7 +244,7 @@ function generator.contd_drunkard_walks( amount, steps, cell, edges1, edges2, ig
 			c = drunk_area:random_coord()
 		until self:cross_around( c, edges1 ) > 0 and
 			self:cross_around( c, edges2 ) > 0
-		generator.run_drunkard_walk( drunk_area, c, steps, cell, ignore, break_on_edge )
+		generator.run_drunkard_walk( self, drunk_area, c, steps, cell, ignore, break_on_edge )
 	end
 end
 
@@ -301,7 +301,7 @@ function generator.cave_level( self, gen_type )
 	local fluid = cells["lava"].nid
 
 	local drunk = function( amount, step, cell )
-		generator.contd_drunkard_walks( amount, step, cell, { floor_cell, fluid }, {wall_cell}, nil, true )
+		generator.contd_drunkard_walks( self, amount, step, cell, { floor_cell, fluid }, {wall_cell}, nil, true )
 	end
 
 	self:fill( wall_cell )
@@ -310,7 +310,7 @@ function generator.cave_level( self, gen_type )
 	sub_area:shrink( 4 )
 	self:fill( wall_cell, sub_area )
 
-	--generator.run_drunkard_walk( area.FULL_SHRINKED, coord.new( math.floor(w/2), math.floor(h/2) ), math.random(100)+400, floor_cell, nil, true )
+	--generator.run_drunkard_walk( self, area.FULL_SHRINKED, coord.new( math.floor(w/2), math.floor(h/2) ), math.random(100)+400, floor_cell, nil, true )
 	drunk( 10, math.random(100)+400, floor_cell )
 --	drunk( amount, step,   fluid )
 	drunk( 50, math.random(100)+200, floor_cell )
@@ -402,7 +402,7 @@ end
 function generator.room_level( self, gen_type )
 	self:fill( "stone_wall" )
 	if not generators[ gen_type ].tile_data then
-		generators[ gen_type ].tile_data = generator.load_tile_data( generators[ gen_type ].tiles )
+		generators[ gen_type ].tile_data = generator.load_tile_data( self, generators[ gen_type ].tiles )
 	end
 
 	local count = 0
@@ -415,7 +415,7 @@ function generator.room_level( self, gen_type )
 	if self.__proto.map then
 		self.__proto.map_key["*"] = "marker"
 		local w,h         = level_area.b.x, level_area.b.y
-		local tile_object = generator.tile_new( self.__proto.map, generator.code_to_translation( self.__proto.map_key ), true )
+		local tile_object = generator.tile_new( self, self.__proto.map, generator.code_to_translation( self.__proto.map_key ), true )
 		local size        = tile_object:get_size_coord()
 		local pos         = coord.new( math.floor( w / 2 - size.x / 2 ), math.floor( h / 2 - size.y / 2 ) )
 		core.log("placing map at "..pos:tostring())
@@ -526,7 +526,7 @@ function generator.room_level( self, gen_type )
 	generator.place_stairs( self )
 end
 
-function generator.load_tile_data( tiles )
+function generator.load_tile_data( self, tiles )
 	local translation = {
 		["#"] = "stone_wall",
 		["."] = "floor",
@@ -536,7 +536,7 @@ function generator.load_tile_data( tiles )
 	local data = {}
 	local marker = cells["marker"].nid
 	for _,v in ipairs(tiles) do
-		local tile     = generator.tile_new( v, translation )
+		local tile     = generator.tile_new( self, v, translation )
 		local tarea    = tile:get_area()
 		local hotspots = { n = {}, s = {}, e = {}, w = {} }
 
