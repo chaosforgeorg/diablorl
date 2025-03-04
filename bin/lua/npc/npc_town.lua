@@ -38,7 +38,7 @@ register_npc( "ogden", "townperson" )
 		local qitem = player:get_item("tavern_sign")
 		if self.greeting then
 			ui.play_sound("sfx/towners/Tavown00.wav")
-			ui.plot_talk("Thank goodness you've returned! Much has changed since you lived here, my friend. All was peaceful until the dark riders came and destroyed our village. Many were cut down where they stood, and those who took up arms were slain or dragged away to become slaves - or worse. The church at the edge of town has become desecrated, and is being used for dark rituals. The screams that echo in the night are inhuman, but some of our townsfolk may yet survive. Follow the path that runs between my tavern and the blacksmith’s shop to find the church and save who you can. Perhaps I can tell you more if we speak again. Good luck.")
+			ui.plot_talk("Thank goodness you've returned! Much has changed since you lived here, my friend. All was peaceful until the dark riders came and destroyed our village. Many were cut down where they stood, and those who took up arms were slain or dragged away to become slaves - or worse. The church at the edge of town has become desecrated, and is being used for dark rituals. The screams that echo in the night are inhuman, but some of our townsfolk may yet survive. Follow the path that runs between my tavern and the blacksmithï¿½s shop to find the church and save who you can. Perhaps I can tell you more if we speak again. Good luck.")
 			self.greeting = false
 		elseif player.quest["leoric_quest"] == 1 then
 			quests["leoric_quest"].OnJournal()
@@ -366,7 +366,7 @@ register_npc( "cow", "townperson" )
 	end,
 
 	OnTalk = function(self)
-		local travel_point = coord.new(63, 26)
+		local travel_point = coord(63, 26)
 		local level = self:get_level()
 		if not ( level:has_travel_point( self ) ) then
 			level:add_travel_point( travel_point, 'Cows' )

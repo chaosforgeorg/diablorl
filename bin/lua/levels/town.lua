@@ -169,7 +169,7 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 		player.quest["tomes"] = math.random(3)
 
 		if quests["butcher"].enabled then
-			self:drop_npc("dying", coord.new(28, 38) )
+			self:drop_npc("dying", coord(28, 38) )
 		end
 
 		if quests["water"].enabled then
@@ -191,14 +191,14 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 		end
 
 		if (player.quest["butcher"]==2) then
-			self:drop_npc("", coord.new(28, 28) )
+			self:drop_npc("", coord(28, 28) )
 			player.quest["butcher"] = 3
 		end
 
 		if player.portallevel ~= "" then
-			self:set_cell(coord.new(64,43),"shimmering_portal")
+			self:set_cell(coord(64,43),"shimmering_portal")
 		else
-			self:remove_travel_point(coord.new(64,43))
+			self:remove_travel_point(coord(64,43))
 		end
 		if TOWN_REVEAL then
 			for c in area.FULL() do

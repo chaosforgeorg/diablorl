@@ -15,8 +15,8 @@ register_cell( "book_of_blood", "story_tome" )
 		quests["valor"].OnJournal()
 		if player.quest["valor"] == 0 then
 			self:drop_item("blood_stone", c)
-			self:drop_item("blood_stone", coord.new(c.x-6, c.y-11))
-			self:drop_item("blood_stone", coord.new(c.x+6, c.y-11))
+			self:drop_item("blood_stone", coord(c.x-6, c.y-11))
+			self:drop_item("blood_stone", coord(c.x+6, c.y-11))
 			player.quest["valor"] = 1
 		end
 	end,
@@ -46,7 +46,7 @@ register_cell( "ancient_tome", "story_tome" )
 			player.quest["bone_chamber"] = 2
 			player.spells["guardian_spell"] = math.min(15, player.spells["guardian_spell"] + 1)
 			ui.msg_enter("Arcane Knowledge gained.")
-			local hydra = self:drop_npc( 'hydra',coord.new( c.x,c.y-2 ) )
+			local hydra = self:drop_npc( 'hydra',coord( c.x,c.y-2 ) )
 			hydra.hpmax = (8*player.spells["guardian_spell"]+4*player.level)
 			hydra.hp 	= hydra.hpmax
 			hydra.firebolt = player.spells['firebolt']
@@ -256,12 +256,12 @@ register_cell "pedestal_of_blood"
 			ui.msg("You put the blood stone onto the pedestal.")
 			qitem:destroy()
 			if player.quest["valor"] == 1 then
-				self:set_cell( coord.new( c.x-9, c.y-4 ), "closed_door")
+				self:set_cell( coord( c.x-9, c.y-4 ), "closed_door")
 			elseif player.quest["valor"] == 2 then
-				self:set_cell( coord.new( c.x+9, c.y-4 ), "closed_door")
+				self:set_cell( coord( c.x+9, c.y-4 ), "closed_door")
 			elseif player.quest["valor"] == 3 then
 				self:move_walls("moving_wall_1")
-				self:drop_item("arkaine's_valor", coord.new(c.x, c.y-10))
+				self:drop_item("arkaine's_valor", coord(c.x, c.y-10))
 			end
 			player.quest["valor"] = player.quest["valor"] + 1
 		end

@@ -11,7 +11,7 @@ function generator.code_to_translation( code )
 end
 
 function generator.tile_place_raw( level, map, code, c )
-	local tile_pos    = c or coord.new(1,1)
+	local tile_pos    = c or coord(1,1)
 	local tile_object = generator.tile_new( level, map, generator.code_to_translation( code ), true )
 	generator.tile_place_object( level, tile_object, code, tile_pos )
 end
@@ -32,7 +32,7 @@ end
 function generator.tile_place_hotspots( level, pos, tile )
 	local cell_marker = cells["marker"].nid
 	local cell_wall   = cells["stone_wall"].nid
-	local place_area  = area.new( pos, pos - coord.UNIT + tile:get_size_coord() )
+	local place_area  = area( pos, pos - coord.UNIT + tile:get_size_coord() )
 	generator.tile_place( level, pos, tile )
 
 	for c in place_area() do
@@ -154,7 +154,7 @@ function generator.roll_library( self )
 	for y = y1+1,y2-1 do
 		for x = x1+1, x2-1 do
 			if ((y-y1)%2 == 1)and((x-x1)%2==1) then
-				local c = coord.new(x,y)
+				local c = coord(x,y)
 				if self:get_cell(c) == cell_floor then
 					if bookshelf then
 						-- library always has one bookshelf
@@ -230,8 +230,8 @@ function generator:clear_dead_ends()
 	local MapSizeY = 100
 	for gen_x = 2, MapSizeX-1 do
 		for gen_y = 2, MapSizeY-1 do
-			if ( self:cross_around( coord.new( gen_x, gen_y), generator.CellWalls ) == 3 ) then
-				self:set_cell( coord.new( gen_x, gen_y), cells["stone_wall"].nid )
+			if ( self:cross_around( coord( gen_x, gen_y), generator.CellWalls ) == 3 ) then
+				self:set_cell( coord( gen_x, gen_y), cells["stone_wall"].nid )
 	end	end	end
 end
 
@@ -310,7 +310,7 @@ function generator.cave_level( self, gen_type )
 	sub_area:shrink( 4 )
 	self:fill( wall_cell, sub_area )
 
-	--generator.run_drunkard_walk( self, area.FULL_SHRINKED, coord.new( math.floor(w/2), math.floor(h/2) ), math.random(100)+400, floor_cell, nil, true )
+	--generator.run_drunkard_walk( self, area.FULL_SHRINKED, coord( math.floor(w/2), math.floor(h/2) ), math.random(100)+400, floor_cell, nil, true )
 	drunk( 10, math.random(100)+400, floor_cell )
 --	drunk( amount, step,   fluid )
 	drunk( 50, math.random(100)+200, floor_cell )
@@ -346,7 +346,7 @@ function generator.cave_level( self, gen_type )
 
 	local count = 0
 	for i = 1,1000 do
-		local dim = coord.new( math.random( 6, 8 ), math.random( 6, 8 ) )
+		local dim = coord( math.random( 6, 8 ), math.random( 6, 8 ) )
 		local a = area.FULL_SHRINKED:random_subarea( dim )
 		if self:scan( a, floor_cell ) then
 			a:shrink()
@@ -363,16 +363,16 @@ function generator.cave_level( self, gen_type )
 		local p = self:find_empty_square()
 		local l, r
 		if math.random(2) == 1 then
-			l = coord.new(-1,0)
-			r = coord.new( 1,0)
+			l = coord(-1,0)
+			r = coord( 1,0)
 		else
-			l = coord.new(0,-1)
-			r = coord.new(0, 1)
+			l = coord(0,-1)
+			r = coord(0, 1)
 		end
 		local el = generator.get_fence_endpoint( self, p, l )
 		local er = generator.get_fence_endpoint( self, p, r )
-		local fa = area.new( el, er )
-		local a = area.new( el - l, er - r ):expanded()
+		local fa = area( el, er )
+		local a = area( el - l, er - r ):expanded()
 		if self:scan( a, floor_cell ) then
 			self:fill( grate, fa )
 			self:set_cell( p, generator.roll_door() )
@@ -417,7 +417,7 @@ function generator.room_level( self, gen_type )
 		local w,h         = level_area.b.x, level_area.b.y
 		local tile_object = generator.tile_new( self, self.__proto.map, generator.code_to_translation( self.__proto.map_key ), true )
 		local size        = tile_object:get_size_coord()
-		local pos         = coord.new( math.floor( w / 2 - size.x / 2 ), math.floor( h / 2 - size.y / 2 ) )
+		local pos         = coord( math.floor( w / 2 - size.x / 2 ), math.floor( h / 2 - size.y / 2 ) )
 		core.log("placing map at "..pos:tostring())
 		generator.tile_place_object( self, tile_object, self.__proto.map_key, pos )
 		count = 1
@@ -425,7 +425,7 @@ function generator.room_level( self, gen_type )
 
 	if #generator.hotspots == 0 then
 		local w,h = level_area.b.x, level_area.b.y
-		local c = coord.new( math.random( w/2) + w/4, math.random( h/2) + h/4)
+		local c = coord( math.random( w/2) + w/4, math.random( h/2) + h/4)
 		for i=1,20 do
 			table.insert( generator.hotspots, c:clone() )
 		end
@@ -452,7 +452,7 @@ function generator.room_level( self, gen_type )
 		local tile_entry = table.random_pick( tile.hotspots[ direction ] )
 
 		local place_pos  = entry - tile_entry + coord.UNIT
-		local place_area = area.new( place_pos, place_pos - coord.UNIT + tile.size )
+		local place_area = area( place_pos, place_pos - coord.UNIT + tile.size )
 		local gen_ok     = level_area:contains( place_area )
 
 		if gen_ok then
@@ -477,11 +477,11 @@ function generator.room_level( self, gen_type )
 				local door_dir_y = 0
 
 				if ( direction == "w" ) or ( direction == "e" ) then
-					door_dir_x = coord.new( 0, 1 )
-					door_dir_y = coord.new( 1, 0 )
+					door_dir_x = coord( 0, 1 )
+					door_dir_y = coord( 1, 0 )
 				else
-					door_dir_x = coord.new( 1, 0 )
-					door_dir_y = coord.new( 0, 1 )
+					door_dir_x = coord( 1, 0 )
+					door_dir_y = coord( 0, 1 )
 				end
 				while ( self:get_cell( doorway_area_a - door_dir_x - door_dir_y ) == cell_floor ) and
 					( self:get_cell( doorway_area_a - door_dir_x + door_dir_y ) == cell_floor ) do
@@ -492,7 +492,7 @@ function generator.room_level( self, gen_type )
 					doorway_area_b = doorway_area_b + door_dir_x
 				end
 
-				local doorway_area = area.new( doorway_area_a, doorway_area_b )
+				local doorway_area = area( doorway_area_a, doorway_area_b )
 				local doorway = cells[ table.random_pick( generators[ gen_type ].doorways ) ].nid
 				for c in doorway_area() do
 					self:set_cell( c, doorway )
