@@ -99,49 +99,6 @@ implementation
 
 uses vsystems, vluastate, vioevent, rlui, rlglobal, rlgame;
 
-function lua_command_messages(L: PLua_State): Integer; cdecl;
-begin
-  UI.ShowRecent();
-  Result := 0;
-end;
-
-function lua_command_help(L: PLua_State): Integer; cdecl;
-begin
-  UI.ShowManual();
-  Result := 0;
-end;
-
-function lua_command_quit(L: PLua_State): Integer; cdecl;
-begin
-  GameEnd := true;
-  Game.Player.SpeedCount := Game.Player.SpeedCount - 50;
-  Result := 0;
-end;
-
-function lua_command_screenshot(L: PLua_State): Integer; cdecl;
-var State: TLuaState;
-begin
-  State.Init(L);
-  UI.ScreenShot( State.ToBoolean( 1 ) );
-  Result := 0;
-end;
-
-function lua_command_quick_slot(L: PLua_State): Integer; cdecl;
-var State: TLuaState;
-begin
-  State.Init(L);
-  Game.Player.useQuickSlot( State.ToInteger( 1 ) );
-  Result := 0;
-end;
-
-function lua_command_quick_spell(L: PLua_State): Integer; cdecl;
-var State: TLuaState;
-begin
-  State.Init(L);
-  Game.Player.useQuickSkill( State.ToInteger( 1 ) );
-  Result := 0;
-end;
-
 constructor TDiabloConfig.Create( const aFilename : AnsiString );
 begin
   inherited Create();
@@ -222,20 +179,14 @@ begin
   if GodMode then
     Load( DataPath+'godmode.lua' );
 
-  Option_RunDelay   := Entries['run_delay'];
-  Option_TownReveal := Entries['reveal_town'];
-  Option_WalkSound  := Entries['walk_sound'];
+  Option_RunDelay   := Configure( 'run_delay', 10 );
+  Option_TownReveal := Configure( 'reveal_town', False );
+  Option_WalkSound  := Configure( 'walk_sound', True );
 
-  UI.SetSoundVolume(Entries['sound_volume']);
-  UI.SetMusicVolume(Entries['music_volume']);
+  UI.SetSoundVolume(Configure('sound_volume',100));
+  UI.SetMusicVolume(Configure('music_volume',100));
   //lua bounds
   SetConstant('VERSION', Version);
-  State.Register( 'command', 'messages', @lua_command_messages );
-  State.Register( 'command', 'quit', @lua_command_quit );
-  State.Register( 'command', 'help', @lua_command_help );
-  State.Register( 'command', 'screenshot', @lua_command_screenshot );
-  State.Register( 'command', 'quick_slot', @lua_command_quick_slot );
-  State.Register( 'command', 'quick_spell', @lua_command_quick_spell );
   TGameUI.RegisterLuaAPI( State );
 end;
 
