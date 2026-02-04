@@ -327,7 +327,7 @@ register_cell( "secluded_shrine", "shrine" )
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
 		ui.msg("@<The way is made clear when viewed from above.@>")
-		self.light[ vlfExplored ] = true
+		self:set_light_flag( vlfExplored, true )
 		self:set_cell( c, "visited_shrine" )
 	end,
 }

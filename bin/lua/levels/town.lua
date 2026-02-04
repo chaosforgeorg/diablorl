@@ -202,7 +202,7 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 		end
 		if TOWN_REVEAL then
 			for c in area.FULL() do
-				self.light[ c ][ vlfExplored ] = true
+				self:set_light_flag( c, vlfExplored, true )
 			end
 			self:add_travel_point( self:find_coord("stairs_down"), cells["stairs_down"].OnTravelName(self) )
 			for n in self:children("npc") do
