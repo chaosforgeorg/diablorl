@@ -1073,10 +1073,10 @@ begin
                 else DMax := GetInteger('dmax');
 
               if (dmax > 0) then
-                iMenu.Add(VFormat('@1 (L:@<@2@>) @<@3-@4@> Cost: @<@5',
+                iMenu.Add(Format('%s (L:@<%d@>) @<%d-%d@> Cost: @<%d',
                   [Padded(Name, 13), slvl + iBonus, dmin, dmax, cost]), True, Pointer(iCount))
               else
-                iMenu.Add(VFormat('@1 (L:@<@2@>) Cost: @<@3',
+                iMenu.Add(Format('%s (L:@<%d@>) Cost: @<%d',
                   [Padded(Name, 13), slvl + iBonus, cost]), True, Pointer(iCount));
             end;
           end;

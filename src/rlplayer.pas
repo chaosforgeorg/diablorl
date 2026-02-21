@@ -236,12 +236,12 @@ TPlayer = class(TNPC)
 
        // Always returns False.
        //
-       // aText VFormatted with aParams is emoted. If Sound <> '' it is also played.
-       function doFail( const aText : AnsiString; const aParams : array of Const; const aSound : AnsiString = '' ) : Boolean;
+       // aText Formatted with aParams is emoted. If Sound <> '' it is also played.
+       function Fail( const aText : AnsiString; const aParams : array of Const; const aSound : AnsiString = '' ) : Boolean;
 
        // Always returns True.
        //
-       // aText VFormatted with aParams is emoted. aCost is deducted from speedcount. If Sound <> '' it is also played.
+       // aText Formatted with aParams is emoted. aCost is deducted from speedcount. If Sound <> '' it is also played.
        function Success( const aText : AnsiString; const aParams : array of Const; aCost : DWord = 0; const aSound : AnsiString = '' ) : Boolean;
 
        function TryWear( aItem : TItem ) : Boolean;
@@ -2004,11 +2004,11 @@ begin
   Exit( nil );
 end;
 
-function TPlayer.doFail ( const aText : AnsiString; const aParams : array of const; const aSound : AnsiString ) : Boolean;
+function TPlayer.Fail( const aText : AnsiString; const aParams : array of const; const aSound : AnsiString ) : Boolean;
 begin
   if FSilentAction then Exit( False );
   if aSound <> ''  then UI.PlaySound( aSound );
-  if aText  <> ''  then UI.Msg( VFormat( aText, aParams ) );
+  if aText  <> ''  then UI.Msg( Format( aText, aParams ) );
   Exit( False );
 end;
 
@@ -2017,7 +2017,7 @@ begin
   if aCost <> 0    then Dec( FSpeedCount, aCost );
   if FSilentAction then Exit( True );
   if aSound <> ''  then UI.PlaySound( aSound );
-  if aText <> ''   then UI.Msg( VFormat( aText, aParams ) );
+  if aText <> ''   then UI.Msg( Format( aText, aParams ) );
   Exit( True );
 end;
 
@@ -2027,39 +2027,39 @@ begin
   Slot := ItemToSlot( aItem );
   case Slot of
     1..ITEMS_EQ    : Exit( True );
-    SlotFailReq    : Exit( doFail( '@<"I can''t use this yet"@>', [], '13' ) );
-    SlotFailHas2H  : Exit( doFail( 'Take off your two handed stuff first.', [] ) );
-    SlotFailWear2H : Exit( doFail( 'You need two hands free for this.', [] ) );
-    SlotFailTown   : Exit( doFail( '@<"I can''t use this here"@>', [], '27' ) );
+    SlotFailReq    : Exit( Fail( '@<"I can''t use this yet"@>', [], '13' ) );
+    SlotFailHas2H  : Exit( Fail( 'Take off your two handed stuff first.', [] ) );
+    SlotFailWear2H : Exit( Fail( 'You need two hands free for this.', [] ) );
+    SlotFailTown   : Exit( Fail( '@<"I can''t use this here"@>', [], '27' ) );
   else
-    Exit( doFail( 'What?', [] ) );
+    Exit( Fail( 'What?', [] ) );
   end;
 end;
 
 function TPlayer.ActionAddToBackPack ( aItem : TItem ) : Boolean;
 begin
   if aItem = nil then Exit( False );
-  if InvFull or ( aItem.Volume + InvVolume > MaxVolume ) then Exit( doFail( 'You have no room in your inventory!',[] ) );
+  if InvFull or ( aItem.Volume + InvVolume > MaxVolume ) then Exit( Fail( 'You have no room in your inventory!',[] ) );
   Add( aItem );
-  Exit( Success( 'You put @1 into your backpack.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
+  Exit( Success( 'You put %s into your backpack.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
 end;
 
 function TPlayer.ActionSwapToBackPack( aItem, bItem : TItem ) : Boolean;
 begin
   if bItem = nil then Exit( ActionAddToBackPack ( aItem ) );
-  if aItem.Volume + InvVolume - bItem.Volume > MaxVolume then Exit( doFail( 'You have no room in your inventory!',[] ) );
-  Exit( Success( 'You put @1 back into your backpack.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
+  if aItem.Volume + InvVolume - bItem.Volume > MaxVolume then Exit( Fail( 'You have no room in your inventory!',[] ) );
+  Exit( Success( 'You put %s back into your backpack.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
 end;
 
 function TPlayer.ActionQuickslotItem ( aItem : TItem; aSlot : Byte = 0 ) : Boolean;
 begin
   if aSlot > ITEMS_QS then Exit( False ); // throw?
   if aSlot = 0 then aSlot := GetFreeSlot;
-  if aSlot = 0 then Exit( doFail( 'You have no free quickslots!',[] ) );
+  if aSlot = 0 then Exit( Fail( 'You have no free quickslots!',[] ) );
   if aItem <> nil then
   begin
-    if not (aItem.IType in [TYPE_POTION, TYPE_SCROLL] ) then Exit( doFail( 'Not a quickslot item!',[] ) );
-    if not aItem.ReqsMet( False ) then Exit( doFail( '@<"I can''t use this yet"@>', [], '13' ) );
+    if not (aItem.IType in [TYPE_POTION, TYPE_SCROLL] ) then Exit( Fail( 'Not a quickslot item!',[] ) );
+    if not aItem.ReqsMet( False ) then Exit( Fail( '@<"I can''t use this yet"@>', [], '13' ) );
   end;
 
   if FQuickSlots[aSlot] <> nil then
@@ -2068,7 +2068,7 @@ begin
 
   FQuickSlots[aSlot] := aItem;
   if aItem = nil then Exit( True );
-  Exit( Success( 'You put @1 behind your belt.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
+  Exit( Success( 'You put %s behind your belt.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
 end;
 
 function TPlayer.ActionDrop ( aItem : TItem ) : Boolean;
@@ -2086,7 +2086,7 @@ begin
     NilItem( aItem );
 
   TLevel(Parent).Drop( aItem, FPosition );
-  Exit( Success( 'You drop @1.', [ aItem.GetName(TheName) ], SpdMov ) );
+  Exit( Success( 'You drop %s.', [ aItem.GetName(TheName) ], SpdMov ) );
 end;
 
 function TPlayer.ActionWear ( aItem : TItem; aSlot : Byte = 0 ) : Boolean;
@@ -2095,20 +2095,20 @@ begin
   begin
     aSlot := ItemToSlot( aItem );
     case aSlot of
-      SlotFailReq   : Exit( doFail( '@<"I can''t use this yet"@>', [], '13' ) );
-      SlotFailHas2H : Exit( doFail( 'Take off your two handed stuff first.', [] ) );
-      SlotFailWear2H: Exit( doFail( 'You need two hands free for this.', [] ) );
-      SlotFailTown  : Exit( doFail( '@<"I can''t use this here"@>', [], '27' ) );
+      SlotFailReq   : Exit( Fail( '@<"I can''t use this yet"@>', [], '13' ) );
+      SlotFailHas2H : Exit( Fail( 'Take off your two handed stuff first.', [] ) );
+      SlotFailWear2H: Exit( Fail( 'You need two hands free for this.', [] ) );
+      SlotFailTown  : Exit( Fail( '@<"I can''t use this here"@>', [], '27' ) );
       SlotPotion,
       SlotScroll,
       SlotBook      : Exit( UseItem( aItem ) );
       1..ITEMS_EQ   : ;
     else
-      Exit( doFail( 'What?',[] ) );
+      Exit( Fail( 'What?',[] ) );
     end;
   end;
   if aSlot > ITEMS_EQ then Exit( False ); // throw?
-  if aSlot = 0 then Exit( doFail( 'What?',[] ) );
+  if aSlot = 0 then Exit( Fail( 'What?',[] ) );
   if aItem <> nil then
     if not TryWear( aItem ) then Exit( False );
 
@@ -2120,9 +2120,9 @@ begin
   FEq[aSlot] := aItem;
   if aItem = nil then Exit( True );
   if aSlot in [SlotRHand, SlotLHand] then
-    Exit( Success( 'You wield @1.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) )
+    Exit( Success( 'You wield %s.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) )
   else
-    Exit( Success( 'You wear @1.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
+    Exit( Success( 'You wear %s.', [ aItem.GetName(TheName) ], SpdMov, aItem.Sound1 ) );
 end;
 
 procedure TPlayer.Remove ( aNode : TNode ) ;
