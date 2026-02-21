@@ -1,4 +1,4 @@
-sound     = "DEFAULT"
+sound     = "NONE"
 mpq       = "e:\\Games\\Diablo\\DIABDAT.MPQ"
 
 godkey = {}

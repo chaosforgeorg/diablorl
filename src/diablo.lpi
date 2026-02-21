@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="11"/>
+    <Version Value="12"/>
     <PathDelim Value="\"/>
     <General>
       <Flags>
@@ -9,9 +9,9 @@
         <MainUnitHasCreateFormStatements Value="False"/>
         <MainUnitHasTitleStatement Value="False"/>
         <LRSInOutputDirectory Value="False"/>
+        <CompatibilityMode Value="True"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
-      <MainUnit Value="0"/>
       <Title Value="diablorl"/>
       <UseAppBundle Value="False"/>
     </General>
@@ -32,7 +32,7 @@
       <local>
         <CommandLineParams Value="-god -console"/>
         <LaunchingApplication PathPlusParams="C:\Windows\system32\cmd.exe /C &quot;${TargetCmdLine}&quot;"/>
-        <WorkingDirectory Value="F:\diablorl\bin"/>
+        <WorkingDirectory Value="..\bin"/>
       </local>
       <FormatVersion Value="2"/>
       <Modes Count="1">
@@ -40,7 +40,7 @@
           <local>
             <CommandLineParams Value="-god -console"/>
             <LaunchingApplication PathPlusParams="C:\Windows\system32\cmd.exe /C &quot;${TargetCmdLine}&quot;"/>
-            <WorkingDirectory Value="F:\diablorl\bin"/>
+            <WorkingDirectory Value="..\bin"/>
           </local>
         </Mode0>
       </Modes>
@@ -143,6 +143,11 @@
         <StackChecks Value="True"/>
       </Checks>
     </CodeGeneration>
+    <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf3"/>
+      </Debugging>
+    </Linking>
     <Other>
       <CompilerMessages>
         <IgnoredMessages idx5024="True"/>
