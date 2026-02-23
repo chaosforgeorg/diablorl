@@ -314,15 +314,15 @@ procedure TGameUI.Prepare;
 begin
   FConsole.Clear;
   FMainScreen    := TUIMainScreen.Create( FUIRoot );
-  FMessages      := FMainScreen.Msg;
-  FMap           := FMainScreen.Map;
+  FUIMessages    := FMainScreen.Msg;
+  FUIMap         := FMainScreen.Map;
   FPlayer        := Game.Player;
 end;
 
 procedure TGameUI.UnPrepare;
 begin
-  FMessages := nil;
-  FMap      := nil;
+  FUIMessages := nil;
+  FUIMap      := nil;
   FreeAndNil( FMainScreen );
 end;
 
