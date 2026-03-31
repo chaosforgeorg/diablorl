@@ -1,0 +1,14 @@
+{
+    "debugPath": "bin",
+    "releasePath": "bin",
+    "libPath": "ext\\windows",
+    "instantFpcPath": "C:\\lazarus\\fpc\\3.2.2\\bin\\x86_64-win64\\instantfpc.exe",
+    "fpcPath": "C:\\lazarus\\fpc\\3.2.2\\bin\\x86_64-win64\\fpc.exe",
+    "diablorlBasePath": "d:\\diablorl",
+    "valkyrieSourcePath": "d:\\fpcvalkyrie",  //The folder needs to be adjacent to diablorlBasePath for various build processes to work
+    "lazarusPath": "C:\\lazarus",
+    "diablorlMainFile": "rl.pas",
+    "diablorlExe": "rl.exe",
+    "tmpPath": "tmp",
+    "luaPath": "c:\\Tools\\lua5.1.exe"
+}

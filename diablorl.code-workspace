@@ -1,10 +1,24 @@
 {
 	"folders": [
 		{
-			"path": "."
+			"path": "src",
+			"name": "diablorl"
 		},
 		{
-			"path": "..\\fpcvalkyrie\\src"
+			"path": "bin",
+			"name": "bin"
+		},
+		{
+			"path": "..\\fpcvalkyrie\\src",
+			"name": "fpcvalkyrie"
+		},
+		{
+			"path": "..\\fpcvalkyrie\\libs",
+			"name": "libs"
+		},
+		{
+			"path": "..\\fpcvalkyrie\\lua",
+			"name": "lua"
 		}
 	],
 	"settings": {}
