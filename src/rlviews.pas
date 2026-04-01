@@ -1,483 +1,561 @@
 {$include rl.inc}
 // @abstract(Non-game views for DiabloRL)
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
+//
+// TODO:     UI.PlaySound('sfx/items/titlemov.wav'); on
 
 unit rlviews;
 interface
 
 uses Classes, SysUtils,
-     vuielement, viotypes, vuitypes, vioevent, vconui, vconuirl, vconuiext, vuielements;
-
-type TUIMenuScreen = class( TUIElement )
-  constructor Create( aParent : TUIElement );
-  procedure OnRedraw; override;
-protected
-  FShift : TUIPoint;
-end;
-
-type TUIFullScreen = class( TConUIFullWindow )
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-end;
-
-type TUIManualScreen = class( TUIFullScreen )
-  constructor Create( aParent : TUIElement );
-end;
-
-type TUIMortemScreen = class( TUIFullScreen )
-  constructor Create( aParent : TUIElement );
-end;
-
-type TUIMessagesScreen = class( TUIFullScreen )
-  constructor Create( aParent : TUIElement; aMessages : TUIChunkBuffer );
-end;
-
-type TUIHighscoreViewer = class( TConUIBarFullWindow )
-  constructor Create( aParent : TUIElement; aContent : TUIStringArray );
-end;
-
-type TUIIntroScreen = class( TUIMenuScreen )
-  constructor Create( aParent : TUIElement );
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-end;
-
-type TUIOutroScreen = class( TUIElement )
-  constructor Create( aParent : TUIElement );
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-end;
-
-type TUIMainMenuScreen = class( TUIMenuScreen )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnSelect( aSender : TUIElement; aIndex : DWord; aItem : TUIMenuItem ) : Boolean;
-private
-  FCurrent : Byte;
-  FMenu    : TConUIMenu;
-end;
-
-type TUIKlassScreen = class( TUIMenuScreen )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnSelect( aSender : TUIElement; aIndex : DWord; aItem : TUIMenuItem ) : Boolean;
-private
-  FCurrent : Byte;
-  FMenu    : TConUIMenu;
-  FStats   : TConUIText;
-  FDesc    : TConUIText;
-end;
-
-type TUINameScreen = class( TUIMenuScreen )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-end;
-
-type TUIConfirmDialog = class( TConUIWindow )
-  constructor Create( aParent : TUIElement; const aQuery : AnsiString; const aQuery2 : AnsiString = '' );
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-end;
-
-
+     vuitypes, // TUIChunkBuffer
+     viotypes, vtigstyle;
 
 const GAMEMENU_CONT = 0;
       GAMEMENU_HELP = 2;
       GAMEMENU_SAVE = 3;
       GAMEMENU_QUIT = 4;
 
-type TUIGameMenu = class( TConUIWindow )
-  constructor Create( aParent : TUIElement );
-  function OnCancel( aSender : TUIElement ) : Boolean;
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-private
-  FMenu  : TConUIMenu;
+type TMenuScreen = class( TIOLayer )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsFinished : Boolean; override;
+  function IsModal : Boolean; override;
+protected
+  FFinished : Boolean;
+  FShift   : TIOPoint;
 end;
 
+type TFullScreenLayer = class( TIOLayer )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsFinished : Boolean; override;
+  function IsModal : Boolean; override;
+protected
+  FFinished : Boolean;
+  FHeader   : Ansistring;
+  FFooter   : Ansistring;
+end;
+
+type TScrollingLayer = class( TFullScreenLayer )
+  constructor Create( aContent : TIOStringArray );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  destructor Destroy; override;
+protected
+  FContent    : TIOStringArray;
+  FScrollDown : Boolean;
+  FStyle      : TTIGStyle;
+end;
+
+type TManualScreen = class( TScrollingLayer )
+  constructor Create;
+end;
+
+type TMortemScreen = class( TScrollingLayer )
+  constructor Create;
+end;
+
+type TMessagesScreen = class( TScrollingLayer )
+  constructor Create( aMessages : TUIChunkBuffer );
+end;
+
+type THighscoreViewer = class( TScrollingLayer )
+  constructor Create( aContent : TIOStringArray );
+end;
+
+type TIntroScreen = class( TMenuScreen )
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+end;
+
+type TOutroScreen = class( TIOLayer )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsFinished : Boolean; override;
+  function IsModal : Boolean; override;
+protected
+  FFinished : Boolean;
+end;
+
+type TMainMenuScreen = class( TMenuScreen )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+protected
+  FCanLoad : Boolean;
+end;
+
+type TKlassInfo = record
+  Name  : AnsiString;
+  Desc  : AnsiString;
+  Level : Integer;
+  Str   : Integer;
+  Mag   : Integer;
+  Dex   : Integer;
+  Vit   : Integer;
+end;
+
+type TKlassScreen = class( TMenuScreen )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+protected
+  FKlasses : array of TKlassInfo;
+  FCount   : Integer;
+end;
+
+type TNameScreen = class( TMenuScreen )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+protected
+  FName : array[0..32] of Char;
+end;
+
+type TConfirmDialog = class( TIOLayer )
+  constructor Create( const aQuery : AnsiString );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsFinished : Boolean; override;
+  function IsModal : Boolean; override;
+protected
+  FFinished : Boolean;
+  FQuery    : AnsiString;
+  class var FResult   : DWord;
+public
+  class property Result : DWord read FResult;
+end;
+
+type TGameMenu = class( TIOLayer )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsFinished : Boolean; override;
+  function IsModal : Boolean; override;
+protected
+  FFinished : Boolean;
+  class var FResult   : DWord;
+public
+  class property Result : DWord read FResult;
+end;
 
 implementation
 
-uses vuiconsole, vluasystem, vutil, rlglobal, rlui, rlgame, math;
+uses vluasystem, vutil, vtig, vtigio, rlglobal, rlui, rlgame, math;
 
-{ TUIHighscoreViewer }
+{ TMenuScreen }
 
-constructor TUIHighscoreViewer.Create(aParent: TUIElement; aContent: TUIStringArray);
-var iRect    : TUIRect;
-    iContent : TConUIStringList;
+constructor TMenuScreen.Create;
+var iSize : TIOPoint;
 begin
-  inherited Create( aParent, 'DiabloRL Highscores', '@<Use arrows, PgUp, PgDown to scroll, Escape or Enter to exit@>' );
-  iRect := aParent.GetDimRect.Shrinked(1,2);
-  iContent := TConUIStringList.Create( Self, iRect, aContent, True );
-  iContent.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEDOWN ];
-  TConUIScrollableIcons.Create( Self, iContent, iRect, Point( FAbsolute.x2 - 7, FAbsolute.y ) );
+  VTIG_EventClear;
+  FFinished := False;
+  iSize  := VTIG_GetIOState.Size;
+  FShift := Point( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
 end;
 
-{ TUIConfirmDialog }
-
-constructor TUIConfirmDialog.Create ( aParent : TUIElement; const aQuery : AnsiString; const aQuery2 : AnsiString = '' );
-var iPos  : TPoint;
-    iSize : TPoint;
+procedure TMenuScreen.Update( aDTime : Integer; aActive : Boolean );
 begin
-  iSize.Init( Length( aQuery )+6, 6 );
-  if aQuery2 <> '' then
-  begin
-    iSize.X := Max( iSize.X, Length( aQuery2 ) + 6 );
-    iSize.Y := iSize.Y + 1;
-  end;
-  iPos := aParent.AbsDim.GetCenter - Point( iSize.X div 2 + 1, iSize.Y div 2 + 2 );
-  inherited Create( aParent, Rectangle( iPos, iSize ), '' );
-  TConUILabel.Create( Self, Point( 1, 0 ), aQuery );
-  if aQuery2 <> '' then TConUILabel.Create( Self, Point( 1, 1 ), aQuery2 );
-  TConUILabel.Create( Self, Point( iSize.X div 2 - 4, iSize.Y-4 ), '@yy@> / @yn@>' );
-  UI.Root.GrabInput( Self );
-  FEventFilter := [ VEVENT_KEYDOWN ];
+  VTIG_Clear;
+  VTIG_Begin( 'menu_logo', Point( 44, 13 ), Point( 19, 1 ) + FShift );
+  VTIG_Text( '{r  ####                           ####   }');
+  VTIG_Text( '{r  #####  #    ##    ###    #    ######  }');
+  VTIG_Text( '{r  ## ##  #   #  #   #  #   #    ##  ##  }');
+  VTIG_Text( '{r  ## ##  #   #  #   ###    #    ##  ##  }');
+  VTIG_Text( '{r  #}{y# #}{r#  #   }{y#}{r##}{y#   #  #   #    }{y#}{r#  #}{y#  }');
+  VTIG_Text( '{y  ####   #   #  #   ###    #### ######  }');
+  VTIG_Text( '{y  ###           #                ####   }');
+  VTIG_Text( '{L           R O G U E L I K E            }');
+  VTIG_Text( '{L                '+VERSION+'}' );
+  VTIG_Text( '' );
+  VTIG_Text( '         by {!Kornel Kisielewicz}          ' );
+  VTIG_Text( ' {!Chris Johnson} and {!Mel''nikova Anastasia}' );
+  VTIG_End;
 end;
 
-function TUIConfirmDialog.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
+function TMenuScreen.IsFinished : Boolean;
 begin
-  case event.Code of
-    VKEY_N,
-    VKEY_ESCAPE : begin Free; UI.SetUILoopResult(0); Exit( True ); end;
-    VKEY_Y      : begin Free; UI.SetUILoopResult(1); Exit( True ); end;
-  else Exit( inherited OnKeyDown( event ) );
-  end;
+  Exit( FFinished );
 end;
 
-{ TUIGameMenu }
-
-constructor TUIGameMenu.Create ( aParent : TUIElement ) ;
-var iPos  : TPoint;
-    iSize : TPoint;
+function TMenuScreen.IsModal : Boolean;
 begin
-  iSize.Init( 22, 8 );
-  iPos := aParent.AbsDim.GetCenter - Point( iSize.X div 2, iSize.Y div 2 + 2 );
-  inherited Create( aParent, Rectangle( iPos, iSize ), '' );
-  EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEDOWN ];
-  UI.Root.GrabInput( Self );
-
-  FMenu := TConUIMenu.Create( Self, Point(2,1) );
-  FMenu.Pos := FMenu.Pos + Point(1,0);
-  FMenu.OnConfirmEvent := @OnConfirm;
-  FMenu.OnCancelEvent  := @OnCancel;
-
-  FMenu.Add(' Return to game');
-  FMenu.Add('   Help file');
-  FMenu.Add(' Save and quit');
-  FMenu.Add('     Quit');
-end;
-
-function TUIGameMenu.OnCancel ( aSender : TUIElement ) : Boolean;
-begin
-  UI.SetUILoopResult( GAMEMENU_CONT );
-  Free;
   Exit( True );
 end;
 
-function TUIGameMenu.OnConfirm ( aSender : TUIElement ) : Boolean;
+{ TFullScreenLayer }
+
+constructor TFullScreenLayer.Create;
 begin
-  if (FMenu.Selected = GAMEMENU_QUIT) and (not GodMode) then
-    if not UI.YesNoDialog('If you quit without saving, your character will be lost!', 'Are you sure?') then
-    begin
-      UI.Root.GrabInput( Self );
-      Exit( True );
+  VTIG_EventClear;
+  VTIG_Clear;
+  FFinished := False;
+  FHeader   := '';
+  FFooter   := ' Use {!arrows}, {!PgUp}, {!PgDown} to scroll, {!Escape} or {!Enter} to exit.';
+end;
+
+procedure TFullScreenLayer.Update( aDTime : Integer; aActive : Boolean );
+begin
+end;
+
+function TFullScreenLayer.IsFinished : Boolean;
+begin
+  Exit( FFinished );
+end;
+
+function TFullScreenLayer.IsModal : Boolean;
+begin
+  Exit( True );
+end;
+
+{ TScrollingLayer }
+
+constructor TScrollingLayer.Create( aContent : TIOStringArray );
+begin
+  inherited Create;
+  VTIG_ResetScroll( 'scrolling_view' );
+  FContent    := aContent;
+  FScrollDown := False;
+  FStyle      := VTIGDefaultStyle;
+  FStyle.Padding[ VTIG_WINDOW_PADDING ] := Point( 0,1 );
+  FStyle.Frame[ VTIG_BORDER_FRAME ]     := #196+#196+'  '+#196+#196+#196+#196;
+end;
+
+procedure TScrollingLayer.Update( aDTime : Integer; aActive : Boolean );
+var i : Integer;
+begin
+  VTIG_PushStyle( @FStyle );
+  VTIG_BeginWindow( FHeader, 'scrolling_view', VTIG_GetIOState.Size, Point( 1, 1 ) );
+  if FContent.Size > 0 then
+    for i := 0 to FContent.Size - 1 do
+      VTIG_Text( FContent[i] );
+  if FContent.Size > 22 then
+    VTIG_Scrollbar( FScrollDown );
+  FScrollDown := False;
+  VTIG_End( FFooter );
+  VTIG_PopStyle;
+  if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
+  inherited Update( aDTime, aActive );
+end;
+
+destructor TScrollingLayer.Destroy;
+begin
+  FreeAndNil( FContent );
+  inherited Destroy;
+end;
+
+{ TManualScreen }
+
+constructor TManualScreen.Create;
+begin
+  inherited Create( TextFileToIOStringArray( DataPath + 'manual.txt' ) );
+  FHeader := ' {!DiabloRL} Manual ({!manual.txt})';
+end;
+
+{ TMortemScreen }
+
+constructor TMortemScreen.Create;
+begin
+  inherited Create( TextFileToIOStringArray( WritePath + 'mortem.txt' ) );
+  FHeader := ' {!DiabloRL} PostMortem ({!mortem.txt})';
+end;
+
+{ TMessagesScreen }
+
+constructor TMessagesScreen.Create( aMessages : TUIChunkBuffer );
+var iChunkList : TUIChunkList;
+begin
+  inherited Create( nil );
+  FHeader  := ' {!DiabloRL} Past messages viewer';
+  FContent := TIOStringArray.Create;
+  for iChunkList in aMessages do
+    FContent.Push( ChunkListToString( iChunkList ) );
+  FScrollDown := True;
+  FStyle.Padding[ VTIG_WINDOW_PADDING ] := Point(-1,1 );
+end;
+
+{ THighscoreViewer }
+
+constructor THighscoreViewer.Create( aContent : TIOStringArray );
+begin
+  inherited Create( aContent );
+  FHeader := ' {!DiabloRL} Highscores';
+end;
+
+{ TIntroScreen }
+
+procedure TIntroScreen.Update( aDTime : Integer; aActive : Boolean );
+begin
+  inherited Update( aDTime, aActive );
+  VTIG_Begin( 'intro_text', Point( 60, 10 ), Point( 10, 15 ) + FShift );
+  VTIG_Text( 'This is the 0.5 version of Diablo Roguelike, much features' );
+  VTIG_Text( 'are still missing, many more are planned. If you''d like to' );
+  VTIG_Text( 'see this project continued,  please drop by the ChaosForge' );
+  VTIG_Text( 'forums ({!http://forum.chaosforge.org}),  and leave a comment' );
+  VTIG_Text( 'at the DiabloRL board to encourage further development!' );
+  VTIG_Text( 'encourage further development!' );
+  VTIG_Text( '' );
+  VTIG_Text( 'To enable sound and music, edit the {!config.lua} file.' );
+  VTIG_Text( 'Press <{!Enter}> to continue...' );
+  VTIG_End;
+  if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
+end;
+
+{ TOutroScreen }
+
+constructor TOutroScreen.Create;
+begin
+  VTIG_EventClear;
+  VTIG_Clear;
+  FFinished := False;
+end;
+
+procedure TOutroScreen.Update( aDTime : Integer; aActive : Boolean );
+begin
+  VTIG_Begin( 'outro_text', VTIG_GetIOState.Size - Point( 2, 2 ), Point( 1, 1 ) );
+  VTIG_Text( 'Thank you for playing Diablo Roguelike!' );
+  VTIG_Text( 'This is just a beta, keep your eyes open for the full release!' );
+  VTIG_Text( '' );
+  VTIG_Text( 'Features planned for DiabloRL:' );
+  VTIG_Text( ' -- the full range of Diablo items, monsters, uniques, prefixes and spells' );
+  VTIG_Text( ' -- entering hell and missing caves content' );
+  VTIG_Text( ' -- all the original Diablo quests with the original texts' );
+  VTIG_Text( ' -- all the hidden quest locations and uniques' );
+  VTIG_Text( ' -- additional quests by Blizzard that didn''t appear in Diablo' );
+  VTIG_Text( ' -- missing spells and spell effects' );
+  VTIG_Text( ' -- additional Hellfire classes -- Monk, Bard and Barbarian' );
+  VTIG_Text( ' -- maybe additional Hellfire content -- spells, items, quests, uniques.' );
+  VTIG_Text( ' -- Programmer''s edition -- how the author himself see''s the world of Diablo' );
+  VTIG_Text( ' -- and special rooms in dungeons' );
+  VTIG_Text( '' );
+  VTIG_Text( '' );
+  VTIG_Text( 'Well, at least that would be if DiabloRL would be continued. It all depends' );
+  VTIG_Text( 'on {!you}! If you want this project continued then drop me a note at' );
+  VTIG_Text( '{!epyon(at)chaosforge.org}... Comments, suggestions, death threats all welcome.' );
+  VTIG_Text( '' );
+  VTIG_Text( 'Again, thank you for your time spent playing DiabloRL.' );
+  VTIG_Text( 'Press {!Enter} to quit...' );
+  VTIG_End;
+  if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
+end;
+
+function TOutroScreen.IsFinished : Boolean;
+begin
+  Exit( FFinished );
+end;
+
+function TOutroScreen.IsModal : Boolean;
+begin
+  Exit( True );
+end;
+
+{ TMainMenuScreen }
+
+constructor TMainMenuScreen.Create;
+begin
+  inherited Create;
+  FCanLoad := FileExists( WritePath + 'save' );
+end;
+
+procedure TMainMenuScreen.Update( aDTime : Integer; aActive : Boolean );
+begin
+  inherited Update( aDTime, aActive );
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_Begin( 'main_menu', Point( 21, 9 ), Point( 29, 15 ) + FShift );
+  VTIG_PopStyle;
+
+  if VTIG_Selectable( '   New Game' ) then
+  begin
+    UI.PlaySound('sfx/items/titlslct.wav');
+    FFinished := True;
+  end;
+  if VTIG_Selectable( '   Load Game', FCanLoad ) then
+  begin
+    GameLoad := True;
+    UI.PlaySound('sfx/items/titlslct.wav');
+    FFinished := True;
+  end;
+  if VTIG_Selectable( 'Show Highscores' ) then
+  begin
+    UI.PushLayer( THighscoreViewer.Create( Game.Persistence.ScoreList ) );
+    UI.WaitForLayer;
+  end;
+  if VTIG_Selectable( '  Show Manual' ) then
+  begin
+    UI.PushLayer( TManualScreen.Create );
+    UI.WaitForLayer;
+  end;
+  if VTIG_Selectable( '   Quit Game' ) then
+  begin
+    GameEnd := True;
+    UI.PlaySound('sfx/items/titlslct.wav');
+    FFinished := True;
+  end;
+  VTIG_End;
+end;
+
+{ TKlassScreen }
+
+constructor TKlassScreen.Create;
+var i : Integer;
+begin
+  inherited Create;
+  FCount := LuaSystem.GetTableSize('klasses');
+  SetLength( FKlasses, FCount );
+  for i := 0 to FCount - 1 do
+    with LuaSystem.GetTable(['klasses', i + 1 ]) do
+    try
+      FKlasses[i].Name  := GetString('name');
+      FKlasses[i].Desc  := GetString('desc');
+      FKlasses[i].Level := GetInteger('level');
+      FKlasses[i].Str   := GetInteger('str');
+      FKlasses[i].Mag   := GetInteger('mag');
+      FKlasses[i].Dex   := GetInteger('dex');
+      FKlasses[i].Vit   := GetInteger('vit');
+    finally
+      Free;
     end;
-
-  if FMenu.Selected = 1
-    then UI.SetUILoopResult( GAMEMENU_CONT )
-    else UI.SetUILoopResult( FMenu.Selected );
-  Free;
-  Exit( True );
 end;
 
-{ TUIMenuScreen }
-
-constructor TUIMenuScreen.Create ( aParent : TUIElement ) ;
-var iRect : TUIRect;
+procedure TKlassScreen.Update( aDTime : Integer; aActive : Boolean );
+var iSelected : Integer;
+    i         : Integer;
 begin
-  iRect := aParent.GetDimRect;
-  inherited Create( aParent, iRect );
-  FShift.Init( (iRect.Dim.X - 80) div 2, (iRect.Dim.Y - 25) div 2 );
+  inherited Update( aDTime, aActive );
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( 'Choose class', 'klass_menu', Point( 29, 11 ), Point( 1, 15 ) + FShift );
+    VTIG_BeginGroup( 9 );
+      for i := 0 to FCount - 1 do
+        if VTIG_Selectable( FKlasses[i].Name ) then
+        begin
+          GameClass := i + 1;
+          UI.PlaySound('sfx/items/titlslct.wav');
+          FFinished := True;
+        end;
+    VTIG_EndGroup();
+    VTIG_BeginGroup;
+      iSelected := VTIG_Selected( 'klass_menu' );
+      if ( iSelected >= 0 ) and ( iSelected < FCount ) then
+      begin
+        VTIG_Text( Format( ' Level     : {!%d}', [ FKlasses[iSelected].Level ] ) );
+        VTIG_Text( '' );
+        VTIG_Text( Format( ' Strength  : {!%d}', [ FKlasses[iSelected].Str ] ) );
+        VTIG_Text( Format( ' Magic     : {!%d}', [ FKlasses[iSelected].Mag ] ) );
+        VTIG_Text( Format( ' Dexterity : {!%d}', [ FKlasses[iSelected].Dex ] ) );
+        VTIG_Text( Format( ' Vitality  : {!%d}', [ FKlasses[iSelected].Vit ] ) );
+      end;
+    VTIG_EndGroup();
+  VTIG_End;
+  VTIG_BeginWindow( 'Description', 'klass_menu', Point( 51, 11 ), Point( 30, 15 ) + FShift );
+    if ( iSelected >= 0 ) and ( iSelected < FCount ) then
+      VTIG_Text( FKlasses[iSelected].Desc );
+  VTIG_End;
+  VTIG_PopStyle;
 end;
 
-procedure TUIMenuScreen.OnRedraw;
-var iCon : TUIConsole;
+{ TNameScreen }
+
+constructor TNameScreen.Create;
 begin
-  inherited OnRedraw;
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  iCon.ClearRect( FAbsolute, FBackColor );
-  iCon.Print( Point(20,3)+FShift, Red, Black,
-  '  ####                           ####   '#10+
-  '  #####  #    ##    ###    #    ######  '#10+
-  '  ## ##  #   #  #   #  #   #    ##  ##  '#10+
-  '  ## ##  #   #  #   ###    #    ##  ##  '#10+
-  '  #@y# #@r#  #   @y#@r##@y#   #  #   #    @y#@r#  #@y#  '#10+
-  '  ####   #   #  #   ###    #### ######  '#10+
-  '  ###           #                ####   @n', True);
-  iCon.PrintEx( Point(20,10)+FShift, Point(0,0), 1, Brown, Black,'           R O G U E L I K E            '#10+
-  '                '+VERSION+#10+
-  #10+
-  '         by Kornel Kisielewicz          '#10+
-  ' Chris Johnson and Mel''nikova Anastasia', True);
+  inherited Create;
+  FName[0] := #0;
+  UI.Driver.StartTextInput;
 end;
 
-{ TUIFullScreen }
-
-function TUIFullScreen.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
+procedure TNameScreen.Update( aDTime : Integer; aActive : Boolean );
 begin
-  if event.ModState <> [] then Exit( inherited OnKeyDown( event ) );
-  case event.Code of
-    VKEY_SPACE,
-    VKEY_ESCAPE,
-    VKEY_ENTER  : begin Free; Exit( True ); end;
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-end;
-
-{ TUIManualScreen }
-
-constructor TUIManualScreen.Create ( aParent : TUIElement ) ;
-var iContent : TConUIStringList;
-    iRect    : TUIRect;
-begin
-  inherited Create( aParent,
-    ' @<DiabloRL@> Manual (@<manual.txt@>)',
-    ' Use @<arrows@>, @<PgUp@>, @<PgDown@> to scroll, @<Escape@> or @<Enter@> to exit.'
-  );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  iRect := aParent.GetDimRect.Shrinked(1,2);
-  iContent := TConUIStringList.Create( Self, iRect, TextFileToUIStringArray(DataPath+'manual.txt'), True );
-  iContent.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEDOWN ];
-  TConUIScrollableIcons.Create( Self, iContent, iRect, Point( FAbsolute.x2 - 7, FAbsolute.y ) );
-end;
-
-{ TUIMortemScreen }
-
-constructor TUIMortemScreen.Create ( aParent : TUIElement ) ;
-var iContent : TConUIStringList;
-    iRect    : TUIRect;
-begin
-  inherited Create( aParent,
-    ' @<DiabloRL@> PostMortem (@<mortem.txt@>)',
-    ' Use @<arrows@>, @<PgUp@>, @<PgDown@> to scroll, @<Escape@> or @<Enter@> to exit.'
-  );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  iRect := aParent.GetDimRect.Shrinked(1,2);
-  iContent := TConUIStringList.Create( Self, iRect, TextFileToUIStringArray( WritePath + 'mortem.txt' ), True );
-  iContent.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEDOWN ];
-  TConUIScrollableIcons.Create( Self, iContent, iRect, Point( FAbsolute.x2 - 7, FAbsolute.y ) );
-end;
-
-{ TUIMessagesScreen }
-
-constructor TUIMessagesScreen.Create ( aParent : TUIElement;
-  aMessages : TUIChunkBuffer ) ;
-var iContent : TConUIChunkBuffer;
-    iRect    : TUIRect;
-begin
-  inherited Create( aParent,
-    ' @<DiabloRL@> Past messages viewer',
-    ' Use @<arrows@>, @<PgUp@>, @<PgDown@> to scroll, @<Escape@> or @<Enter@> to exit.'
-  );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  iRect := aParent.GetDimRect.Shrinked(1,2);
-  iContent := TConUIChunkBuffer.Create( Self, iRect, aMessages, False );
-  iContent.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEDOWN ];
-  TConUIScrollableIcons.Create( Self, iContent, iRect, Point( FAbsolute.x2 - 7, FAbsolute.y ) );
-end;
-
-
-{ TUIIntroScreen }
-
-constructor TUIIntroScreen.Create ( aParent : TUIElement ) ;
-begin
-  inherited Create( aParent );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  TConUIText.Create( Self, Rectangle( Point( 10, 15 ) + FShift, 60, 9 ),'@n'+
-  'This is the 0.5 version of Diablo Roguelike, much features'#10+
-  'are still missing, many more are planned. If you''d like to'#10+
-  'see this project continued,  please drop by the ChaosForge'#10+
-  'forums (@lhttp://forum.chaosforge.org@n),  and leave a comment'#10+
-  'at the DiabloRL board to encourage further development!'#10+
-  'encourage further development!                        '#10+
-  ''#10+
-  'To enable sound and music, edit the @<config.lua@n file.'#10+
-  'Press <@LEnter@n> to continue...');
-end;
-
-function TUIIntroScreen.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-begin
-  if event.ModState <> [] then Exit( inherited OnKeyDown( event ) );
-  case event.Code of
-    VKEY_SPACE,
-    VKEY_ESCAPE,
-    VKEY_ENTER  : begin Free; Exit( True ); end;
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-end;
-
-{ TUIOutroScreen }
-
-constructor TUIOutroScreen.Create ( aParent : TUIElement ) ;
-var iCon : TUIConsole;
-begin
-  inherited Create( aParent, aParent.GetDimRect );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  iCon.Clear;
-  TConUIText.Create( Self, aParent.GetDimRect.Shrinked(1,1),
-    'Thank you for playing Diablo Roguelike!'#10+
-    'This is just a beta, keep your eyes open for the full release!'#10+
-    #10+
-    'Features planned for DiabloRL:'#10+
-    ' -- the full range of Diablo items, monsters, uniques, prefixes and spells'#10+
-    ' -- entering hell and missing caves content'#10+
-    ' -- all the original Diablo quests with the original texts'#10+
-    ' -- all the hidden quest locations and uniques'#10+
-    ' -- additional quests by Blizzard that didn''t appear in Diablo'#10+
-    ' -- missing spells and spell effects'#10+
-    ' -- additional Hellfire classes -- Monk, Bard and Barbarian'#10+
-    ' -- maybe additional Hellfire content -- spells, items, quests, uniques.'#10+
-    ' -- Programmer''s edition -- how the author himself see''s the world of Diablo'#10+
-    ' -- and special rooms in dungeons'#10+
-    #10+
-    #10+
-    'Well, at least that would be if DiabloRL would be continued. It all depends'#10+
-    'on @Lyou@>! If you want this project continued then drop me a note at'#10+
-    '@Ladmin(at)chaosforge.org@>... Comments, suggestions, death threats all welcome.'#10+
-    #10+
-    'Again, thank you for your time spent playing DiabloRL.'#10+
-    'Press @<Enter@> to quit...');
-
-end;
-
-function TUIOutroScreen.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-begin
-  if event.ModState <> [] then Exit( inherited OnKeyDown( event ) );
-  case event.Code of
-    VKEY_SPACE,
-    VKEY_ESCAPE,
-    VKEY_ENTER  : begin Free; Exit( True ); end;
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-end;
-
-{ TUIMainMenuScreen }
-
-constructor TUIMainMenuScreen.Create ( aParent : TUIElement ) ;
-var iMenuWindow : TConUIWindow;
-begin
-  inherited Create( aParent );
-  FCurrent := 1;
-  EventFilter := [ VEVENT_KEYDOWN ];
-  iMenuWindow := TConUIWindow.Create( Self, Rectangle( Point( 29, 16 ) + FShift, 21, 9 ), '' );
-  iMenuWindow.Padding := Point(1,0);
-  FMenu := TConUIMenu.Create( iMenuWindow, Point(1,1) );
-  FMenu.SelectInactive := False;
-  FMenu.Add('   New Game');
-  FMenu.Add('   Load Game', FileExists( WritePath + 'save' ) );
-  FMenu.Add('Show Highscores');
-  FMenu.Add('  Show Manual');
-  FMenu.Add('   Quit Game');
-
-  FMenu.OnConfirmEvent := @OnConfirm;
-  FMenu.OnSelectEvent  := @OnSelect;
-
-end;
-
-function TUIMainMenuScreen.OnConfirm ( aSender : TUIElement ) : Boolean;
-begin
-  case FMenu.Selected of
-    1 : if FileExists('save') then if not UI.YesNoDialog( 'This will erase your previously saved game.','Are you sure?' ) then Exit( True );
-    2 : GameLoad := True;
-    3 : begin UI.RunUILoop( TUIHighscoreViewer.Create( UI.Root, Game.Persistence.ScoreList ) ); Exit( True ); end;
-    4 : begin UI.RunUILoop( TUIManualScreen.Create( UI.Root ) ); Exit( True ); end;
-    5 : GameEnd := True;
-  end;
-  Free;
-  UI.PlaySound('sfx/items/titlslct.wav');
-  Exit( True );
-end;
-
-function TUIMainMenuScreen.OnSelect ( aSender : TUIElement; aIndex : DWord; aItem : TUIMenuItem ) : Boolean;
-begin
-  if FCurrent <> FMenu.Selected then
-    UI.PlaySound('sfx/items/titlemov.wav');
-  FCurrent := FMenu.Selected;
-  Exit( True );
-end;
-
-{ TUIKlassScreen }
-
-constructor TUIKlassScreen.Create ( aParent : TUIElement ) ;
-var iLeftWindow  : TConUIWindow;
-    iRightWindow : TConUIWindow;
-    iSep         : TConUISeparator;
-    iCount, i    : Byte;
-begin
-  inherited Create( aParent );
-  iLeftWindow  := TConUIWindow.Create( Self, Rectangle( Point(0, 14)+FShift, 29, 11 ), 'Choose class' );
-  iRightWindow := TConUIWindow.Create( Self, Rectangle( Point(29, 14)+FShift, 51, 11 ), 'Description' );
-  iSep := TConUISeparator.Create(iLeftWindow,VORIENT_VERTICAL,10);
-
-  FCurrent := 1;
-  FMenu  := TConUIMenu.Create( iSep.Left, Point(1,1) );
-  FMenu.OnConfirmEvent := @OnConfirm;
-  FMenu.OnSelectEvent  := @OnSelect;
-
-  FStats := TConUIText.Create( iSep.Right, '');
-  FDesc  := TConUIText.Create( iRightWindow, '');
-  iCount := 3;
-  for i := 1 to iCount do
+  inherited Update( aDTime, aActive );
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( 'Enter name', 'name_input', Point( 18, 5 ), Point( 30, 16 ) + FShift );
+  VTIG_PopStyle;
+  if VTIG_Input( @FName[0], 12 ) then
   begin
-    FMenu.Add(LuaSystem.Get(['klasses', i, 'name']));
+    GameName := AnsiString( FName );
+    UI.PlaySound('sfx/items/titlslct.wav');
+    UI.Driver.StopTextInput;
+    FFinished := True;
   end;
+  VTIG_End;
 end;
 
-function TUIKlassScreen.OnConfirm ( aSender : TUIElement ) : Boolean;
+{ TConfirmDialog }
+
+constructor TConfirmDialog.Create( const aQuery : AnsiString );
 begin
-  GameClass := FMenu.Selected;
-  UI.PlaySound('sfx/items/titlslct.wav');
-  Free;
+  VTIG_EventClear;
+  VTIG_ResetSelect( 'confirm_dialog' );
+  FFinished := False;
+  FResult   := 0;
+  FQuery    := aQuery;
+end;
+
+procedure TConfirmDialog.Update( aDTime : Integer; aActive : Boolean );
+var iWidth : Integer;
+begin
+  VTIG_PushStyle( @TIGFramedWindowStyle );
+  VTIG_Begin( 'confirm_dialog', Point( 40, 10 ) );
+  VTIG_Text( FQuery, LightGray );
+  VTIG_Text( '' );
+  if VTIG_Selectable( 'Cancel' )  then begin FResult := 0; FFinished := True; end;
+  if VTIG_Selectable( 'Confirm' ) then begin FResult := 1; FFinished := True; end;
+  VTIG_End;
+  VTIG_PopStyle;
+  if VTIG_EventCancel then begin FResult := 0; FFinished := True; end;
+end;
+
+function TConfirmDialog.IsFinished : Boolean;
+begin
+  Exit( FFinished );
+end;
+
+function TConfirmDialog.IsModal : Boolean;
+begin
   Exit( True );
 end;
 
-function TUIKlassScreen.OnSelect ( aSender : TUIElement; aIndex : DWord;
-  aItem : TUIMenuItem ) : Boolean;
-begin
-  if FCurrent <> FMenu.Selected then
-    UI.PlaySound('sfx/items/titlemov.wav');
-  FCurrent := FMenu.Selected;
+{ TGameMenu }
 
-  with LuaSystem.GetTable(['klasses', FCurrent ]) do
-  try
-    FStats.Text :=
-      Format( ' Level     : %d'#10, [ GetInteger('level') ] )+
-      #10+
-      Format( ' Strength  : %d'#10, [ GetInteger('str') ] )+
-      Format( ' Magic     : %d'#10, [ GetInteger('mag') ] )+
-      Format( ' Dexterity : %d'#10, [ GetInteger('dex') ] )+
-      Format( ' Vitality  : %d',    [ GetInteger('vit') ] );
-    FDesc.Text := GetString('desc');
-  finally
-    Free;
+constructor TGameMenu.Create;
+begin
+  VTIG_EventClear;
+  FFinished := False;
+  FResult   := GAMEMENU_CONT;
+end;
+
+procedure TGameMenu.Update( aDTime : Integer; aActive : Boolean );
+begin
+  VTIG_PushStyle( @TIGFramedWindowStyle );
+  VTIG_Begin( 'game_menu', Point( 22, 8 ) );
+  if VTIG_Selectable( 'Return to game' ) then
+  begin
+    FResult   := GAMEMENU_CONT;
+    FFinished := True;
   end;
-  Exit( True );
+  if VTIG_Selectable( '  Help file' ) then
+  begin
+    FResult   := GAMEMENU_HELP;
+    FFinished := True;
+  end;
+  if VTIG_Selectable( 'Save and quit' ) then
+  begin
+    FResult   := GAMEMENU_SAVE;
+    FFinished := True;
+  end;
+  if VTIG_Selectable( '    Quit' ) then
+  begin
+    FResult   := GAMEMENU_QUIT;
+    FFinished := True;
+  end;
+  VTIG_End;
+  VTIG_PopStyle;
+  if VTIG_EventCancel then
+  begin
+    FResult   := GAMEMENU_CONT;
+    FFinished := True;
+  end;
 end;
 
-{ TUINameScreen }
-
-constructor TUINameScreen.Create ( aParent : TUIElement ) ;
-var iWindow : TConUIWindow;
-    iInput  : TConUIInputLine;
+function TGameMenu.IsFinished : Boolean;
 begin
-  inherited Create( aParent );
-  iWindow := TConUIWindow.Create( Self, Rectangle( Point(29, 16)+FShift, 18, 5 ), 'Enter name' );
-  iInput  := TConUIInputLine.Create( iWindow, Point(1,0), 12 );
-  iInput.BackColor := Red;
-  iInput.OnConfirmEvent := @OnConfirm;
+  Exit( FFinished );
 end;
 
-function TUINameScreen.OnConfirm ( aSender : TUIElement ) : Boolean;
+function TGameMenu.IsModal : Boolean;
 begin
-  GameName := Trim( TConUIInputLine( aSender ).Input );
-  UI.PlaySound('sfx/items/titlslct.wav');
-  Free;
   Exit( True );
 end;
 

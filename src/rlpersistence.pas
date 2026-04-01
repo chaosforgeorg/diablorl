@@ -70,12 +70,12 @@ begin
     iEntry := FScoreFile[ iCount ];
 
     if iCount = FScoreFile.LastEntry
-      then iColor := '@y'
-      else iColor := '@l';
+      then iColor := '{y'
+      else iColor := '{l';
 
     Result.Push( ' '+iColor + Padded( iEntry.GetAttribute('score') ,6)
                              + Padded( iEntry.GetAttribute('name')  ,14)
-                             + Padded( iEntry.GetAttribute('klass') + ' L'+iEntry.GetAttribute('level') ,12)
+                             + Padded( iEntry.GetAttribute('klass') + '} L'+iEntry.GetAttribute('level') ,12)
                              + Padded( iEntry.GetAttribute('grave') ,19)
                              +         iEntry.GetAttribute('result') );
   end;

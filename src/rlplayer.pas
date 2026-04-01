@@ -1741,11 +1741,20 @@ begin
     0 :;
     COMMAND_GODKEY     : if GodMode then TDiabloConfig(UI.Config).RunGodKey( UI.LastKeyCode );
     COMMAND_ESCAPE     :
-      case UI.RunUILoop( TUIGameMenu.Create( UI.Root ) ) of
-        GAMEMENU_HELP : UI.RunUILoop( TUIManualScreen.Create( UI.Root ) );
-        GAMEMENU_QUIT : begin GameEnd := True; Dec(FSpeedCount,50); end;
+    begin
+      UI.RunLayer( TGameMenu.Create );
+      case TGameMenu.Result of
+        GAMEMENU_HELP : UI.RunLayer( TManualScreen.Create );
+        GAMEMENU_QUIT : begin
+          if UI.YesNoDialog('If you quit without saving, your character will be lost!'#10'Are you sure?') then
+          begin
+            GameEnd := True;
+            Dec(FSpeedCount,50);
+          end;
+        end;
         GAMEMENU_SAVE : begin GameEnd := True; Game.Save; Dec(FSpeedCount,50); end;
       end;
+    end;
     COMMAND_ACT        : doAct;
     COMMAND_SWITCHMODE : doTravel;
     COMMAND_MESSAGES   : UI.ShowRecent;

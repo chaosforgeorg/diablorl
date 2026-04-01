@@ -6,8 +6,11 @@ unit rlui;
 
 interface
 uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils, vioevent, rlviews, rlgviews, vcolor, vuielement, viotypes, vioconsole, vuiconsole, vluastate,
-  viorl, vrltools, rlglobal, rlthing, vconuirl,
+  viorl, vrltools, rlglobal, rlthing, vconuirl, vtigstyle,
   vutil, rlplayer, rlitem, rlconfig;
+
+var TIGFramedWindowStyle       : TTIGStyle;
+    TIGNarrowFramedWindowStyle : TTIGStyle;
 
 {type
   TItemWindow = class(TWindow)
@@ -49,7 +52,6 @@ type
     //reviews last messages
     procedure ShowRecent;
     //shows game manual
-    procedure ShowManual;
     procedure ShowHOF;
     //Plot text window
     procedure PlotText( const Text: ansistring );
@@ -65,7 +67,7 @@ type
     procedure SetMusicVolume(Volume: byte);
     procedure SetSoundVolume(Volume: byte);
     function GetTravelDestination( out aWhere : TCoord2D ) : Boolean;
-    function YesNoDialog( const aLine1 : AnsiString; const aLine2 : AnsiString = '' ) : Boolean;
+    function YesNoDialog( const aQuery : AnsiString ) : Boolean;
     class procedure RegisterLuaAPI(State: TLuaState);
   private
     function ReadFromMPQ( const aFileName : AnsiString ) : TStream;
@@ -235,8 +237,31 @@ begin
   iStyle.Add('text','fore_color', LightGray );
   iStyle.Add('text','back_color', ColorNone );
 
+  TIGFramedWindowStyle := VTIGDefaultStyle;
+  TIGFramedWindowStyle.Color[ VTIG_TEXT_COLOR ]                := DarkGray;
+  TIGFramedWindowStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
+  TIGFramedWindowStyle.Color[ VTIG_SELECTED_DISABLED_COLOR ]   := LightRed;
+  TIGFramedWindowStyle.Color[ VTIG_DISABLED_COLOR ]            := Red;
+  TIGFramedWindowStyle.Padding[ VTIG_WINDOW_PADDING ]          := Point( 2, 1 );
+  TIGNarrowFramedWindowStyle := TIGFramedWindowStyle;
+  TIGNarrowFramedWindowStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 1, 1 );
+  TIGNarrowFramedWindowStyle.Padding[ VTIG_SELECTABLE_PADDING ] := Point( 0,0 );
+  TIGNarrowFramedWindowStyle.Padding[ VTIG_GROUP_PADDING ]      := Point( 1,0 );
+  TIGNarrowFramedWindowStyle.Padding[ VTIG_GROUP_FRAME_PADDING ]:= Point( 0,1 );
+
+  VTIGDefaultStyle.Color[ VTIG_TEXT_COLOR ]                := DarkGray;
+  VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
+  VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
+  VTIGDefaultStyle.Color[ VTIG_SELECTED_BACKGROUND_COLOR ] := Black;
+  VTIGDefaultStyle.Color[ VTIG_SELECTED_DISABLED_COLOR ]   := LightRed;
+  VTIGDefaultStyle.Color[ VTIG_DISABLED_COLOR ]            := Red;
+
+  VTIGDefaultStyle.Frame[ VTIG_BORDER_FRAME ] := '';
+  VTIGDefaultStyle.Frame[ VTIG_GROUP_FRAME ]  := '';
+  VTIGDefaultStyle.Frame[ VTIG_GROUP_FRAME ]  := '';
+
   Log( LOGINFO, 'Initializing core driver...' );
-  inherited Create( FIODriver, FConsole, iStyle );
+  inherited Create( FIODriver, FConsole, iStyle, True );
   Log( LOGINFO, 'Configuring...' );
   Configure( aConfig );
   FUIConsole.Init( FConsole );
@@ -244,6 +269,7 @@ begin
   Log( LOGINFO, 'GameIO ready.' );
   FAnimCount := 0;
   TItem.InitColors( FGraphicsMode );
+  FUIRoot.UpdateOnRender := False;
 end;
 
 procedure TGameUI.Draw;
@@ -269,13 +295,7 @@ end;
 
 procedure TGameUI.ShowRecent;
 begin
-  UI.RunUILoop( TUIMessagesScreen.Create( Root, FMainScreen.Msg.Content ) );
-end;
-
-procedure TGameUI.ShowManual;
-begin
-  if not FileExists('manual.txt') then  Exit;
-  UI.RunUILoop( TUIManualScreen.Create( Root ) );
+  UI.RunLayer( TMessagesScreen.Create( FMainScreen.Msg.Content ) );
 end;
 
 procedure TGameUI.UpdateStatus(c: TCoord2D);
@@ -389,12 +409,12 @@ end;
 procedure TGameUI.ShowMortem;
 begin
   if not FileExists('mortem.txt') then Exit;
-  RunUILoop( TUIMortemScreen.Create( FUIRoot ) );
+  RunLayer( TMortemScreen.Create );
 end;
 
 procedure TGameUI.ShowHOF;
 begin
-  RunUILoop( TUIHighscoreViewer.Create( FUIRoot, Game.Persistence.ScoreList ) );
+  RunLayer( THighscoreViewer.Create( Game.Persistence.ScoreList ) );
 end;
 
 procedure TGameUI.ReadConfig;
@@ -616,11 +636,10 @@ begin
   Exit( False );
 end;
 
-function TGameUI.YesNoDialog ( const aLine1 : AnsiString; const aLine2 : AnsiString = '' ) : Boolean;
+function TGameUI.YesNoDialog ( const aQuery : AnsiString ) : Boolean;
 begin
-  FUILoopResult := 0;
-  RunUILoop( TUIConfirmDialog.Create( Root, aLine1, aLine2 ) );
-  Exit( FUILoopResult > 0 );
+  RunLayer( TConfirmDialog.Create( aQuery ) );
+  Exit( TConfirmDialog.Result > 0 );
 end;
 
 { TItemWindow }
