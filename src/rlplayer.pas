@@ -1746,7 +1746,7 @@ begin
       case TGameMenu.Result of
         GAMEMENU_HELP : UI.RunLayer( TManualScreen.Create );
         GAMEMENU_QUIT : begin
-          if UI.YesNoDialog('If you quit without saving, your character will be lost!'#10'Are you sure?') then
+          if (GodMode) or UI.YesNoDialog('If you quit without saving, your character will be lost!'#10'Are you sure?') then
           begin
             GameEnd := True;
             Dec(FSpeedCount,50);

@@ -152,7 +152,6 @@ begin
     if not GodMode then
     begin
       FreeConsole;
-      vdebug.DebugWriteln := nil;
     end
     else
     begin
@@ -391,13 +390,13 @@ end;
 
 procedure TGameUI.PlotText(const Text: ansistring);
 begin
-  RunUILoop( TUIPlotWindow.Create( FUIRoot, Text ) );
+  RunLayer( TPlotWindow.Create( Text ) );
   HaltSound();
 end;
 
 procedure TGameUI.ItemInfo( aItem: TItem );
 begin
-  RunUILoop( TUIItemInfo.Create( FUIRoot, aItem ) );
+  RunLayer( TItemInfo.Create( aItem ) );
 end;
 
 procedure TGameUI.Update( aMSec : DWord );
@@ -627,10 +626,10 @@ end;
 function TGameUI.GetTravelDestination ( out aWhere : TCoord2D ) : Boolean;
 begin
   FUILoopResult := 0;
-  RunUILoop( TUITravelWindow.Create( Root ) );
-  if FUILoopResult <> 0 then
+  RunLayer( TTravelWindow.Create );
+  if TTravelWindow.Result >= 0 then
   begin
-    aWhere := (UI.Player.Parent as TLevel).TravelPoints[ FUILoopResult-1 ].Where;
+    aWhere := (UI.Player.Parent as TLevel).TravelPoints[ TTravelWindow.Result ].Where;
     Exit( True );
   end;
   Exit( False );
@@ -760,12 +759,12 @@ end;
 function lua_ui_shop_run(L: Plua_State): integer; cdecl;
 var State       : TRLLuaState;
     iCount      : byte;
-    iChoice     : byte;
+    iChoice     : Integer;
     iSource     : AnsiString;
     iTitle      : AnsiString;
     iShop       : TShop;
     iShopMode   : byte;
-    iShopWindow : TUIShopWindow;
+    iShopWindow : TShopWindow;
 
 begin
   State.Init(L);
@@ -782,7 +781,7 @@ begin
 
   iShop := Game.FindChild( iSource ) as TShop;
   iShop.Resort;
-  iShopWindow := TUIShopWindow.Create( UI.Root, iTitle );
+  iShopWindow := TShopWindow.Create( iTitle );
 
   for iChoice := 1 to iShop.getCount do
   case iShopMode of
@@ -807,12 +806,13 @@ begin
     SHOP_IDENTIFYFREE : iShopWindow.Close( 'You have nothing to identify.');
   end;
 
-  iChoice := UI.RunUILoop( iShopWindow );
+  UI.RunLayer( iShopWindow );
+  iChoice := TShopWindow.Result;
 
-  if iChoice = 0 then
+  if iChoice < 0 then
     State.PushNil
   else
-    State.Push(iShop.FItems[iChoice]);
+    State.Push(iShop.FItems[iChoice+1]);
   Result := 1;
 end;
 

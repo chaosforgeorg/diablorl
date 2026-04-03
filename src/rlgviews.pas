@@ -7,33 +7,13 @@ interface
 
 uses Classes, SysUtils,
      vuielement, viotypes, vuitypes, vioevent, vconui, vconuirl, vuielements,
+     vtig, vtigio, vtigstyle,
      rlglobal, rlthing, rlitem, vrltools;
 
 type
 
-{ TUIStatusLine }
 
-TUIStatusLine = object
-  Text : String;
-  Color : TIOColor;
-  procedure Init( aText : String; aColor : TIOColor = LightGray );
-end;
-
-{ TUIStatus }
-
-TUIStatus = class( TUIElement )
-  constructor Create( aParent : TUIElement );
-  procedure OnRedraw; override;
-  procedure Reset;
-  procedure Update( c : TCoord2D );
-  procedure Update( aThing : TThing );
-private
-  procedure DrawOrb( aValue, aMax : Integer; aColor : TIOColor; aX : byte );
-private
-  FLine1 : TUIStatusLine;
-  FLine2 : TUIStatusLine;
-  FLine3 : TUIStatusLine;
-end;
+TStatus = class;
 
 { TUIMainScreen }
 
@@ -41,6 +21,7 @@ TUIMainScreen = class( TUIElement )
   constructor Create( aParent : TUIElement );
   function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
   procedure UpdateMap;
+  procedure OnRedraw; override;
   procedure ClearLeft;
   procedure ClearRight;
   procedure ClearBoth;
@@ -48,53 +29,14 @@ private
   FLeft    : TUIElement;
   FRight   : TUIElement;
   FMap     : TConUIMapArea;
-  FStatus  : TUIStatus;
+  FStatus  : TStatus;
   FMsg     : TConUIMessages;
 public
   property Left   : TUIElement     read FLeft;
   property Right  : TUIElement     read FRight;
   property Msg    : TConUIMessages read FMsg;
   property Map    : TConUIMapArea  read FMap;
-  property Status : TUIStatus      read FStatus;
-end;
-
-{ TUIPlotWindow }
-
-TUIPlotWindow = class(TConUIWindow)
-  constructor Create( aParent: TUIElement; const aText : TUIString );
-  procedure OnRedraw; override;
-  procedure OnUpdate( aTime : DWord ); override;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  destructor Destroy; override;
-private
-  FText      : TUIChunkList;
-  FStartTime : DWord;
-end;
-
-{ TUIItemInfo }
-
-TUIItemInfo = class(TConUIWindow)
-  constructor Create( aParent: TUIElement; const aItem : TItem );
-  procedure OnRedraw; override;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  destructor Destroy; override;
-private
-  FLine1 : TUIString;
-  FLine2 : TUIString;
-  FLine3 : TUIString;
-end;
-
-{ TUIShopWindow }
-
-TUIShopWindow = class(TConUIWindow)
-  constructor Create( aParent: TUIElement; const aTitle : TUIString );
-  procedure Add( aItem : TItem; aPriceType : TPriceType = COST_NONE ); reintroduce;
-  procedure Close( const aEmptyLabel : AnsiString );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnCancel( aSender : TUIElement ) : Boolean;
-  function OnSelect( aSender : TUIElement; aIndex : DWord; aItem : TUIMenuItem ) : Boolean;
-private
-  FMenu : TConUIMenu;
+  property Status : TStatus      read FStatus;
 end;
 
 { TUIPanel }
@@ -167,51 +109,135 @@ TUISpellWindow = class( TUIPanel )
   destructor Destroy; override;
 end;
 
-{ TUIQsWindow }
+type TFinishableLayer = class( TIOLayer )
+  procedure Finish;
+  function IsFinished : Boolean; override;
+protected
+  FFinished : Boolean;
+end;
 
-TUIQsWindow = class( TConUIWindow )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  destructor Destroy; override;
+type TStatusLine = object
+  Text  : String;
+  Color : TIOColor;
+  procedure Init( aText : String; aColor : TIOColor = LightGray );
+end;
+
+{ TStatus }
+
+type TStatus = class
+  constructor Create;
+  procedure Reset;
+  procedure Update( c : TCoord2D );
+  procedure Update( aThing : TThing );
+  procedure Draw;
 private
-  FMenu : TConUIMenu;
+  FLine1 : TStatusLine;
+  FLine2 : TStatusLine;
+  FLine3 : TStatusLine;
 end;
 
-{ TUISkillWindow }
+{ TPlotWindow }
 
-type TUISkillWindow = class( TConUIWindow )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  destructor Destroy; override;
+type TPlotWindow = class( TFinishableLayer )
+  constructor Create( const aText : AnsiString );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+protected
+  FText      : AnsiString;
+  FStartTime : DWord;
+  FShift     : TIOPoint;
 end;
 
-type TUITravelWindow = class( TConUIWindow )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnCancel( aSender : TUIElement ) : Boolean;
+{ TItemInfo }
+
+type TItemInfo = class( TFinishableLayer )
+  constructor Create( const aItem : TItem );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+protected
+  FLine1    : AnsiString;
+  FLine2    : AnsiString;
+  FLine3    : AnsiString;
+  FShift    : TIOPoint;
+end;
+
+{ TShopWindow }
+
+type TShopItem = record
+  Name      : AnsiString;
+  Color     : TIOColor;
+  Data      : TItem;
+end;
+type TShopItemArray = array of TShopItem;
+
+type TShopWindow = class( TFinishableLayer )
+  constructor Create( const aTitle : AnsiString );
+  procedure Add( aItem : TItem; aPriceType : TPriceType = COST_NONE );
+  procedure Close( const aEmptyLabel : AnsiString );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
   destructor Destroy; override;
+protected
+  FTitle      : AnsiString;
+  FEmptyLabel : AnsiString;
+  FItems      : TShopItemArray;
+  FItemCount  : Integer;
+  FClosed     : Boolean;
+  FShift      : TIOPoint;
+  class var FResult : Integer;
+public
+  class property Result : Integer read FResult;
+end;
+
+{ TSkillWindow }
+
+type TSkillEntry = record
+  Name : AnsiString;
+  Data : DWord;
+  Valid: Boolean;
+end;
+type TSkillEntryArray = array of TSkillEntry;
+
+type TSkillWindow = class( TFinishableLayer )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+  destructor Destroy; override;
+protected
+  FEntries  : TSkillEntryArray;
+  FCount    : Integer;
+  class var FResult : DWord;
+public
+  class property Result : DWord read FResult;
+end;
+
+{ TQsWindow }
+
+type TQsWindow = class( TFinishableLayer )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+  function HandleEvent( const aEvent : TIOEvent ) : Boolean; override;
+protected
+  FKeyAction : Byte;
+end;
+
+{ TTravelWindow }
+
+type TTravelWindow = class( TFinishableLayer )
+  constructor Create;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+protected
+  class var FResult : Integer;
+public
+  class property Result : Integer read FResult;
 end;
 
 implementation
 
 uses math, vutil, vuiconsole, vluasystem,
      rlgame, rlconfig, rllevel, rlui, rlnpc, rlplayer;
-
-{ TUIStatusLine }
-
-procedure TUIStatusLine.Init(aText: String; aColor: TIOColor);
-begin
-  Text := aText;
-  Color := aColor;
-end;
-
-function UIStatusLine(aText: String; aColor: TIOColor = LightGray) : TUIStatusLine;
-begin
-  UIStatusLine.Text := aText;
-  UIStatusLine.Color := aColor;
-end;
 
 { TUIMainScreen }
 
@@ -224,7 +250,7 @@ begin
   FMap    := TConUIMapArea.Create( TUIElement.Create( Self, Rectangle( 0,2,UI.SizeX,UI.SizeY-5) ), UI );
   FLeft   := TUIElement.Create( Self,Rectangle( 0, 2, UI.SizeX div 2, UI.SizeY-5 ) );
   FRight  := TUIElement.Create( Self,Rectangle( UI.SizeX div 2, 2, UI.SizeX div 2, UI.SizeY-5 ) );
-  FStatus := TUIStatus.Create( Self );
+  FStatus := TStatus.Create;
 end;
 
 function TUIMainScreen.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
@@ -236,8 +262,8 @@ begin
     COMMAND_PLAYERINFO : if FLeft.Child  is TUICharWindow      then begin ClearLeft;  Exit( True ) end else begin ClearLeft; TUICharWindow.Create( FLeft ); UpdateMap; Exit( True ); end;
     COMMAND_INVENTORY  : if FRight.Child is TUIInventoryWindow then begin ClearRight; Exit( True ) end else begin ClearRight; TUIInventoryWindow.Create( FRight ); UpdateMap; Exit( True ); end;
     COMMAND_SPELLBOOK  : if FRight.Child is TUISpellWindow     then begin ClearRight; Exit( True ) end else begin ClearRight; TUISpellWindow.Create( FRight ); UpdateMap; Exit( True ); end;
-    COMMAND_QUICKSKILL : begin UI.RunUILoop( TUISkillWindow.Create( FRoot ) ); Exit( True ); end;
-    COMMAND_QUICKSLOT  : if not (FRight.Child is TUIInventoryWindow) then begin UI.RunUILoop( TUIQsWindow.Create( FRoot ) ); Exit( True ); end else Exit( False );
+    COMMAND_QUICKSKILL : begin UI.RunLayer( TSkillWindow.Create ); Exit( True ); end;
+    COMMAND_QUICKSLOT  : if not (FRight.Child is TUIInventoryWindow) then begin UI.RunLayer( TQsWindow.Create ); Exit( True ); end else Exit( False );
   else Exit( inherited OnKeyDown ( event ) );
   end;
 end;
@@ -275,355 +301,11 @@ begin
   FMap.OnRedraw;
 end;
 
-{ TUIStatus }
-
-constructor TUIStatus.Create ( aParent : TUIElement ) ;
+procedure TUIMainScreen.OnRedraw; 
 begin
-  inherited Create( aParent, Rectangle( 0,UI.SizeY-3,UI.SizeX,3 ) );
-  Reset;
-end;
-
-procedure TUIStatus.OnRedraw;
-var iCon     : TUIConsole;
-    iString  : AnsiString;
-    iCount   : DWord;
-  procedure DurMark( aItem : TItem; p : TPoint; const aVis : AnsiString );
-  var iColor : TUIColor;
-  begin
-    if aItem = nil then Exit;
-    with aItem do
-    begin
-      if Dur >= (DurMax div 4) then Exit;
-      if Dur <= Max(DurMax div 6, 1)
-        then iColor := LightRed
-        else iColor := Brown;
-      iCon.RawPrint( p, iColor, aVis );
-    end;
-  end;
-
-  procedure CenterPrint( const aLine : AnsiString; aPos : Byte; aColor : TUIColor );
-  begin
-    if aLine = '' then Exit;
-    iCon.PrintEx(
-    Point( (FAbsolute.w div 2) - Length( StripEncoding( aLine ) ) div 2, aPos ),
-    Point(0,0), 1, aColor, Black, aLine, True );
-  end;
-
-begin
+  VTIG_Clear;
   inherited OnRedraw;
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  iCon.ClearRect( FAbsolute );
-  iCon.RawPrint( Point( 1, UI.SizeY-2 ), DarkGray, StringOfChar( '-',GetDimRect().w) );
-  if UI.Player = nil then Exit;
-  with UI.Player do
-  begin
-    DrawOrb( HP, getLife, Red, 4 );
-    if Flags[ nfManaShield ] then
-      DrawOrb(MP, getMana, LightBlue, UI.SizeX-8)
-    else
-      DrawOrb(MP, getMana, Blue, UI.SizeX-8);
-    iString := TLevel(UI.Player.Parent).Name;
-    iCon.PrintEx( Point( UI.SizeX-12-Length(iString), UI.SizeY-2 ), Point(0,0), 1, LightGray, Black, ' ' + iString + ' ', True);
-    if LevelUp then
-    begin
-      iCon.Print( Point(5, UI.SizeY-5), Red, Black, '[@y+@r]', True );
-      iCon.PrintEx( Point(3, UI.SizeY-4), Point(0,0), 1, White, Black, 'Level Up!', True);
-    end;
-    DurMark( Equipment[slotHead],  Point( UI.SizeX-1,UI.SizeY-10 ), #127 );
-    DurMark( Equipment[slotTorso], Point( UI.SizeX-1,UI.SizeY-9  ), #219 );
-    DurMark( Equipment[slotRHand], Point( UI.SizeX-2,UI.SizeY-10 ), #179 );
-    DurMark( Equipment[slotLHand], Point( UI.SizeX-2,UI.SizeY-9  ), #197 );
-
-    iCon.Print( Point( 11, UI.SizeY-2 ), DarkGray, Black, ' [@<'+StringOfChar('.', ITEMS_QS)+'@>] ', True);
-    for iCount := 1 to ITEMS_QS do
-      if QuickSlot[iCount] <> nil then
-        iCon.DrawChar( Point( 12+iCount, UI.SizeY-2 ), QuickSlot[iCount].Color, QuickSlot[iCount].Picture );
-
-    if Spell.Spell > 0 then
-    case Spell.Source of
-      CAST_STAFF : iCon.PrintEx( Point(12, UI.SizeY-1), Point(0,0), 1, DarkGray, Black, UI.Strip(Equipment[SlotRHand].getSpellName), True);
-      CAST_SCROLL: iCon.PrintEx( Point(12, UI.SizeY-1), Point(0,0), 1, DarkGray, Black, Spell.Name, True);
-      else
-        iCon.PrintEx( Point(12, UI.SizeY-1), Point(0,0), 1, DarkGray, Black, Spell.Name, True);
-    end;
-
-    CenterPrint( FLine1.Text, UI.SizeY-2, FLine1.Color );
-    CenterPrint( FLine2.Text, UI.SizeY-1, FLine2.Color );
-    CenterPrint( FLine3.Text, UI.SizeY  , FLine3.Color );
-  end;
-end;
-
-procedure TUIStatus.Reset;
-begin
-  FDirty := True;
-  FLine1 := UIStatusLine('');
-  FLine2 := UIStatusLine('');
-  FLine3 := UIStatusLine('');
-end;
-
-procedure TUIStatus.Update ( c : TCoord2D ) ;
-begin
-  Reset;
-  with Game.Level do
-  begin
-    if not isVisible( c ) then Exit;
-    if (not isEmpty( c, [efNoMonsters])) and (not (NPCs[c].Flags[nfInvisible]))
-      then Update( NPCs[c] )
-      else if not isEmpty(c, [efNoItems])
-        then Update( Items[c] )
-        else
-        begin
-          FLine2 := UIStatusLine(CellData[Cell[c]].Name);
-          if CellHook_OnTravelName in CellData[Cell[c]].hooks then
-            FLine2 := UIStatusLine(LuaSystem.ProtectedCall([ 'cells',CellData[Cell[c]].id,CellHookNames[ CellHook_OnTravelName ] ], [Game.Level] ));
-        end;
-
-  end;
-end;
-
-procedure TUIStatus.Update ( aThing : TThing ) ;
-var iCount  : Byte;
-    iStatus : AnsiString;
-begin
-  Reset;
-  if aThing = nil then Exit;
-
-  if aThing is TNPC then
-  with aThing as TNPC do
-  begin
-    if isPlayer then Exit;
-    if AI in AIMonster + [AIGolem] then
-    begin
-      iCount := Max( 0, Min( 10, (HP * 10) div HPMax ) );
-      FLine1 := UIStatusLine('[@r' + StringOfChar( '#', iCount ) + '@d' + StringOfChar( '.', 10-iCount ) + ']');
-      FLine2 := UIStatusLine( Name );
-      iCount := Game.Player.Kills.Get( ID );
-      if iCount > 0 then FLine3 := UIStatusLine('Total kills : ' + IntToStr( iCount ));
-      if iCount > 15 then FLine3.Text += '   ('+GetResistancesString+'@>)';
-
-      if iCount > 30 then
-        FLine3.Text += '   HP: ' +
-          IntToStr(LuaSystem.Get(['npcs', id, 'hpmin'])) + '-' +
-          IntToStr(LuaSystem.Get(['npcs', id, 'hpmax']));
-    end
-    else
-      FLine2 := UIStatusLine( Name );
-  end;
-
-  if aThing is TItem then
-  with aThing as TItem do
-  begin
-    iStatus := GetStatusInfo1;
-    if iStatus = ''
-      then FLine2 := UIStatusLine( GetName(PlainName), InvColor )
-      else
-      begin
-        FLine1 := UIStatusLine( '[' + GetName(PlainName) + ']', InvColor );
-        FLine2 := UIStatusLine( iStatus, InvColor );
-      end;
-    FLine3 := UIStatusLine( GetStatusInfo2, InvColor );
-  end;
-
-end;
-
-procedure TUIStatus.DrawOrb ( aValue, aMax : Integer; aColor : TIOColor; aX : byte ) ;
-var iPercent : Integer;
-    iCon     : TUIConsole;
-  function FillChar( aEmpty : Byte; aValue : Byte ) : Char;
-  begin
-    if aValue <= aEmpty    then Exit('.');
-    if aValue <= aEmpty+9  then Exit('-');
-    if aValue <= aEmpty+17 then Exit('=');
-    Exit('#');
-  end;
-
-begin
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  if (aMax <= 0) or (aValue <= 0)
-    then iPercent := 0
-    else iPercent := Min( (aValue * 100) div aMax, 100 );
-
-  iCon.RawPrint( Point( aX+1, UI.SizeY-3), aColor, StringOfChar( FillChar( 80, iPercent ), 4 ) );
-  iCon.RawPrint( Point( aX  , UI.SizeY-2), aColor, StringOfChar( FillChar( 55, iPercent ), 6 ) );
-  iCon.RawPrint( Point( aX  , UI.SizeY-1), aColor, StringOfChar( FillChar( 30, iPercent ), 6 ) );
-  iCon.RawPrint( Point( aX+1, UI.SizeY  ), aColor, StringOfChar( FillChar( 5,  iPercent ), 4 ) );
-
-end;
-
-{ TUIPlotWindow }
-
-constructor TUIPlotWindow.Create ( aParent : TUIElement; const aText : TUIString ) ;
-var iCon   : TUIConsole;
-    iShift : TUIPoint;
-    iRect  : TUIRect;
-begin
-  iRect := aParent.GetDimRect;
-  iShift.Init( (iRect.Dim.X - 80) div 2, (iRect.Dim.Y - 25) div 2 );
-  inherited Create( aParent, Rectangle( Point(7, 3)+iShift, 65, 18 ), '' );
-  TConUILabel.Create( Self, Point( -9,-5 )-iShift,'@d Press <@<Enter@>>, <@<Space@>> or <@<Escape@>> to skip...                     ' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  FText := iCon.Chunkify( aText, Point( FAbsolute.w-4, 1000 ), Yellow );
-  FStartTime := 0;
-  FRoot.GrabInput( Self );
-  OnUpdate(0);
-end;
-
-procedure TUIPlotWindow.OnRedraw;
-var iCon : TUIConsole;
-    iDelay: Integer;
-    iCellH: Integer;
-begin
-  inherited OnRedraw;
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  iCellH := 18;
-  //causes glitches when console grid size does not match windows size
-  //iCellH := UI.Driver.GetSizeY div iCon.Raw.SizeY;
-  iDelay := (1100 div iCellH) * iCellH;
-  iCon.PrintEx( Point( FAbsolute.Pos.x+2, FAbsolute.pos.y + FAbsolute.h - 2 - FStartTime div iDelay ),
-                Point(0, -FStartTime mod iDelay div ( iDelay div iCellH)), 1, FText, Yellow, Black, FAbsolute.Shrinked(2) );
-end;
-
-procedure TUIPlotWindow.OnUpdate ( aTime : DWord ) ;
-begin
-  FStartTime += aTime;
-  TConUIRoot( FRoot ).NeedRedraw := True;
-end;
-
-function TUIPlotWindow.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-begin
-  if event.ModState <> [] then Exit( True );
-  case event.Code of
-    VKEY_SPACE,
-    VKEY_ESCAPE,
-    VKEY_ENTER  : begin Free; Exit( True ); end;
-  else Exit( True );
-  end;
-end;
-
-destructor TUIPlotWindow.Destroy;
-begin
-  FRoot.GrabInput( nil );
-  inherited Destroy;
-end;
-
-{ TUIItemInfo }
-
-constructor TUIItemInfo.Create ( aParent : TUIElement; const aItem : TItem ) ;
-var iCon   : TUIConsole;
-    iShift : TUIPoint;
-    iRect  : TUIRect;
-    iStatus: String;
-begin
-  with aItem do
-  begin
-    iStatus := GetStatusInfo1;
-    if iStatus = ''
-      then FLine2 := '@'+ColorCodes[Color] + GetName(PlainName)
-      else
-      begin
-        FLine1 := '@'+ColorCodes[Color] + GetName(PlainName);
-        FLine2 := '@'+ColorCodes[Color] + iStatus;
-      end;
-    FLine3 := '@'+ColorCodes[Color] + GetStatusInfo2;
-  end;
-  iRect := aParent.GetDimRect;
-  iShift.Init( (iRect.Dim.X - 80) div 2, (iRect.Dim.Y - 10) div 2 );
-  inherited Create( aParent, Rectangle( Point(7, 3)+iShift, 65, 7 ), '' );
-  TConUILabel.Create( Self, Point( -9,-5 )-iShift,'@d Press <@<Enter@>>, <@<Space@>> or <@<Escape@>> to continue...                 ' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  FRoot.GrabInput( Self );
-  OnUpdate(0);
-end;
-
-procedure TUIItemInfo.OnRedraw;
-var iCon : TUIConsole;
-begin
-  inherited OnRedraw;
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  iCon.Print(Point( FAbsolute.Pos.x + (FAbsolute.w - length(StripEncoding(FLine1))) div 2, FAbsolute.pos.y+2 ), White, Black, FLine1, true );
-  iCon.Print(Point( FAbsolute.Pos.x + (FAbsolute.w - length(StripEncoding(FLine2))) div 2, FAbsolute.pos.y+3 ), White, Black, FLine2, true );
-  iCon.Print(Point( FAbsolute.Pos.x + (FAbsolute.w - length(StripEncoding(FLine3))) div 2, FAbsolute.pos.y+4 ), White, Black, FLine3, true );
-end;
-
-function TUIItemInfo.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-begin
-  if event.ModState <> [] then Exit( True );
-  case event.Code of
-    VKEY_SPACE,
-    VKEY_ESCAPE,
-    VKEY_ENTER  : begin Free; Exit( True ); end;
-  else Exit( True );
-  end;
-end;
-
-destructor TUIItemInfo.Destroy;
-begin
-  FRoot.GrabInput( nil );
-  inherited Destroy;
-end;
-
-{ TUIShopWindow }
-
-constructor TUIShopWindow.Create ( aParent : TUIElement;
-  const aTitle : TUIString ) ;
-var
-  iShift : TUIPoint;
-  iRect  : TUIRect;
-begin
-  iRect := aParent.GetDimRect;
-  iShift.Init( (iRect.Dim.X - 80) div 2, (iRect.Dim.Y - 25) div 2 );
-  inherited Create( aParent, Rectangle( Point(7, 3)+iShift, 65, 18 ), aTitle );
-  TConUILabel.Create( Self, Point( -9,-5 ),'@d Press <@<Enter@>> to buy, <@<Escape@>> to exit...                          ' );
-  UI.MainScreen.Msg.Update;
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( Self );
-
-  FMenu := TConUIMenu.Create( Self, Rectangle( Point(0,0), Self.GetAvailableDim.Dim ) );
-  FMenu.OnConfirmEvent := @OnConfirm;
-  FMenu.OnCancelEvent  := @OnCancel;
-  FMenu.OnSelectEvent  := @OnSelect;
-end;
-
-procedure TUIShopWindow.Add ( aItem : TItem; aPriceType : TPriceType ) ;
-begin
-  if aPriceType <> COST_NONE
-    then FMenu.Add( Padded( aItem.GetName(PlainName), 55 ) + IntToStr( aItem.GetPrice(aPriceType) ), True, aItem, aItem.InvColor )
-    else FMenu.Add( aItem.GetName(PlainName), True, aItem, aItem.InvColor );
-  if FMenu.Count = 1 then UI.UpdateStatus( aItem );
-end;
-
-procedure TUIShopWindow.Close( const aEmptyLabel : AnsiString );
-begin
-  FMenu.Add( StringOfChar(' ', 26 ) + 'Close' );
-  if FMenu.Count = 1 then TConUILabel.Create( Self, FAbsolute.Pos + Point( 5,15 ), aEmptyLabel );
-end;
-
-function TUIShopWindow.OnConfirm ( aSender : TUIElement ) : Boolean;
-begin
-  UI.UpdateStatus( nil );
-  if FMenu.Selected = FMenu.Count then Exit( OnCancel( aSender ) );
-  UI.SetUILoopResult(FMenu.Selected);
-  Free;
-  Exit( True );
-end;
-
-function TUIShopWindow.OnCancel ( aSender : TUIElement ) : Boolean;
-begin
-  UI.UpdateStatus( nil );
-  UI.SetUILoopResult(0);
-  Free;
-  Exit( True );
-end;
-
-function TUIShopWindow.OnSelect ( aSender : TUIElement; aIndex : DWord;
-  aItem : TUIMenuItem ) : Boolean;
-begin
-  UI.UpdateStatus( nil );
-  if (aIndex = 0) or (aIndex = FMenu.Count) then Exit( True );
-  UI.UpdateStatus( TItem(aItem.Data) );
-  Exit( True );
+  FStatus.Draw;
 end;
 
 { TUIPanel }
@@ -1113,215 +795,652 @@ begin
   inherited Destroy;
 end;
 
-{ TUISkillWindow }
+{ ====================================================================== }
+{ VTIG immediate mode UI implementations                                 }
+{ ====================================================================== }
 
-constructor TUISkillWindow.Create( aParent : TUIElement );
-var iMenu  : TConUIMenu;
-    iCount : Byte;
-    iSpells: Byte;
+{ TFinishableLayer }
+
+procedure TFinishableLayer.Finish;
+begin
+  FFinished := True;
+end;
+
+function TFinishableLayer.IsFinished : Boolean;
+begin
+  Exit( FFinished );
+end;
+
+{ TStatusLine }
+
+procedure TStatusLine.Init( aText : String; aColor : TIOColor );
+begin
+  Text := aText;
+  Color := aColor;
+end;
+
+{ TStatus }
+
+constructor TStatus.Create;
+begin
+  Reset;
+end;
+
+procedure TStatus.Reset;
+begin
+  FLine1.Init('');
+  FLine2.Init('');
+  FLine3.Init('');
+end;
+
+procedure TStatus.Update( c : TCoord2D );
+begin
+  Reset;
+  with Game.Level do
+  begin
+    if not isVisible( c ) then Exit;
+    if (not isEmpty( c, [efNoMonsters])) and (not (NPCs[c].Flags[nfInvisible]))
+      then Update( NPCs[c] )
+      else if not isEmpty(c, [efNoItems])
+        then Update( Items[c] )
+        else
+        begin
+          FLine2.Init(CellData[Cell[c]].Name);
+          if CellHook_OnTravelName in CellData[Cell[c]].hooks then
+            FLine2.Init(LuaSystem.ProtectedCall([ 'cells',CellData[Cell[c]].id,CellHookNames[ CellHook_OnTravelName ] ], [Game.Level] ));
+        end;
+  end;
+end;
+
+procedure TStatus.Update( aThing : TThing );
+var iCount  : Byte;
+    iStatus : AnsiString;
+begin
+  Reset;
+  if aThing = nil then Exit;
+
+  if aThing is TNPC then
+  with aThing as TNPC do
+  begin
+    if isPlayer then Exit;
+    if AI in AIMonster + [AIGolem] then
+    begin
+      iCount := Max( 0, Min( 10, (HP * 10) div HPMax ) );
+      FLine1.Init('{R ' + StringOfChar( '#', iCount ) + '}{d ' + StringOfChar( '.', 10-iCount ) + '}');
+      FLine2.Init( Name );
+      iCount := Game.Player.Kills.Get( ID );
+      if iCount > 0 then FLine3.Init('Total kills : ' + IntToStr( iCount ));
+      if iCount > 15 then FLine3.Text += '   ('+GetResistancesString+')' ;
+      if iCount > 30 then
+        FLine3.Text += '   HP: ' +
+          IntToStr(LuaSystem.Get(['npcs', id, 'hpmin'])) + '-' +
+          IntToStr(LuaSystem.Get(['npcs', id, 'hpmax']));
+    end
+    else
+      FLine2.Init( Name );
+  end;
+
+  if aThing is TItem then
+  with aThing as TItem do
+  begin
+    iStatus := GetStatusInfo1;
+    if iStatus = ''
+      then FLine2.Init( GetName(PlainName), InvColor )
+      else
+      begin
+        FLine1.Init( '[' + GetName(PlainName) + ']', InvColor );
+        FLine2.Init( iStatus, InvColor );
+      end;
+    FLine3.Init( GetStatusInfo2, InvColor );
+  end;
+end;
+
+procedure TStatus.Draw;
+var iScreenSize : TIOPoint;
+    iOrbStr     : AnsiString;
+
+  procedure DurMark( aItem : TItem; p : TPoint; aVis : Char );
+  var iColor : TUIColor;
+  begin
+    if aItem = nil then Exit;
+    with aItem do
+    begin
+      if Dur >= (DurMax div 4) then Exit;
+      if Dur <= Max(DurMax div 6, 1)
+        then iColor := LightRed
+        else iColor := Brown;
+      VTIG_FreeChar( aVis, p, iColor );
+    end;
+  end;
+
+  function FillChar( aEmpty : Byte; aValue : Byte ) : Char;
+  begin
+    if aValue <= aEmpty    then Exit('.');
+    if aValue <= aEmpty+9  then Exit('-');
+    if aValue <= aEmpty+17 then Exit('=');
+    Exit('#');
+  end;
+
+  procedure DrawOrb( aValue, aMax : Integer; aColor : TIOColor; aX : Integer );
+  var iPercent  : Integer;
+      iY        : Integer;
+  begin
+    if (aMax <= 0) or (aValue <= 0)
+      then iPercent := 0
+      else iPercent := Min( (aValue * 100) div aMax, 100 );
+    iY := iScreenSize.Y - 4;
+    VTIG_FreeLabel( StringOfChar( FillChar( 80, iPercent ), 4 ), Point( aX+1, iY ), aColor );
+    VTIG_FreeLabel( StringOfChar( FillChar( 55, iPercent ), 6 ), Point( aX, iY+1 ), aColor );
+    VTIG_FreeLabel( StringOfChar( FillChar( 30, iPercent ), 6 ), Point( aX, iY+2 ), aColor );
+    VTIG_FreeLabel( StringOfChar( FillChar( 5,  iPercent ), 4 ), Point( aX+1, iY+3 ), aColor );
+  end;
+
+  procedure CenterPrint( const aLine : AnsiString; aY : Integer; aColor : TIOColor );
+  begin
+    if aLine = '' then Exit;
+    VTIG_FreeLabel( aLine, Point( (iScreenSize.X - VTIG_Length( aLine )) div 2, aY ), aColor );
+  end;
+
+var iCount    : DWord;
+    iOrbColor : TIOColor;
+begin
+  iScreenSize := VTIG_GetIOState.Size;
+  if UI.Player = nil then Exit;
+  VTIG_FreeLabel( StringOfChar( '-', iScreenSize.X - 2 ), Point( 0, iScreenSize.Y - 3 ), DarkGray );
+  with UI.Player do
+  begin
+    DrawOrb( HP, getLife, Red, 3 );
+    if Flags[ nfManaShield ] then
+      iOrbColor := LightBlue
+    else
+      iOrbColor := Blue;
+    DrawOrb(MP, getMana, iOrbColor, iScreenSize.X-9);
+
+    iOrbStr := TLevel(UI.Player.Parent).Name;
+    VTIG_FreeLabel( ' ' + iOrbStr + ' ', Point( iScreenSize.X - 13 - Length(iOrbStr), iScreenSize.Y - 3 ), LightGray );
+
+    if LevelUp then
+    begin
+      VTIG_FreeLabel( '[{y +}{R ]', Point( 4, iScreenSize.Y - 6 ), Red );
+      VTIG_FreeLabel( 'Level Up!', Point( 2, iScreenSize.Y - 5 ), White );
+    end;
+
+    DurMark( Equipment[slotHead],  Point( UI.SizeX-2,UI.SizeY-11 ), #127 );
+    DurMark( Equipment[slotTorso], Point( UI.SizeX-2,UI.SizeY-10 ), #219 );
+    DurMark( Equipment[slotRHand], Point( UI.SizeX-3,UI.SizeY-11 ), #179 );
+    DurMark( Equipment[slotLHand], Point( UI.SizeX-3,UI.SizeY-10 ), #197 );
+
+    VTIG_FreeLabel( ' [' + StringOfChar('.', ITEMS_QS) + '] ', Point( 10, iScreenSize.Y - 3 ), DarkGray );
+    for iCount := 1 to ITEMS_QS do
+      if QuickSlot[iCount] <> nil then
+        VTIG_FreeChar( QuickSlot[iCount].Picture, Point( 11 + iCount, iScreenSize.Y - 3 ), QuickSlot[iCount].Color );
+
+    if Spell.Spell > 0 then
+    case Spell.Source of
+      CAST_STAFF : VTIG_FreeLabel( UI.Strip(Equipment[SlotRHand].getSpellName), Point(11, iScreenSize.Y-2), DarkGray );
+      CAST_SCROLL: VTIG_FreeLabel( Spell.Name, Point(11, iScreenSize.Y-2), DarkGray );
+      else
+        VTIG_FreeLabel( Spell.Name, Point(11, iScreenSize.Y-2), DarkGray );
+    end;
+
+    CenterPrint( FLine1.Text, iScreenSize.Y - 3, FLine1.Color );
+    CenterPrint( FLine2.Text, iScreenSize.Y - 2, FLine2.Color );
+    CenterPrint( FLine3.Text, iScreenSize.Y - 1, FLine3.Color );
+  end;
+end;
+
+{ TPlotWindow }
+
+constructor TPlotWindow.Create( const aText : AnsiString );
+var iSize : TIOPoint;
+begin
+  VTIG_EventClear;
+  VTIG_ResetScroll( 'plot_scroll', 0 );
+  FFinished  := False;
+  FText      := aText;
+  FStartTime := 0;
+  iSize := VTIG_GetIOState.Size;
+  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
+end;
+
+procedure TPlotWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize    : TIOPoint;
+    iScroll  : Integer;
+    iPadding : Integer;
+    i        : Integer;
+begin
+  FStartTime += aDTime;
+  iSize := Point( 65, 18 );
+  iPadding := iSize.Y - 4;
+  iScroll := Min( FStartTime div 1100, iPadding );
+  VTIG_PushStyle( @TIGFramedWindowStyle );
+  VTIG_Begin( 'plot_scroll', iSize, Point(8, 4) + FShift );
+  for i := 1 to iPadding do
+    VTIG_Text( '' );
+  VTIG_Text( FText, Point( iSize.X - 4, 0 ), Yellow );
+  for i := 1 to iPadding do
+    VTIG_Text( '' );
+  VTIG_ResetScroll( 'plot_scroll', iScroll );
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( ' Press <{!Enter}>, <{!Space}> or <{!Escape}> to skip...                 ', Point( 0, 0 ), DarkGray );
+  if VTIG_EventConfirm or VTIG_EventCancel or VTIG_Event( VTIG_IE_SELECT ) then
+  begin
+    if iScroll < iPadding then
+      FStartTime := iPadding * 1100
+    else
+      FFinished := True;
+  end;
+end;
+
+function TPlotWindow.IsModal : Boolean;
+begin
+  Exit( True );
+end;
+
+{ TItemInfo }
+
+constructor TItemInfo.Create( const aItem : TItem );
+var iStatus : String;
+    iSize   : TIOPoint;
+begin
+  VTIG_EventClear;
+  FFinished := False;
+  with aItem do
+  begin
+    iStatus := GetStatusInfo1;
+    if iStatus = ''
+      then FLine2 := '{'+ColorCodes[Color]+' ' + GetName(PlainName) + '}'
+      else
+      begin
+        FLine1 := '{'+ColorCodes[Color]+' ' + GetName(PlainName) + '}';
+        FLine2 := '{'+ColorCodes[Color]+' ' + iStatus + '}';
+      end;
+    FLine3 := '{'+ColorCodes[Color]+' ' + GetStatusInfo2 + '}';
+  end;
+  iSize := VTIG_GetIOState.Size;
+  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 10) div 2 );
+end;
+
+procedure TItemInfo.Update( aDTime : Integer; aActive : Boolean );
+var iSize : TIOPoint;
+begin
+  iSize := Point( 66, 7 );
+  VTIG_PushStyle( @TIGFramedWindowStyle );
+  VTIG_Begin( 'item_info', iSize, Point(8, 4) + FShift );
+
+  if FLine1 <> '' then
+    VTIG_Text( FLine1 );
+  VTIG_Text( FLine2 );
+  if FLine3 <> '' then
+    VTIG_Text( FLine3 );
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( ' Press <{!Enter}>, <{!Space}> or <{!Escape}> to continue...                 ', Point( 0, 0 ), DarkGray );
+  if VTIG_EventConfirm or VTIG_EventCancel or VTIG_Event( VTIG_IE_SELECT ) then
+    FFinished := True;
+end;
+
+function TItemInfo.IsModal : Boolean;
+begin
+  Exit( True );
+end;
+
+{ TShopWindow }
+
+constructor TShopWindow.Create( const aTitle : AnsiString );
+var iSize : TIOPoint;
+begin
+  VTIG_EventClear;
+  FFinished   := False;
+  FTitle      := aTitle;
+  FEmptyLabel := '';
+  FItems      := nil;
+  FItemCount  := 0;
+  FClosed     := False;
+  FResult     := -1;
+  iSize := VTIG_GetIOState.Size;
+  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
+end;
+
+procedure TShopWindow.Add( aItem : TItem; aPriceType : TPriceType );
+begin
+  if FItemCount >= Length(FItems) then
+    SetLength( FItems, FItemCount + 16 );
+  FItems[FItemCount].Data  := aItem;
+  FItems[FItemCount].Color := aItem.InvColor;
+  if aPriceType <> COST_NONE
+    then FItems[FItemCount].Name := Padded( aItem.GetName(PlainName), 55 ) + IntToStr( aItem.GetPrice(aPriceType) )
+    else FItems[FItemCount].Name := aItem.GetName(PlainName);
+  Inc( FItemCount );
+end;
+
+procedure TShopWindow.Close( const aEmptyLabel : AnsiString );
+begin
+  FEmptyLabel := aEmptyLabel;
+  FClosed := True;
+end;
+
+procedure TShopWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize  : TIOPoint;
+    i      : Integer;
+    iSel   : Integer;
+begin
+  iSize := Point( 66, 18 );
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( FTitle, 'shop', iSize, Point(8, 4) + FShift );
+
+  if FItemCount > 0 then
+    for i := 0 to FItemCount - 1 do
+      VTIG_Selectable( FItems[i].Name, True, FItems[i].Color );
+
+  VTIG_Selectable( StringOfChar(' ', 26) + 'Close' );
+
+  if (FItemCount = 0) and (FEmptyLabel <> '') then
+    VTIG_Text( FEmptyLabel );
+
+  VTIG_Scrollbar;
+
+  iSel := VTIG_Selected('shop');
+  if iSel < FItemCount then
+    UI.UpdateStatus( FItems[iSel].Data )
+  else
+    UI.UpdateStatus( nil );
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( ' Press <{!Enter}> to buy, <{!Escape}> to exit...          ', Point( 0, 0 ), DarkGray );
+
+  if VTIG_EventConfirm then
+  begin
+    UI.UpdateStatus( nil );
+    if iSel < FItemCount then
+      FResult := iSel
+    else
+      FResult := -1;
+    FFinished := True;
+  end;
+
+  if VTIG_EventCancel then
+  begin
+    UI.UpdateStatus( nil );
+    FResult := -1;
+    FFinished := True;
+  end;
+end;
+
+function TShopWindow.IsModal : Boolean;
+begin
+  Exit( True );
+end;
+
+destructor TShopWindow.Destroy;
+begin
+  FItems := nil;
+  inherited Destroy;
+end;
+
+{ TSkillWindow }
+
+constructor TSkillWindow.Create;
+var iCount : Byte;
     iBonus : Integer;
     iItem  : TItem;
 
   function getQuick(ID: byte): string;
-  var
-    i: byte;
+  var i: byte;
   begin
     for i := 1 to MaxQuickSkills do
       if UI.Player.QuickSkills[i] = ID then
-        exit('('+inttostr(i){+Input.CommandToString(COMMAND_QUICKSKILL1+i-1)} + ')');
+        exit('('+inttostr(i)+')');
     exit('');
   end;
 
 begin
-  inherited Create( aParent, Rectangle(aParent.getDimRect.w - 30, aParent.getDimRect().h div 2, 26, 5 ), '' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( Self );
+  VTIG_EventClear;
+  VTIG_ResetSelect('quick_skill');
+  FFinished := False;
+  FEntries  := nil;
+  FCount    := 0;
+  FResult   := 0;
 
-  TConUILabel.Create( Self, Point( -48,-15 ),'@d Press <@<Enter@>> to select, <@<Escape@>> to exit...                          ' );
-  iMenu := TConUIMenu.Create( Self, Rectangle( Point(0, 0), GetAvailableDim().Dim ));
   // Skill
   if UI.Player.Skill > 0 then
-    iMenu.Add(Padded('@@ ' + LuaSystem.Get(['spells', UI.Player.Skill, 'name']), 20) +
-      getQuick(UI.Player.Skill), True, Pointer(UI.Player.Skill + ord(CAST_SKILL) shl 8));
-
+  begin
+    SetLength( FEntries, FCount + 1 );
+    FEntries[FCount].Name  := Padded('@ ' + AnsiString(LuaSystem.Get(['spells', UI.Player.Skill, 'name'])), 20) + getQuick(UI.Player.Skill);
+    FEntries[FCount].Data  := UI.Player.Skill + ord(CAST_SKILL) shl 8;
+    FEntries[FCount].Valid := True;
+    Inc( FCount );
+  end;
   iBonus := UI.Player.getItemSumBonus( STAT_SPELLLEVEL );
+
   // Spells
   for iCount := 1 to MaxSpells do
     if UI.Player.Spells[iCount] <> 0 then
       if LuaSystem.Defined(['spells', iCount]) then
-        iMenu.Add(Padded('@@ ' + LuaSystem.Get(['spells', iCount, 'name']) +
-                         ' lvl ' + IntToStr((UI.Player.Spells[iCount] + iBonus)), 20) +
-                         getQuick(iCount), True, Pointer(iCount + ord(CAST_SPELL) shl 8));
+      begin
+        SetLength( FEntries, FCount + 1 );
+        FEntries[FCount].Name  := Padded('@ ' + AnsiString(LuaSystem.Get(['spells', iCount, 'name'])) +
+                                  ' lvl ' + IntToStr(UI.Player.Spells[iCount] + iBonus), 20) + getQuick(iCount);
+        FEntries[FCount].Data  := iCount + ord(CAST_SPELL) shl 8;
+        FEntries[FCount].Valid := True;
+        Inc( FCount );
+      end;
+
   // Scrolls
   for iCount := 1 to MaxSpells do
     if UI.Player.FindScroll(iCount) <> nil then
       if LuaSystem.Defined(['spells', iCount]) then
-        iMenu.Add(Padded('? ' + LuaSystem.Get(['spells', iCount, 'name']), 20) +
-                         getQuick(iCount), True, Pointer(iCount + ord(CAST_SCROLL) shl 8));
+      begin
+        SetLength( FEntries, FCount + 1 );
+        FEntries[FCount].Name  := Padded('? ' + AnsiString(LuaSystem.Get(['spells', iCount, 'name'])), 20) + getQuick(iCount);
+        FEntries[FCount].Data  := iCount + ord(CAST_SCROLL) shl 8;
+        FEntries[FCount].Valid := True;
+        Inc( FCount );
+      end;
+
   // Staff
   iItem := UI.Player.Equipment[SlotRHand];
   if (iItem <> nil) then
     if (iItem.Spell <> 0) then
     begin
-      iCount := 20 + length(iItem.getSpellName) -
-        length(UI.Strip(iItem.getSpellName));
-      if (iItem.Charges > 0) then
-        iMenu.Add(Padded('/ ' + iItem.getSpellName, iCount) + getQuick(254), True, Pointer(iItem.Spell + ord(CAST_STAFF) shl 8))
-      else
-        iMenu.Add(Padded('/ ' + iItem.getSpellName, iCount) + getQuick(254), False, Pointer(iItem.Spell + ord(CAST_STAFF) shl 8));
+      SetLength( FEntries, FCount + 1 );
+      FEntries[FCount].Name  := Padded('/ ' + iItem.getSpellName, 20) + getQuick(254);
+      FEntries[FCount].Data  := iItem.Spell + ord(CAST_STAFF) shl 8;
+      FEntries[FCount].Valid := (iItem.Charges > 0);
+      Inc( FCount );
     end;
-
-  iMenu.Add('Close');
-  SetDim(Point(Dim.x, min( 4 + iMenu.GetCount(), aParent.getDimRect().h div 2 - 4)));
-  iMenu.SetDim(GetAvailableDim().Dim);
-  iMenu.OnConfirmEvent := @OnConfirm;
 end;
 
-function TUISkillWindow.OnConfirm( aSender : TUIElement ) : Boolean;
-var Source : TSpellSource;
-    Spell  : Byte;
+procedure TSkillWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize   : TIOPoint;
+    i       : Integer;
+    iSelect : Integer;
+    iSource : TSpellSource;
+    iSpell  : Byte;
+    iLimit  : Integer;
 begin
-  if TConUIMenu( aSender ).Selected <> TConUIMenu( aSender ).Count then
+  iLimit := (UI.SizeY - 5) div 2 - 3;
+  iSize := Point( 27, Min( 5 + FCount, iLimit ) );
+  if iLimit = FCount + 4 then Inc( iSize.Y );
+
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_Begin( 'quick_skill', iSize, Point( UI.SizeX - 30, iLimit + 3 ) );
+
+  for i := 0 to FCount - 1 do
+    VTIG_Selectable( FEntries[i].Name, FEntries[i].Valid );
+
+  VTIG_Selectable( 'Close' );
+  if iLimit < FCount + 4 then
+    VTIG_Scrollbar;
+  
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( 'Press <{!Enter}> to select, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+
+  if VTIG_EventConfirm then
   begin
-    Source := TSpellSource( (Integer(TConUIMenu( aSender ).SelectedItem.Data) shr 8) and $ff );
-    Spell  := Byte(Integer(TConUIMenu( aSender ).SelectedItem.Data) and $ff);
-    case source of
-      CAST_SPELL  : UI.Player.Spell.Init(UI.Player, Spell);
-      CAST_SKILL  : UI.Player.Spell.Init(UI.Player, Spell, true);
-      CAST_STAFF  : UI.Player.Spell.Init(UI.Player.Equipment[SlotRHand]);
-      CAST_SCROLL : UI.Player.Spell.Init(UI.Player.FindScroll(Spell));
+    iSelect := VTIG_Selected('quick_skill');
+    if iSelect < FCount then
+    begin
+      FResult := FEntries[iSelect].Data;
+      iSource := TSpellSource( (FResult shr 8) and $ff );
+      iSpell  := Byte(FResult and $ff);
+      case iSource of
+        CAST_SPELL  : UI.Player.Spell.Init(UI.Player, iSpell);
+        CAST_SKILL  : UI.Player.Spell.Init(UI.Player, iSpell, true);
+        CAST_STAFF  : UI.Player.Spell.Init(UI.Player.Equipment[SlotRHand]);
+        CAST_SCROLL : UI.Player.Spell.Init(UI.Player.FindScroll(iSpell));
+      end;
     end;
+    FFinished := True;
   end;
-  Free;
+
+  if VTIG_EventCancel then
+    FFinished := True;
+end;
+
+function TSkillWindow.IsModal : Boolean;
+begin
   Exit( True );
 end;
 
-function TUISkillWindow.OnKeyDown( const event : TIOKeyEvent ) : Boolean;
+destructor TSkillWindow.Destroy;
 begin
-  case UI.IOKeyCodeToCommand(event.Code) of
-    COMMAND_QUICKSKILL,
-    COMMAND_ESCAPE : begin Free; Exit( True ); end;
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-end;
-
-destructor TUISkillWindow.Destroy;
-begin
-  FRoot.GrabInput( nil );
+  FEntries := nil;
   inherited Destroy;
 end;
 
+{ TQsWindow }
 
-{ TUITravelWindow }
+constructor TQsWindow.Create;
+begin
+  VTIG_EventClear;
+  VTIG_ResetSelect( 'quickslots' );
+  FFinished  := False;
+  FKeyAction := 0;
+end;
 
-constructor TUITravelWindow.Create ( aParent : TUIElement ) ;
+procedure TQsWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize     : TIOPoint;
+    iCount    : Byte;
+    iSelected : Integer;
+    iPicked   : Integer;
+begin
+  iSize := Point( 38, 13 );
+
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_Begin( 'quickslots', iSize, Point( 3, 4 ) );
+
+  iPicked := 0;
+  for iCount := 1 to ITEMS_QS do
+    if UI.Player.GetQsItem(iCount) <> nil then
+    begin
+      if VTIG_Selectable( ' ' + UI.Player.GetQsItem(iCount).GetName(PlainName) ) then
+        iPicked := iCount;
+    end
+    else
+      VTIG_Selectable( ' (empty)', False );
+
+  if VTIG_Selectable( 'Close' ) then
+    FFinished := True;
+
+  iSelected := VTIG_Selected + 1;
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( 'Press <{!Enter}> to use, <{!d}> to drop, <{!i}> to store, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+
+  if VTIG_EventConfirm then
+  begin
+    if UI.Player.GetQsItem( iPicked ) <> nil then
+      UI.Player.UseQuickSlot( iPicked );
+    FFinished := True;
+  end;
+
+  if FKeyAction > 0 then
+  begin 
+    if UI.Player.GetQsItem( iSelected ) <> nil  then
+    begin
+      case FKeyAction of
+        1 : if UI.Player.ActionDrop( UI.Player.GetQsItem( iSelected ) ) then
+              FFinished  := True;
+        2 : if UI.Player.ActionAddToBackPack( UI.Player.GetQsItem( iSelected ) ) then
+              FFinished  := True;
+      end;
+    end;
+    FKeyAction := 0;
+  end;
+
+  if VTIG_EventCancel then
+    FFinished := True;
+end;
+
+function TQsWindow.IsModal : Boolean;
+begin
+  Exit( True );
+end;
+
+function TQsWindow.HandleEvent( const aEvent : TIOEvent ) : Boolean;
+begin
+  if aEvent.EType <> VEVENT_KEYDOWN then Exit( inherited HandleEvent( aEvent ) );
+  if aEvent.Key.ModState <> [] then Exit( inherited HandleEvent( aEvent ) );
+  case aEvent.Key.Code of
+    VKEY_D : begin FKeyAction := 1;    Exit( True ); end;
+    VKEY_I : begin FKeyAction := 2;    Exit( True ); end;
+    VKEY_Q : begin FFinished := True ; Exit( True ); end;
+  end;
+  Exit( inherited HandleEvent( aEvent ) );
+end;
+
+{ TTravelWindow }
+
+constructor TTravelWindow.Create;
+begin
+  VTIG_EventClear;
+  FFinished := False;
+  FResult   := -1;
+end;
+
+procedure TTravelWindow.Update( aDTime : Integer; aActive : Boolean );
 var iPoints : TTravelPoints;
-    iMenu   : TConUIMenu;
     iCount  : DWord;
-    iSize   : TUIPoint;
+    iSize   : TIOPoint;
 begin
   iPoints := Game.Level.TravelPoints;
-  iSize.Y := iPoints.Size;
-  iSize.X := 12;
+  iSize.X := 16;
+  iSize.Y := iPoints.Size + 5;
   if iPoints.Size > 0 then
-  for iCount := 0 to iPoints.Size - 1 do
-    iSize.X := Max( iSize.X, Length( iPoints[ iCount ].What ) );
+    for iCount := 0 to iPoints.Size - 1 do
+      iSize.X := Max( iSize.X, Length( iPoints[ iCount ].What ) + 4 );
 
-  inherited Create( aParent, Rectangle(46, 13, 4+iSize.X, 5+iSize.Y), 'Fast travel' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( Self );
-
-  TConUILabel.Create( Self, Point( -48,-15 ),'@d Press <@<Enter@>> to select, <@<Escape@>> to exit...                          ' );
-  iMenu := TConUIMenu.Create( Self, Point(1,1) );
-  iMenu.OnConfirmEvent := @OnConfirm;
-  iMenu.OnCancelEvent  := @OnCancel;
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( 'Fast travel', 'fast_travel', iSize, Point( 46, 13 ) );
 
   if iPoints.Size > 0 then
     for iCount := 0 to iPoints.Size - 1 do
-      iMenu.Add( iPoints[ iCount ].What );
-
-  iMenu.Add('Cancel');
-end;
-
-function TUITravelWindow.OnConfirm ( aSender : TUIElement ) : Boolean;
-begin
-  with TConUIMenu( aSender ) do
-  if Selected <> Count then
-    UI.SetUILoopResult( Selected );
-  Free;
-  Exit( True );
-end;
-
-function TUITravelWindow.OnCancel ( aSender : TUIElement ) : Boolean;
-begin
-  Free;
-  Exit( True );
-end;
-
-destructor TUITravelWindow.Destroy;
-begin
-  FRoot.GrabInput( nil );
-  inherited Destroy;
-end;
-
-
-{ TUIQsWindow }
-
-constructor TUIQsWindow.Create( aParent : TUIElement );
-var iCount : Byte;
-begin
-  inherited Create( aParent, Rectangle(2, 3, 38, 13), '' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( Self );
-
-  TConUILabel.Create( Self, Point( -4,-5 ),'@d Press <@<Enter@d> to use, <@<d@d> to drop, <@<i@d> to store, <@<Escape@d> to exit...' );
-  FMenu := TConUIMenu.Create( Self, Point(1,1) );
-
-  for iCount := 1 to ITEMS_QS do
-    if UI.Player.GetQsItem(iCount) <> nil then
-      FMenu.Add({Config.CommandToString(COMMAND_QUICKSLOT1+iCount-1)+}
-      ' '+UI.Player.GetQsItem(iCount).GetName(PlainName), true, Pointer(iCount))
-    else
-      FMenu.Add({Input.CommandToString(COMMAND_QUICKSLOT1+iCount-1)+}
-      ' (empty)', false, nil);
-
-  FMenu.Add('Close',true, nil);
-  FMenu.OnConfirmEvent := @OnConfirm;
-end;
-
-function TUIQsWindow.OnConfirm( aSender : TUIElement ) : Boolean;
-begin
-  if FMenu.Selected <> TConUIMenu( aSender ).Count then
-      UI.Player.UseQuickSlot( Byte(FMenu.SelectedItem.Data) );
-  Free;
-  Exit( True );
-end;
-
-function TUIQsWindow.OnKeyDown( const event : TIOKeyEvent ) : Boolean;
-begin
-  case UI.IOKeyCodeToCommand(event.Code) of
-    COMMAND_DROP   :
-      if UI.Player.ActionDrop( UI.Player.Quickslot[ Byte(FMenu.SelectedItem.Data) ] ) then
+      if VTIG_Selectable( iPoints[ iCount ].What ) then
       begin
-        Free;
-        Exit( True );
+        FResult := iCount;
+        FFinished := True;
       end;
-    COMMAND_INVENTORY   :
-      if UI.Player.ActionAddToBackPack( UI.Player.Quickslot[ Byte(FMenu.SelectedItem.Data) ] ) then
-      begin
-        Free;
-        Exit( True );
-      end;
-    COMMAND_QUICKSLOT,
-    COMMAND_ESCAPE : begin Free; Exit( True ); end;
-  else Exit( inherited OnKeyDown( event ) );
+
+  if VTIG_Selectable( 'Cancel' ) or VTIG_EventCancel then
+  begin
+    FResult   := -1;
+    FFinished := True;
   end;
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( 'Press <{!Enter}> to select, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
 end;
 
-destructor TUIQsWindow.Destroy;
+function TTravelWindow.IsModal : Boolean;
 begin
-  FRoot.GrabInput( nil );
-  inherited Destroy;
+  Exit( True );
 end;
 
 
