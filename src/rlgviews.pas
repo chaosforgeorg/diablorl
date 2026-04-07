@@ -64,19 +64,6 @@ TUIJournalWindow = class( TUIPanel )
   destructor Destroy; override;
 end;
 
-{ TUITalkWindow }
-
-TUITalkWindow = class( TUIPanel )
-  constructor Create( aParent : TUIElement; const aIntro : AnsiString );
-  procedure Add( const aOption : AnsiString; aActive : Boolean = True ); reintroduce;
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnCancel( aSender : TUIElement ) : Boolean;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  destructor Destroy; override;
-private
-  FMenu  : TConUIMenu;
-end;
-
 { TUIInventoryWindow }
 // TODO - handle cases when equipment gets destroyed or
 //        mutated (shrines/magic) when viewing
@@ -184,6 +171,29 @@ protected
   FItemCount  : Integer;
   FClosed     : Boolean;
   FShift      : TIOPoint;
+  class var FResult : Integer;
+public
+  class property Result : Integer read FResult;
+end;
+
+{ TTalkWindow }
+
+type TTalkOption = record
+  Text   : AnsiString;
+  Active : Boolean;
+end;
+
+type TTalkWindow = class( TFinishableLayer )
+  constructor Create( const aIntro : AnsiString );
+  procedure Add( const aOption : AnsiString; aActive : Boolean = True );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+  destructor Destroy; override;
+protected
+  FIntro       : AnsiString;
+  FOptions     : array of TTalkOption;
+  FOptionCount : Integer;
+  FShift       : TIOPoint;
   class var FResult : Integer;
 public
   class property Result : Integer read FResult;
@@ -478,56 +488,6 @@ begin
 end;
 
 destructor TUIJournalWindow.Destroy;
-begin
-  FRoot.GrabInput( nil );
-  inherited Destroy;
-end;
-
-{ TUITalkWindow }
-
-constructor TUITalkWindow.Create ( aParent : TUIElement; const aIntro : AnsiString ) ;
-var iSep   : TConUISeparator;
-begin
-  inherited Create( aParent, '' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( Self );
-  TConUILabel.Create( Self, Point( -42,-4 ),'@d Press <@<Enter@>> to choose, <@<Escape@>> to exit...                          ' );
-  iSep := TConUISeparator.Create( Self,VORIENT_HORIZONTAL,3 );
-  TConUILabel.Create( iSep.Top, Point(( FAbsolute.w - Length( aIntro ) ) div 2 - 2,0), aIntro );
-  FMenu := TConUIMenu.Create( iSep.Bottom, Rectangle(0,1,aParent.GetDimRect.w,16) );
-  FMenu.OnConfirmEvent := @OnConfirm;
-  FMenu.OnCancelEvent  := @OnCancel;
-  FMenu.SelectInactive := False;
-  UI.SetUILoopResult( 0 );
-end;
-
-procedure TUITalkWindow.Add ( const aOption : AnsiString; aActive : Boolean ) ;
-begin
-  FMenu.Add( StringOfChar( ' ', ( FAbsolute.w - Length( aOption ) ) div 2 - 2 ) + aOption, aActive );
-end;
-
-function TUITalkWindow.OnConfirm ( aSender : TUIElement ) : Boolean;
-begin
-  UI.SetUILoopResult( FMenu.Selected );
-  Exit( Close );
-end;
-
-function TUITalkWindow.OnCancel ( aSender : TUIElement ) : Boolean;
-begin
-  UI.SetUILoopResult( 0 );
-  Exit( Close );
-end;
-
-function TUITalkWindow.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-begin
-  case UI.IOKeyCodeToCommand(event.Code) of
-    COMMAND_ESCAPE : Exit( Close );
-    COMMAND_CWIN   : Exit( CloseAll );
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-end;
-
-destructor TUITalkWindow.Destroy;
 begin
   FRoot.GrabInput( nil );
   inherited Destroy;
@@ -1178,6 +1138,75 @@ end;
 destructor TShopWindow.Destroy;
 begin
   FItems := nil;
+  inherited Destroy;
+end;
+
+
+{ TTalkWindow }
+
+constructor TTalkWindow.Create( const aIntro : AnsiString );
+var iSize : TIOPoint;
+begin
+  VTIG_EventClear;
+  FFinished    := False;
+  FIntro       := aIntro;
+  FOptions     := nil;
+  FOptionCount := 0;
+  FResult      := -1;
+  iSize := VTIG_GetIOState.Size;
+  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
+end;
+
+procedure TTalkWindow.Add( const aOption : AnsiString; aActive : Boolean );
+begin
+  if FOptionCount >= Length(FOptions) then
+    SetLength( FOptions, FOptionCount + 8 );
+  FOptions[FOptionCount].Text   := aOption;
+  FOptions[FOptionCount].Active := aActive;
+  Inc( FOptionCount );
+end;
+
+procedure TTalkWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize : TIOPoint;
+    i     : Integer;
+    iSel  : Integer;
+begin
+  iSize := Point( UI.SizeX div 2, UI.SizeY - 5 );
+
+  VTIG_PushStyle( @TIGFramedWindowStyle );
+  VTIG_Begin( 'talk_panel', iSize, Point( UI.SizeX div 2 + 1, 3 ) );
+
+  VTIG_SetAlignment( VTIG_ALIGN_CENTER );
+  VTIG_Text( FIntro, LightGray );
+  VTIG_Ruler;
+
+  for i := 0 to FOptionCount - 1 do
+    if VTIG_Selectable( FOptions[i].Text, FOptions[i].Active ) then
+    begin
+      FResult := i;
+      FFinished := True;
+    end;
+  VTIG_SetAlignment( VTIG_ALIGN_LEFT );
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( ' Press <{!Enter}> to choose, <{!Escape}> to exit...                    ', Point( 0, 0 ), DarkGray );
+
+  if VTIG_EventCancel then
+  begin
+    FResult := -1;
+    FFinished := True;
+  end;
+end;
+
+function TTalkWindow.IsModal : Boolean;
+begin
+  Exit( True );
+end;
+
+destructor TTalkWindow.Destroy;
+begin
+  FOptions := nil;
   inherited Destroy;
 end;
 

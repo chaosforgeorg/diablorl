@@ -736,23 +736,23 @@ var
   iCount      : Word;
   iChoice     : Word;
   iValue      : AnsiString;
-  iTalkWindow : TUITalkWindow;
+  iWindow     : TTalkWindow;
 begin
   State.Init(L);
   iCount := State.StackSize;
   if iCount < 2 then Exit(0);
 
   UI.MainScreen.ClearBoth;
-  iTalkWindow := TUITalkWindow.Create( UI.MainScreen.Right, State.ToString(1) );
+  iWindow := TTalkWindow.Create( State.ToString(1) );
   UI.MainScreen.UpdateMap;
 
   for iChoice := 2 to iCount do
   begin
     iValue := State.ToString(iChoice);
-    iTalkWindow.Add(iValue, (Length(iValue) > 0) and (iValue[1] <> '@'));
+    iWindow.Add(iValue, (Length(iValue) > 0) and (iValue[1] <> '@'));
   end;
-  iChoice := UI.RunUILoop( iTalkWindow );
-  State.Push(iChoice);
+  UI.RunLayer( iWindow );
+  State.Push( Integer( TTalkWindow.Result + 1 ) );
   Result := 1;
 end;
 
