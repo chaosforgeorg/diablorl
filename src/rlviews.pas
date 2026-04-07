@@ -9,7 +9,7 @@ interface
 
 uses Classes, SysUtils,
      vuitypes, // TUIChunkBuffer
-     viotypes, vtigstyle;
+     viotypes, vtigstyle, vmessages;
 
 const GAMEMENU_CONT = 0;
       GAMEMENU_HELP = 2;
@@ -57,6 +57,7 @@ end;
 
 type TMessagesScreen = class( TScrollingLayer )
   constructor Create( aMessages : TUIChunkBuffer );
+  constructor Create( aMessages : TMessageBuffer );
 end;
 
 type THighscoreViewer = class( TScrollingLayer )
@@ -264,6 +265,18 @@ begin
   FContent := TIOStringArray.Create;
   for iChunkList in aMessages do
     FContent.Push( ChunkListToString( iChunkList ) );
+  FScrollDown := True;
+  FStyle.Padding[ VTIG_WINDOW_PADDING ] := Point(-1,1 );
+end;
+
+constructor TMessagesScreen.Create( aMessages : TMessageBuffer );
+var iMsg : AnsiString;
+begin
+  inherited Create( nil );
+  FHeader  := ' {!DiabloRL} Past messages viewer';
+  FContent := TIOStringArray.Create;
+  for iMsg in aMessages do
+    FContent.Push( iMsg );
   FScrollDown := True;
   FStyle.Padding[ VTIG_WINDOW_PADDING ] := Point(-1,1 );
 end;
