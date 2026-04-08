@@ -6,101 +6,17 @@ unit rlgviews;
 interface
 
 uses Classes, SysUtils,
-     vuielement, viotypes, vuitypes, vioevent, vconui, vconuirl, vuielements,
-     vtig, vtigio, vtigstyle,
+     viotypes, vioevent, 
+     vtig, vtigio, vtigstyle, vtextmap, vmessages, 
      rlglobal, rlthing, rlitem, vrltools;
 
-type
+type TMainScreen = class;
 
-
-TStatus = class;
-
-{ TUIMainScreen }
-
-TUIMainScreen = class( TUIElement )
-  constructor Create( aParent : TUIElement );
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  procedure UpdateMap;
-  procedure OnRedraw; override;
-  procedure ClearLeft;
-  procedure ClearRight;
-  procedure ClearBoth;
-private
-  FLeft    : TUIElement;
-  FRight   : TUIElement;
-  FMap     : TConUIMapArea;
-  FStatus  : TStatus;
-  FMsg     : TConUIMessages;
-public
-  property Left   : TUIElement     read FLeft;
-  property Right  : TUIElement     read FRight;
-  property Msg    : TConUIMessages read FMsg;
-  property Map    : TConUIMapArea  read FMap;
-  property Status : TStatus      read FStatus;
-end;
-
-{ TUIPanel }
-
-TUIPanel = class( TConUIWindow )
-  constructor Create( aParent : TUIElement; const aTitle : AnsiString );
-  function Close : Boolean;
-  function CloseAll : Boolean;
-end;
-
-{ TUICharWindow }
-
-TUICharWindow = class( TUIPanel )
-  constructor Create( aParent : TUIElement );
-  procedure OnRedraw; override;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-end;
-
-{ TUIJournalWindow }
-
-TUIJournalWindow = class( TUIPanel )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
+type TPanel = class( TIOLayer )
+  constructor Create( aOwner : TMainScreen = nil );
   destructor Destroy; override;
-end;
-
-{ TUIInventoryWindow }
-// TODO - handle cases when equipment gets destroyed or
-//        mutated (shrines/magic) when viewing
-// TODO - Quickslot marking in inventory
-TUIInventoryWindow = class( TUIPanel )
-  constructor Create( aParent : TUIElement );
-  procedure UpdateMenus;
-  function OnInvConfirm( aSender : TUIElement ) : Boolean;
-  function OnEqConfirm( aSender : TUIElement ) : Boolean;
-  function OnSelect( aSender : TUIElement; aIndex : DWord; aItem : TUIMenuItem ) : Boolean;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  procedure SwitchMode;
-  function CurrentItem : TItem;
-  destructor Destroy; override;
-private
-  FCurrent : Byte;
-  FMode    : ( UIInvMode, UIEqMode );
-  FInvMenu : TConUIMenu;
-  FEqMenu  : TConUIMenu;
-  FVolume  : TConUILabel;
-  FEqEmpty : Boolean;
-end;
-
-{ TUISpellWindow }
-
-TUISpellWindow = class( TUIPanel )
-  constructor Create( aParent : TUIElement );
-  function OnConfirm( aSender : TUIElement ) : Boolean;
-  function OnKeyDown( const event : TIOKeyEvent ) : Boolean; override;
-  destructor Destroy; override;
-end;
-
-type TFinishableLayer = class( TIOLayer )
-  procedure Finish;
-  function IsFinished : Boolean; override;
 protected
-  FFinished : Boolean;
+  FOwner : TMainScreen;
 end;
 
 type TStatusLine = object
@@ -123,9 +39,35 @@ private
   FLine3 : TStatusLine;
 end;
 
+{ TMainScreen }
+
+type TMainScreen = class( TIOLayer )
+  constructor Create( aMap : TTextMap; aMessages : TMessages );
+  destructor Destroy; override;
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+  function HandleEvent( const aEvent : TIOEvent ) : Boolean; override;
+  function HandleCommand( aCommand : Byte ) : Boolean;
+  procedure RemovePanel( aPanel : TPanel );
+  procedure ClearLeft;
+  procedure ClearRight;
+  procedure ClearBoth;
+  procedure UpdateMap;
+private
+  FLeft    : TPanel;
+  FRight   : TPanel;
+  FMap     : TTextMap;
+  FMessages: TMessages;
+  FStatus  : TStatus;
+public
+  property Left   : TPanel read FLeft  write FLeft;
+  property Right  : TPanel read FRight write FRight;
+  property Status     : TStatus  read FStatus;
+end;
+
 { TPlotWindow }
 
-type TPlotWindow = class( TFinishableLayer )
+type TPlotWindow = class( TIOLayer )
   constructor Create( const aText : AnsiString );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -137,7 +79,7 @@ end;
 
 { TItemInfo }
 
-type TItemInfo = class( TFinishableLayer )
+type TItemInfo = class( TIOLayer )
   constructor Create( const aItem : TItem );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -157,7 +99,7 @@ type TShopItem = record
 end;
 type TShopItemArray = array of TShopItem;
 
-type TShopWindow = class( TFinishableLayer )
+type TShopWindow = class( TPanel )
   constructor Create( const aTitle : AnsiString );
   procedure Add( aItem : TItem; aPriceType : TPriceType = COST_NONE );
   procedure Close( const aEmptyLabel : AnsiString );
@@ -176,6 +118,28 @@ public
   class property Result : Integer read FResult;
 end;
 
+{ TCharWindow }
+
+type TCharWindow = class( TPanel )
+  constructor Create( aOwner : TMainScreen );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+  function HandleEvent( const aEvent : TIOEvent ) : Boolean; override;
+protected
+  FShift     : TIOPoint;
+  FKeyAction : Byte;
+end;
+
+{ TJournalWindow }
+
+type TJournalWindow = class( TPanel )
+  constructor Create( aOwner : TMainScreen );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+protected
+  FShift    : TIOPoint;
+end;
+
 { TTalkWindow }
 
 type TTalkOption = record
@@ -183,8 +147,8 @@ type TTalkOption = record
   Active : Boolean;
 end;
 
-type TTalkWindow = class( TFinishableLayer )
-  constructor Create( const aIntro : AnsiString );
+type TTalkWindow = class( TPanel )
+  constructor Create( aOwner : TMainScreen; const aIntro : AnsiString );
   procedure Add( const aOption : AnsiString; aActive : Boolean = True );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -199,6 +163,34 @@ public
   class property Result : Integer read FResult;
 end;
 
+// TODO - handle cases when equipment gets destroyed or
+//        mutated (shrines/magic) when viewing
+// TODO - Quickslot marking in inventory
+
+{ TInventoryWindow }
+
+type TInventoryWindow = class( TPanel )
+  constructor Create( aOwner : TMainScreen );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+  function HandleEvent( const aEvent : TIOEvent ) : Boolean; override;
+  destructor Destroy; override;
+protected
+  FShift     : TIOPoint;
+  FMode      : ( InvMode, EqMode );
+  FKeyAction : Byte;
+end;
+
+{ TSpellWindow }
+
+type TSpellWindow = class( TPanel )
+  constructor Create( aOwner : TMainScreen );
+  procedure Update( aDTime : Integer; aActive : Boolean ); override;
+  function IsModal : Boolean; override;
+protected
+  FShift    : TIOPoint;
+end;
+
 { TSkillWindow }
 
 type TSkillEntry = record
@@ -208,7 +200,7 @@ type TSkillEntry = record
 end;
 type TSkillEntryArray = array of TSkillEntry;
 
-type TSkillWindow = class( TFinishableLayer )
+type TSkillWindow = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -223,7 +215,7 @@ end;
 
 { TQsWindow }
 
-type TQsWindow = class( TFinishableLayer )
+type TQsWindow = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -234,7 +226,7 @@ end;
 
 { TTravelWindow }
 
-type TTravelWindow = class( TFinishableLayer )
+type TTravelWindow = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -249,526 +241,19 @@ implementation
 uses math, vutil, vuiconsole, vluasystem,
      rlgame, rlconfig, rllevel, rlui, rlnpc, rlplayer;
 
-{ TUIMainScreen }
+{ TPanel }
 
-constructor TUIMainScreen.Create ( aParent : TUIElement ) ;
+constructor TPanel.Create( aOwner : TMainScreen );
 begin
-  inherited Create( aParent, aParent.GetDimRect );
-  FMsg    := TConUIMessages.Create( Self, Rectangle( 1,0,UI.SizeX-2,2), nil, 1000 );
-  FMsg.ForeColor := DarkGray;
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FMap    := TConUIMapArea.Create( TUIElement.Create( Self, Rectangle( 0,2,UI.SizeX,UI.SizeY-5) ), UI );
-  FLeft   := TUIElement.Create( Self,Rectangle( 0, 2, UI.SizeX div 2, UI.SizeY-5 ) );
-  FRight  := TUIElement.Create( Self,Rectangle( UI.SizeX div 2, 2, UI.SizeX div 2, UI.SizeY-5 ) );
-  FStatus := TStatus.Create;
+  VTIG_EventClear;
+  FOwner := aOwner;
 end;
 
-function TUIMainScreen.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
+destructor TPanel.Destroy;
 begin
-  if UI.Player.HP <= 0 then Exit( False );
-  case UI.IOKeyCodeToCommand(event.Code) of
-    COMMAND_CWIN       : begin ClearBoth; Exit( True ) end;
-    COMMAND_JOURNAL    : if FLeft.Child  is TUIJournalWindow   then begin ClearLeft;  Exit( True ) end else begin ClearLeft; TUIJournalWindow.Create( FLeft ); UpdateMap; Exit( True ); end;
-    COMMAND_PLAYERINFO : if FLeft.Child  is TUICharWindow      then begin ClearLeft;  Exit( True ) end else begin ClearLeft; TUICharWindow.Create( FLeft ); UpdateMap; Exit( True ); end;
-    COMMAND_INVENTORY  : if FRight.Child is TUIInventoryWindow then begin ClearRight; Exit( True ) end else begin ClearRight; TUIInventoryWindow.Create( FRight ); UpdateMap; Exit( True ); end;
-    COMMAND_SPELLBOOK  : if FRight.Child is TUISpellWindow     then begin ClearRight; Exit( True ) end else begin ClearRight; TUISpellWindow.Create( FRight ); UpdateMap; Exit( True ); end;
-    COMMAND_QUICKSKILL : begin UI.RunLayer( TSkillWindow.Create ); Exit( True ); end;
-    COMMAND_QUICKSLOT  : if not (FRight.Child is TUIInventoryWindow) then begin UI.RunLayer( TQsWindow.Create ); Exit( True ); end else Exit( False );
-  else Exit( inherited OnKeyDown ( event ) );
-  end;
-end;
-
-procedure TUIMainScreen.ClearLeft;
-begin
-  if FLeft.Child <> nil then FLeft.Child.Free;
-  UpdateMap;
-end;
-
-procedure TUIMainScreen.ClearRight;
-begin
-  if FRight.Child <> nil then FRight.Child.Free;
-  UpdateMap;
-end;
-
-procedure TUIMainScreen.ClearBoth;
-begin
-  if FLeft.Child <> nil then FLeft.Child.Free;
-  if FRight.Child <> nil then FRight.Child.Free;
-  UpdateMap;
-end;
-
-procedure TUIMainScreen.UpdateMap;
-begin
-  if (FLeft.Child = nil) and (FRight.Child = nil) then
-    FMap.SetArea( Rectangle( 0, 0, UI.SizeX, UI.SizeY - 5 ) )
-  else
-  if FLeft.Child = nil then
-    FMap.SetArea( Rectangle( 0, 0, UI.SizeX div 2, UI.SizeY - 5 ) )
-  else
-    FMap.SetArea( Rectangle( UI.SizeX div 2, 0, UI.SizeX div 2, UI.SizeY - 5 ) );
-  UI.Focus(UI.Player.Position);
-  FMap.ClearMarks;
-  FMap.OnRedraw;
-end;
-
-procedure TUIMainScreen.OnRedraw; 
-begin
-  VTIG_Clear;
-  inherited OnRedraw;
-  FStatus.Draw;
-end;
-
-{ TUIPanel }
-
-constructor TUIPanel.Create ( aParent : TUIElement; const aTitle : AnsiString ) ;
-begin
-  inherited Create( aParent, aParent.GetDimRect, aTitle );
-end;
-
-function TUIPanel.Close : Boolean;
-var iMain : TUIMainScreen;
-begin
-  iMain := TUIMainScreen(Parent.Parent);
-  Free;
-  iMain.UpdateMap;
-  Exit( True );
-end;
-
-function TUIPanel.CloseAll : Boolean;
-var iMain : TUIMainScreen;
-begin
-  iMain := TUIMainScreen(Parent.Parent);
-  iMain.ClearBoth;
-  Exit( True );
-end;
-
-{ TUICharWindow }
-
-constructor TUICharWindow.Create ( aParent : TUIElement ) ;
-begin
-  inherited Create( aParent, 'Character' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-end;
-
-procedure TUICharWindow.OnRedraw;
-var iCon : TUIConsole;
-
-    procedure DrawStat( aLine, aColumn : Byte; aName, aValue : AnsiString );
-    var iPointName  : TUIPoint;
-        iPointValue : TUIPoint;
-        iColWidth   : Integer;
-    begin
-      iColWidth := FAbsolute.w div 2;
-      iPointName  := Point( (aColumn-1) * iColWidth, aLine ) + FAbsolute.Pos + Point(2,1);
-      iPointValue := iPointName + Point( iColWidth - 4 - UI.CodedLength(aValue), 0 );
-      iCon.Print( iPointName,  DarkGray, Black, aName, True );
-      iCon.Print( iPointValue, LightGray, Black, aValue, True );
-    end;
-
-    procedure DrawUpStat( aLine : Byte; aName : AnsiString; aBase, aCurrent : Integer; aUpgrade : Char = ' '; aDrawUpgrade : Boolean = False );
-    var iPointName  : TUIPoint;
-        iPointValue : TUIPoint;
-        iValue      : TUIString;
-        iColWidth   : Integer;
-    begin
-      iColWidth := FAbsolute.w div 2;
-      iPointName  := Point( 0, aLine ) + FAbsolute.Pos + Point(2,1);
-      iValue      := IntToStr(aBase)+'@d|';
-      if aDrawUpgrade
-        then iValue += '@r[@y'+aUpgrade+'@r]'
-        else iValue += '@'+ColorCodes[ ModColor( aCurrent - aBase ) ]+IntToStr( aCurrent );
-      iPointValue := iPointName + Point( iColWidth - 4 - UI.CodedLength(iValue), 0 );
-      iCon.Print( iPointName,  DarkGray, Black, aName, True );
-      iCon.Print( iPointValue, LightGray, Black, iValue, True );
-    end;
-
-    function ResistStr( aResist : DWord ) : AnsiString;
-    var iValue : LongInt;
-    begin
-      iValue := UI.Player.GetResist( aResist );
-      if iValue >= 75 then Exit( 'MAX' );
-      Exit( IntToStr( iValue ) );
-    end;
-
-begin
-  inherited OnRedraw;
-  iCon.Init( TConUIRoot(FRoot).Renderer );
-  with UI.Player do
-  begin
-    LevelUp := False;
-    
-    DrawStat( 1, 1, 'Name', Name );           DrawStat( 1, 2, 'Class', UpCase(AnsiString(LuaSystem.Get(['klasses',Klass,'name']))) );
-    DrawStat( 2, 1, 'Level', IntToStr(Level) );DrawStat( 2, 2, 'Exp', IntToStr(Exp) );
-    if Level < 50 then                         DrawStat( 3, 2, 'NextLev', IntToStr(ExpTable[Level + 1]) )
-                  else                         DrawStat( 3, 2, 'NextLev', 'MAX' );
-    DrawUpStat( 5, 'Strength',  Str, getStr, 's', (Points > 0) and ( Str < getStatMax( STAT_STR ) ) );
-    DrawUpStat( 6, 'Magic',     Mag, getMag, 'm', (Points > 0) and ( Mag < getStatMax( STAT_MAG ) ) );
-    DrawUpStat( 7, 'Dexterity', Dex, getDex, 'd', (Points > 0) and ( Dex < getStatMax( STAT_DEX ) ) );
-    DrawUpStat( 8, 'Vitality',  Vit, getVit, 'v', (Points > 0) and ( Vit < getStatMax( STAT_VIT ) ) );
-
-    DrawUpStat( 8, 'Vitality',  Vit, getVit, 'v', (Points > 0) and ( Vit < getStatMax( STAT_VIT ) ) );
-    DrawStat( 9, 1, 'Points', IntToStr(Points) );
-
-    DrawUpStat( 11, 'Life', getLife, HP );
-    DrawUpStat( 12, 'Mana', getMana, MP );
-
-    DrawStat( 5, 2, 'Gold', IntToStr(getGold) );
-    DrawStat( 6, 2, 'Armor', IntToStr(getAC) );
-    DrawStat( 7, 2, 'ToHit', IntToStr(getToHitMelee)+'%' );
-
-    DrawStat( 8, 2, 'Damage', IntToStr(getFullDmgMin)+'-'+IntToStr(getFullDmgMax) );
-
-    DrawStat( 10, 2, 'ResMagic', ResistStr( STAT_RESMAGIC ) );
-    DrawStat( 11, 2, 'ResFire', ResistStr( STAT_RESFIRE ) );
-    DrawStat( 12, 2, 'ResLight', ResistStr( STAT_RESLIGHTNING ) );
-  end;
-end;
-
-function TUICharWindow.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-begin
-  if event.ModState <> [] then Exit( False );
-  if event.Code = VKEY_ESCAPE then Exit( Close );
-  if UI.Player.Points = 0 then Exit( False );
-  with UI.Player do
-  case event.Code of
-    VKEY_S : if Str < getStatMax( STAT_STR ) then Str := Str + 1 else Exit( False );
-    VKEY_M : if Mag < getStatMax( STAT_MAG ) then Mag := Mag + 1 else Exit( False );
-    VKEY_D : if Dex < getStatMax( STAT_DEX ) then Dex := Dex + 1 else Exit( False );
-    VKEY_V : if Vit < getStatMax( STAT_VIT ) then Vit := Vit + 1 else Exit( False );
-  else Exit( False );
-  end;
-  UI.Player.Stats.Inc('points_used');
-  UI.Player.Points := UI.Player.Points - 1;
-  Exit( True );
-end;
-
-
-{ TUIJournalWindow }
-
-constructor TUIJournalWindow.Create ( aParent : TUIElement ) ;
-var iMenu  : TConUIMenu;
-    iCount : Byte;
-begin
-  inherited Create( aParent, 'Journal' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( UI.MainScreen );
-  TConUILabel.Create( Self, Point( -2,-4 ),'@d Press <@<Enter@>> to view, <@<Escape@>> to exit...                          ' );
-  iMenu := TConUIMenu.Create( Self, Point(1,1) );
-  with UI.Player do
-  for iCount := 1 to LuaSystem.Get(['quests', '__counter']) do
-    if ( Quests[ iCount ] > 0 ) and ( Quests[iCount] < LuaSystem.Get(['quests',iCount,'completed']) ) then
-      iMenu.Add( LuaSystem.Get(['quests', iCount, 'name']), True, Pointer(iCount) );
-  iMenu.Add('Close');
-  if iMenu.Count = 1 then
-    TConUIText.Create( Self, Rectangle(1,3,35,3),'Currently, You are not involved in any quests.');
-  iMenu.OnConfirmEvent := @OnConfirm;
-end;
-
-function TUIJournalWindow.OnConfirm ( aSender : TUIElement ) : Boolean;
-begin
-  if TConUIMenu( aSender ).Selected = TConUIMenu( aSender ).Count
-    then TUIMainScreen(Parent.Parent).ClearLeft
-    else
-    begin
-      FRoot.GrabInput(nil);
-      LuaSystem.ProtectedCall(['quests', Byte(TConUIMenu( aSender ).SelectedItem.Data), 'OnJournal'], [] );
-      FRoot.GrabInput(Self);
-    end;
-  Exit( True );
-end;
-
-function TUIJournalWindow.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-begin
-  case UI.IOKeyCodeToCommand(event.Code) of
-    COMMAND_JOURNAL,
-    COMMAND_ESCAPE : Exit( Close );
-    COMMAND_CWIN   : Exit( CloseAll );
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-end;
-
-destructor TUIJournalWindow.Destroy;
-begin
-  FRoot.GrabInput( nil );
+  if FOwner <> nil then
+    FOwner.RemovePanel( Self );
   inherited Destroy;
-end;
-
-{ TUIInventoryWindow }
-
-constructor TUIInventoryWindow.Create ( aParent : TUIElement ) ;
-var iSep   : TConUISeparator;
-    iSlots : AnsiString;
-    iIndex : DWord;
-begin
-  inherited Create( aParent, 'Inventory' );
-  TConUILabel.Create( Self, Point(-1,-1)-aParent.Pos,'@d Inventory: @>[@lTAB@>] switch, [@lENTER@>] equip/use, [@ld@>] drop, [@<q@>] quickslot, [@lESC@>] exit.' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( UI.MainScreen );
-  Padding := Point(-1,-1);
-  iSep := TConUISeparator.Create( Self,VORIENT_HORIZONTAL,8 );
-  iSlots := '';
-  for iIndex := 1 to ITEMS_EQ do
-    iSlots += '@d' + UI.Player.SlotName(iIndex) + ' :@>'#10;
-  TConUIText.Create( iSep.Top, iSlots );
-
-  FEqMenu  := TConUIMenu.Create( iSep.Top, Rectangle( 7, 0, 8, FAbsolute.w - 6 ) );
-  FInvMenu := TConUIMenu.Create( iSep.Bottom, iSep.Bottom.GetDimRect );
-  FEqMenu.SelectInactive := False;
-  FEqMenu.SetSelected(0);
-  FEqMenu.EventFilter := [];
-
-  FEqMenu.OnSelectEvent := @OnSelect;
-  FInvMenu.OnSelectEvent := @OnSelect;
-  FEqMenu.OnConfirmEvent := @OnEqConfirm;
-  FInvMenu.OnConfirmEvent := @OnInvConfirm;
-  FMode := UIInvMode;
-  FVolume := nil;
-  FCurrent := 1;
-
-  UpdateMenus;
-end;
-
-procedure TUIInventoryWindow.UpdateMenus;
-var iInvList : TItemList;
-    iEqList  : TItemList;
-    iItem    : TItem;
-    iIndex   : Word;
-    iVolume  : TUIString;
-begin
-  FInvMenu.Clear;
-  FEqMenu.Clear;
-  iInvList := UI.Player.GetInvList;
-  iEqList  := UI.Player.GetEqList;
-
-  for iItem in iInvList do
-    FInvMenu.Add( Padded(iItem.GetName(PlainName),FAbsolute.w-5)+' '+IntToStr(iItem.Volume), True, iItem, iItem.InvColor );
-
-  FEqEmpty := True;
-  for iIndex := 1 to ITEMS_EQ do
-    if iEqList[ iIndex ] = nil
-      then FEqMenu.Add( '---', False, nil, DarkGray )
-      else begin
-        FEqMenu.Add( iEqList[ iIndex ].GetName(PlainName), True, iEqList[ iIndex ], iEqList[ iIndex ].InvColor );
-        FEqEmpty := False;
-      end;
-
-  FreeAndNil( iInvList );
-  FreeAndNil( iEqList );
-
-  FreeAndNil( FVolume );
-  iVolume := Format('@d[@<%d@>/%d]',[UI.Player.InvVolume, MaxVolume]);
-  FVolume := TConUILabel.Create( Self, Point( FAbsolute.Dim.X - UI.CodedLength(iVolume) - 10, FAbsolute.Dim.Y-2 ), iVolume );
-
-  if FMode = UIInvMode
-    then begin FInvMenu.SetSelected(FCurrent); FEqMenu.SetSelected(0); end
-    else begin FInvMenu.SetSelected(0); FEqMenu.SetSelected(FCurrent); end;
-
-  if ( ( FMode = UIEqMode ) and FEqEmpty ) or
-     ( ( FMode = UIInvMode ) and ( FInvMenu.Count = 0 ) and ( not FEqEmpty ) ) then
-     SwitchMode;
-end;
-
-function TUIInventoryWindow.OnInvConfirm ( aSender : TUIElement ) : Boolean;
-var iItem : TItem;
-begin
-  iItem := nil;
-  if FInvMenu.SelectedItem.Data <> nil then iItem := TItem( FInvMenu.SelectedItem.Data );
-  UI.MainScreen.Msg.Update;
-  Close;
-  if iItem <> nil then UI.Player.ActionWear( iItem );
-  UI.BreakKeyLoop;
-  Exit( True );
-end;
-
-function TUIInventoryWindow.OnEqConfirm ( aSender : TUIElement ) : Boolean;
-begin
-  if FEqMenu.SelectedItem.Data <> nil then
-  begin
-    UI.MainScreen.Msg.Update;
-    UI.Player.ActionWear(nil, FEqMenu.Selected);
-    UpdateMenus;
-  end;
-  Exit( True );
-end;
-
-function TUIInventoryWindow.OnSelect ( aSender : TUIElement; aIndex : DWord;
-  aItem : TUIMenuItem ) : Boolean;
-begin
-  if (aItem <> nil) and (aItem.Data <> nil) then
-  begin
-    UI.UpdateStatus( TItem( aItem.Data ) );
-    if FCurrent <> aIndex then UI.PlaySound('sfx/items/invgrab.wav');
-    FCurrent := aIndex;
-  end;
-  Exit( True );
-end;
-
-function TUIInventoryWindow.OnKeyDown ( const event : TIOKeyEvent ) : Boolean;
-var iItem : TItem;
-begin
-  case UI.IOKeyCodeToCommand(event.Code) of
-    COMMAND_INVENTORY,
-    COMMAND_ESCAPE     : Exit( Close );
-    COMMAND_CWIN       : Exit( CloseAll );
-    COMMAND_SWITCHMODE : SwitchMode;
-    COMMAND_DROP       :
-      begin
-        iItem := CurrentItem;
-        UI.Player.ActionDrop( iItem );
-        UpdateMenus;
-        Exit( True );
-      end;
-    COMMAND_QUICKSLOT :
-      begin
-        iItem := CurrentItem;
-        UI.Player.ActionQuickslotItem( iItem );
-        UpdateMenus;
-        Exit( True );
-      end;
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-  Exit( True );
-end;
-
-procedure TUIInventoryWindow.SwitchMode;
-begin
-  if FMode = UIInvMode then
-  begin
-    if FEqEmpty then Exit;
-    FEqMenu.SetSelected(1);
-    FEqMenu.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEMOVE, VEVENT_MOUSEDOWN ];
-    FInvMenu.SetSelected(0);
-    FInvMenu.EventFilter := [];
-    FMode := UIEqMode;
-  end
-  else
-  begin
-    if FInvMenu.Count = 0 then Exit;
-    FInvMenu.SetSelected(1);
-    FInvMenu.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEMOVE, VEVENT_MOUSEDOWN ];
-    FEqMenu.SetSelected(0);
-    FEqMenu.EventFilter := [];
-    FMode := UIInvMode;
-  end;
-end;
-
-function TUIInventoryWindow.CurrentItem : TItem;
-begin
-  CurrentItem := nil;
-  if (FMode = UIInvMode) and ( FInvMenu.Count > 0 ) and ( FInvMenu.Selected > 0 ) then
-    Exit( TItem( FInvMenu.SelectedItem.Data ) );
-  if (FMode = UIEqMode) and ( not FEqEmpty ) and ( FEqMenu.Selected > 0 ) then
-    Exit( TItem( FEqMenu.SelectedItem.Data ) );
-end;
-
-destructor TUIInventoryWindow.Destroy;
-begin
-  UI.UpdateStatus( nil );
-  FRoot.GrabInput( nil );
-  inherited Destroy;
-end;
-
-{ TUISpellWindow }
-
-constructor TUISpellWindow.Create( aParent : TUIElement );
-var iMenu  : TConUIMenu;
-    iCount : Byte;
-    iBonus : Integer;
-
-    Name: ansistring;
-    Page: byte;
-    Slvl: byte;
-    Cost: DWord;
-    DMin: DWord;
-    DMax: DWord;
-
-begin
-  inherited Create( aParent, 'Spells' );
-  EventFilter := [ VEVENT_KEYDOWN ];
-  FRoot.GrabInput( UI.MainScreen );
-
-  TConUILabel.Create( Self, Point(-1,-1)-aParent.Pos,'@d Press <@<Enter@>> to view, <@<Escape@>> to exit...                          ' );
-  iMenu := TConUIMenu.Create( Self, Point(1,1) );
-  iBonus := UI.Player.getItemSumBonus( STAT_SPELLLEVEL );
-
-  for iCount := 1 to MaxSpells do
-    if LuaSystem.Defined(['spells', iCount]) then
-      with LuaSystem.GetTable(['spells', iCount]) do
-        try
-          Slvl := UI.Player.Spells[iCount];
-          Page := getInteger('page');
-          if Page <> 0 then // ignore unlisted
-          begin
-            if slvl <> 0 then
-            begin
-              Name := getString('name');
-//              Effect := getInteger('effect');
-//              SType := getInteger('type');
-              Cost := max(Integer(LuaSystem.ProtectedCall(['spells', iCount, 'cost'], [20, UI.Player])),
-                (LuaSystem.ProtectedCall(['spells', iCount, 'cost'], [slvl, UI.Player]) * UI.Player.SpellCost) div 100);
-
-              if isFunction('dmin')
-                then DMin := ProtectedCall('dmin',[slvl, UI.Player])
-                else DMin := GetInteger('dmin');
-              if isFunction('dmax')
-                then DMax := ProtectedCall('dmax',[slvl, UI.Player])
-                else DMax := GetInteger('dmax');
-
-              if (dmax > 0) then
-                iMenu.Add(Format('%s (L:@<%d@>) @<%d-%d@> Cost: @<%d',
-                  [Padded(Name, 13), slvl + iBonus, dmin, dmax, cost]), True, Pointer(iCount))
-              else
-                iMenu.Add(Format('%s (L:@<%d@>) Cost: @<%d',
-                  [Padded(Name, 13), slvl + iBonus, cost]), True, Pointer(iCount));
-            end;
-          end;
-        finally
-          Free;
-        end;
-
-  iMenu.Add('Close');
-  iMenu.OnConfirmEvent := @OnConfirm;
-end;
-
-function TUISpellWindow.OnConfirm( aSender : TUIElement ) : Boolean;
-begin
-  if TConUIMenu( aSender ).Selected <> TConUIMenu( aSender ).Count then
-      UI.Player.Spell.Init(UI.Player, Byte(TConUIMenu( aSender ).SelectedItem.Data));
-  TUIMainScreen(Parent.Parent).ClearRight;
-  Exit( True );
-end;
-
-function TUISpellWindow.OnKeyDown( const event : TIOKeyEvent ) : Boolean;
-begin
-  case UI.IOKeyCodeToCommand(event.Code) of
-    COMMAND_SPELLBOOK,
-    COMMAND_ESCAPE : Exit( Close );
-    COMMAND_CWIN   : Exit( CloseAll );
-  else Exit( inherited OnKeyDown( event ) );
-  end;
-  Exit(True);
-end;
-
-destructor TUISpellWindow.Destroy;
-begin
-  FRoot.GrabInput( nil );
-  inherited Destroy;
-end;
-
-{ ====================================================================== }
-{ VTIG immediate mode UI implementations                                 }
-{ ====================================================================== }
-
-{ TFinishableLayer }
-
-procedure TFinishableLayer.Finish;
-begin
-  FFinished := True;
-end;
-
-function TFinishableLayer.IsFinished : Boolean;
-begin
-  Exit( FFinished );
 end;
 
 { TStatusLine }
@@ -860,7 +345,7 @@ var iScreenSize : TIOPoint;
     iOrbStr     : AnsiString;
 
   procedure DurMark( aItem : TItem; p : TPoint; aVis : Char );
-  var iColor : TUIColor;
+  var iColor : TIOColor;
   begin
     if aItem = nil then Exit;
     with aItem do
@@ -947,6 +432,155 @@ begin
     CenterPrint( FLine2.Text, iScreenSize.Y - 2, FLine2.Color );
     CenterPrint( FLine3.Text, iScreenSize.Y - 1, FLine3.Color );
   end;
+end;
+
+{ TMainScreen }
+
+constructor TMainScreen.Create( aMap : TTextMap; aMessages : TMessages );
+begin
+  FLeft    := nil;
+  FRight   := nil;
+  FMap        := aMap;
+  FMessages   := aMessages;
+  FStatus     := TStatus.Create;
+end;
+
+destructor TMainScreen.Destroy;
+begin
+  FreeAndNil( FStatus );
+  inherited Destroy;
+end;
+
+procedure TMainScreen.Update( aDTime : Integer; aActive : Boolean );
+var i       : Integer;
+    iColor  : DWord;
+begin
+  VTIG_Clear;
+  if FMap <> nil then
+  begin
+    FMap.Update( aDTime );
+    FMap.OnRedraw;
+  end;
+  if FMessages <> nil then
+    for i := 1 to 2 do
+    begin
+      if i > FMessages.Size then Continue;
+      if i <= FMessages.Active
+        then iColor := LightGray
+        else iColor := DarkGray;
+      VTIG_FreeLabel( FMessages.Content[ -i ], Point(2, 2-i), iColor );
+    end;
+  FStatus.Draw;
+end;
+
+function TMainScreen.IsModal : Boolean;
+begin
+  Exit( False );
+end;
+
+function TMainScreen.HandleEvent( const aEvent : TIOEvent ) : Boolean;
+begin
+  if aEvent.EType <> VEVENT_KEYDOWN then Exit( inherited HandleEvent( aEvent ) );
+  if HandleCommand( UI.IOKeyCodeToCommand( IOKeyEventToIOKeyCode( aEvent.Key ) ) ) then
+    Exit( True );
+  Exit( inherited HandleEvent( aEvent ) );
+end;
+
+function TMainScreen.HandleCommand( aCommand : Byte ) : Boolean;
+begin
+  if UI.Player.HP <= 0 then Exit( False );
+  case aCommand of
+    COMMAND_CWIN       : begin ClearBoth; Exit( True ) end;
+    COMMAND_JOURNAL    : if FLeft  is TJournalWindow   then begin ClearLeft;  Exit( True ) end else begin ClearLeft;  FLeft  := UI.PushLayer( TJournalWindow.Create( Self ) ) as TPanel;   UpdateMap; Exit( True ); end;
+    COMMAND_PLAYERINFO : if FLeft  is TCharWindow      then begin ClearLeft;  Exit( True ) end else begin ClearLeft;  FLeft  := UI.PushLayer( TCharWindow.Create( Self ) ) as TPanel;      UpdateMap; Exit( True ); end;
+    COMMAND_INVENTORY  : if FRight is TInventoryWindow then begin ClearRight; Exit( True ) end else begin ClearRight; FRight := UI.PushLayer( TInventoryWindow.Create( Self ) ) as TPanel; UpdateMap; Exit( True ); end;
+    COMMAND_SPELLBOOK  : if FRight is TSpellWindow     then begin ClearRight; Exit( True ) end else begin ClearRight; FRight := UI.PushLayer( TSpellWindow.Create( Self ) ) as TPanel;     UpdateMap; Exit( True ); end;
+    COMMAND_QUICKSKILL : begin UI.RunLayer( TSkillWindow.Create ); Exit( True ); end;
+    COMMAND_QUICKSLOT  : if not (FRight is TInventoryWindow) then begin UI.RunLayer( TQsWindow.Create ); Exit( True ); end else Exit( False );
+  end;
+  // When any panel is open, Escape closes all panels
+  if (FLeft <> nil) or (FRight <> nil) then
+    if aCommand = COMMAND_ESCAPE then begin ClearBoth; Exit( True ); end;
+  // When right panel (inventory/spellbook) is open, consume commands that
+  // map to VTIG widget navigation (arrows, enter, tab, drop, switchmode)
+  if FRight <> nil then
+    case aCommand of
+      COMMAND_OK,
+      COMMAND_SWITCHMODE,
+      COMMAND_DROP,
+      COMMAND_WALKNORTH, COMMAND_WALKSOUTH,
+      COMMAND_WALKEAST, COMMAND_WALKWEST,
+      COMMAND_WALKNE, COMMAND_WALKSE,
+      COMMAND_WALKNW, COMMAND_WALKSW : Exit( True );
+    end;
+  Exit( False );
+end;
+
+procedure TMainScreen.RemovePanel( aPanel : TPanel );
+begin
+  if FLeft = aPanel then
+    FLeft := nil
+  else if FRight = aPanel then
+    FRight := nil
+  else
+    Exit;
+  UpdateMap;
+end;
+
+procedure TMainScreen.ClearLeft;
+begin
+  if FLeft <> nil then
+  begin
+    FLeft.FOwner := nil;
+    FLeft.Finish;
+    FLeft := nil;
+  end;
+  UpdateMap;
+end;
+
+procedure TMainScreen.ClearRight;
+begin
+  if FRight <> nil then
+  begin
+    FRight.FOwner := nil;
+    FRight.Finish;
+    FRight := nil;
+  end;
+  UpdateMap;
+end;
+
+procedure TMainScreen.ClearBoth;
+begin
+  if FLeft <> nil then
+  begin
+    FLeft.FOwner := nil;
+    FLeft.Finish;
+    FLeft := nil;
+  end;
+  if FRight <> nil then
+  begin
+    FRight.FOwner := nil;
+    FRight.Finish;
+    FRight := nil;
+  end;
+  UpdateMap;
+end;
+
+procedure TMainScreen.UpdateMap;
+begin
+  if FMap <> nil then
+  begin
+    if (FLeft = nil) and (FRight = nil) then
+      FMap.SetArea( Rectangle( 1, 3, UI.SizeX, UI.SizeY - 5 ) )
+    else
+    if FLeft = nil then
+      FMap.SetArea( Rectangle( 1, 3, UI.SizeX div 2, UI.SizeY - 5 ) )
+    else
+      FMap.SetArea( Rectangle( UI.SizeX div 2 + 1, 3, UI.SizeX div 2, UI.SizeY - 5 ) );
+    FMap.ClearMarks;
+    FMap.OnRedraw;
+  end;
+  UI.Focus(UI.Player.Position);
 end;
 
 { TPlotWindow }
@@ -1052,8 +686,7 @@ end;
 constructor TShopWindow.Create( const aTitle : AnsiString );
 var iSize : TIOPoint;
 begin
-  VTIG_EventClear;
-  FFinished   := False;
+  inherited Create;
   FTitle      := aTitle;
   FEmptyLabel := '';
   FItems      := nil;
@@ -1141,14 +774,171 @@ begin
   inherited Destroy;
 end;
 
+{ TCharWindow }
+
+constructor TCharWindow.Create( aOwner : TMainScreen );
+begin
+  inherited Create( aOwner );
+  FKeyAction := 0;
+end;
+
+procedure TCharWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize     : TIOPoint;
+    iColWidth : Integer;
+
+  procedure DrawStat( aLine, aColumn : Byte; const aName, aValue : AnsiString );
+  begin
+    VTIG_FreeLabel( aName, Point( (aColumn-1) * iColWidth, aLine - 1 ), DarkGray );
+    VTIG_FreeLabel( aValue, Point( aColumn * iColWidth - 4 - VTIG_Length( aValue ), aLine - 1 ), LightGray );
+  end;
+
+  procedure DrawUpStat( aLine : Byte; const aName : AnsiString; aBase, aCurrent : Integer; aUpgrade : Char = ' '; aDrawUpgrade : Boolean = False );
+  var iValue : AnsiString;
+  begin
+    VTIG_FreeLabel( aName, Point( 0, aLine - 1 ), DarkGray );
+    iValue := IntToStr(aBase) + '{d|}';
+    if aDrawUpgrade
+      then iValue += '{R[{y' + aUpgrade + '}]}'
+      else iValue += '{' + ColorCodes[ ModColor( aCurrent - aBase ) ] + IntToStr( aCurrent ) + '}';
+    VTIG_FreeLabel( iValue, Point( iColWidth - 4 - VTIG_Length( iValue ), aLine - 1 ), LightGray );
+  end;
+
+  function ResistStr( aResist : DWord ) : AnsiString;
+  var iValue : LongInt;
+  begin
+    iValue := UI.Player.GetResist( aResist );
+    if iValue >= 75 then Exit( 'MAX' );
+    Exit( IntToStr( iValue ) );
+  end;
+
+begin
+  iSize := Point( UI.SizeX div 2, UI.SizeY - 5 );
+  iColWidth := iSize.X div 2;
+
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( 'Character', 'char', iSize, Point( 1, 3 ) );
+
+  with UI.Player do
+  begin
+    LevelUp := False;
+
+    DrawStat( 1, 1, 'Name', Name );               DrawStat( 1, 2, 'Class', UpCase(AnsiString(LuaSystem.Get(['klasses',Klass,'name']))) );
+    DrawStat( 2, 1, 'Level', IntToStr(Level) );    DrawStat( 2, 2, 'Exp', IntToStr(Exp) );
+    if Level < 50 then                             DrawStat( 3, 2, 'NextLev', IntToStr(ExpTable[Level + 1]) )
+                  else                             DrawStat( 3, 2, 'NextLev', 'MAX' );
+    DrawUpStat( 5, 'Strength',  Str, getStr, 's', (Points > 0) and ( Str < getStatMax( STAT_STR ) ) );
+    DrawUpStat( 6, 'Magic',     Mag, getMag, 'm', (Points > 0) and ( Mag < getStatMax( STAT_MAG ) ) );
+    DrawUpStat( 7, 'Dexterity', Dex, getDex, 'd', (Points > 0) and ( Dex < getStatMax( STAT_DEX ) ) );
+    DrawUpStat( 8, 'Vitality',  Vit, getVit, 'v', (Points > 0) and ( Vit < getStatMax( STAT_VIT ) ) );
+    DrawStat( 9, 1, 'Points', IntToStr(Points) );
+
+    DrawUpStat( 11, 'Life', getLife, HP );
+    DrawUpStat( 12, 'Mana', getMana, MP );
+
+    DrawStat( 5, 2, 'Gold', IntToStr(getGold) );
+    DrawStat( 6, 2, 'Armor', IntToStr(getAC) );
+    DrawStat( 7, 2, 'ToHit', IntToStr(getToHitMelee)+'%' );
+    DrawStat( 8, 2, 'Damage', IntToStr(getFullDmgMin)+'-'+IntToStr(getFullDmgMax) );
+
+    DrawStat( 10, 2, 'ResMagic', ResistStr( STAT_RESMAGIC ) );
+    DrawStat( 11, 2, 'ResFire', ResistStr( STAT_RESFIRE ) );
+    DrawStat( 12, 2, 'ResLight', ResistStr( STAT_RESLIGHTNING ) );
+
+    // Handle stat upgrade from HandleEvent
+    if (FKeyAction > 0) and (Points > 0) then
+    begin
+      case FKeyAction of
+        1 : if Str < getStatMax( STAT_STR ) then begin Str := Str + 1; Stats.Inc('points_used'); Points := Points - 1; end;
+        2 : if Mag < getStatMax( STAT_MAG ) then begin Mag := Mag + 1; Stats.Inc('points_used'); Points := Points - 1; end;
+        3 : if Dex < getStatMax( STAT_DEX ) then begin Dex := Dex + 1; Stats.Inc('points_used'); Points := Points - 1; end;
+        4 : if Vit < getStatMax( STAT_VIT ) then begin Vit := Vit + 1; Stats.Inc('points_used'); Points := Points - 1; end;
+      end;
+      FKeyAction := 0;
+    end
+    else
+      FKeyAction := 0;
+  end;
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( ' Press <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+
+  if VTIG_EventCancel then
+    Finish;
+end;
+
+function TCharWindow.IsModal : Boolean;
+begin
+  Exit( False );
+end;
+
+function TCharWindow.HandleEvent( const aEvent : TIOEvent ) : Boolean;
+begin
+  if aEvent.EType <> VEVENT_KEYDOWN then Exit( inherited HandleEvent( aEvent ) );
+  if aEvent.Key.ModState <> [] then Exit( inherited HandleEvent( aEvent ) );
+  case aEvent.Key.Code of
+    VKEY_S : begin FKeyAction := 1; Exit( True ); end;
+    VKEY_M : begin FKeyAction := 2; Exit( True ); end;
+    VKEY_D : begin FKeyAction := 3; Exit( True ); end;
+    VKEY_V : begin FKeyAction := 4; Exit( True ); end;
+  end;
+  Exit( inherited HandleEvent( aEvent ) );
+end;
+
+{ TJournalWindow }
+
+constructor TJournalWindow.Create( aOwner : TMainScreen );
+begin
+  inherited Create( aOwner );
+end;
+
+procedure TJournalWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize    : TIOPoint;
+    iCount   : Byte;
+    iQuestID : Integer;
+begin
+  iSize := Point( UI.SizeX div 2, UI.SizeY - 5 );
+
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( 'Journal', 'journal', iSize, Point( 1, 3 ) );
+
+  iQuestID := 0;
+  with UI.Player do
+  for iCount := 1 to LuaSystem.Get(['quests', '__counter']) do
+    if ( Quests[ iCount ] > 0 ) and ( Quests[iCount] < LuaSystem.Get(['quests',iCount,'completed']) ) then
+      if VTIG_Selectable( AnsiString(LuaSystem.Get(['quests', iCount, 'name'])) ) then
+        iQuestID := iCount;
+
+  if VTIG_Selectable( 'Close' ) then
+    Finish;
+
+  if iQuestID = 0 then
+    VTIG_Text( 'Currently, You are not involved in any quests.' );
+
+  VTIG_Scrollbar;
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( ' Press <{!Enter}> to view, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+
+  if iQuestID > 0 then
+    LuaSystem.ProtectedCall(['quests', iQuestID, 'OnJournal'], [] );
+
+  if VTIG_EventCancel then
+    Finish;
+end;
+
+function TJournalWindow.IsModal : Boolean;
+begin
+  Exit( False );
+end;
 
 { TTalkWindow }
 
-constructor TTalkWindow.Create( const aIntro : AnsiString );
+constructor TTalkWindow.Create( aOwner : TMainScreen; const aIntro : AnsiString );
 var iSize : TIOPoint;
 begin
-  VTIG_EventClear;
-  FFinished    := False;
+  inherited Create( aOwner );
   FIntro       := aIntro;
   FOptions     := nil;
   FOptionCount := 0;
@@ -1169,7 +959,6 @@ end;
 procedure TTalkWindow.Update( aDTime : Integer; aActive : Boolean );
 var iSize : TIOPoint;
     i     : Integer;
-    iSel  : Integer;
 begin
   iSize := Point( UI.SizeX div 2, UI.SizeY - 5 );
 
@@ -1208,6 +997,293 @@ destructor TTalkWindow.Destroy;
 begin
   FOptions := nil;
   inherited Destroy;
+end;
+
+{ TInventoryWindow }
+
+constructor TInventoryWindow.Create( aOwner : TMainScreen );
+begin
+  inherited Create( aOwner );
+  FMode      := InvMode;
+  FKeyAction := 0;
+end;
+
+procedure TInventoryWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize     : TIOPoint;
+    iInvList  : TItemList;
+    iEqList   : TItemList;
+    iItem     : TItem;
+    iIndex    : Word;
+    iSel      : Integer;
+    iEqEmpty  : Boolean;
+    iEqCount  : Integer;
+    iEqSelMap : array[0..ITEMS_EQ-1] of Word;
+    iCurrent  : TItem;
+    iVolume   : AnsiString;
+    iConfirmItem : TItem;
+    iConfirmSlot : Integer;
+begin
+  iSize := Point( UI.SizeX div 2, UI.SizeY - 5 );
+
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( 'Inventory', 'inv', iSize, Point( UI.SizeX div 2 + 1, 3 ) );
+
+  iInvList := UI.Player.GetInvList;
+  iEqList  := UI.Player.GetEqList;
+  iConfirmItem := nil;
+  iConfirmSlot := 0;
+  iEqEmpty := True;
+  iEqCount := 0;
+
+  // Equipment section (normal cursor flow, no group)
+  for iIndex := 1 to ITEMS_EQ do
+  begin
+    if iEqList[ iIndex ] <> nil then iEqEmpty := False;
+    VTIG_Text( UI.Player.SlotName(iIndex) + ' : ', DarkGray );
+    VTIG_SameLine;
+    if iEqList[ iIndex ] = nil then
+      VTIG_Text( '---', Red )
+    else
+    begin
+      if FMode = EqMode then
+      begin
+        iEqSelMap[iEqCount] := iIndex;
+        Inc(iEqCount);
+        if VTIG_Selectable( iEqList[ iIndex ].GetName(PlainName), True, iEqList[ iIndex ].InvColor ) then
+          iConfirmSlot := iIndex;
+      end
+      else
+        VTIG_Text( iEqList[ iIndex ].GetName(PlainName), iEqList[ iIndex ].InvColor );
+    end;
+  end;
+
+  VTIG_Ruler;
+
+  // Inventory section
+  if FMode = InvMode then
+  begin
+    // Embedded sub-window for independent scroll in InvMode
+    VTIG_PushStyle( @TIGEmbeddedStyle );
+    VTIG_Begin( 'inv_items', Point( iSize.X - 4, iSize.Y - ITEMS_EQ - 5 ), VTIG_PositionResolve( Point( 0, ITEMS_EQ + 2 ) ) );
+    for iItem in iInvList do
+      if VTIG_Selectable( Padded(iItem.GetName(PlainName), iSize.X - 7) + ' ' + IntToStr(iItem.Volume), True, iItem.InvColor ) then
+        iConfirmItem := iItem;
+    VTIG_Scrollbar;
+    VTIG_End;
+    VTIG_PopStyle;
+  end
+  else
+  begin
+    // Plain text in parent window for EqMode
+    for iItem in iInvList do
+      VTIG_Text( Padded(iItem.GetName(PlainName), iSize.X - 7) + ' ' + IntToStr(iItem.Volume), iItem.InvColor );
+  end;
+
+
+  // Update status for selected item
+  iCurrent := nil;
+  if FMode = InvMode then
+  begin
+    iSel := VTIG_Selected('inv_items');
+    if (iSel >= 0) and (iSel < Integer(iInvList.Size)) then
+      iCurrent := TItem( iInvList[ iSel + 1 ] );
+  end
+  else
+  begin
+    iSel := VTIG_Selected('inv');
+    if (iSel >= 0) and (iSel < iEqCount) then
+      iCurrent := iEqList[ iEqSelMap[iSel] ];
+  end;
+  if iCurrent <> nil then
+    UI.UpdateStatus( iCurrent )
+  else
+    UI.UpdateStatus( nil );
+
+  iVolume := Format('{!%d}/%d', [UI.Player.InvVolume, MaxVolume]);
+  VTIG_End( iVolume );
+  VTIG_PopStyle;
+
+  VTIG_FreeLabel( ' Inventory: <{!TAB}> switch, <{!Enter}> equip/use, <{!d}> drop, <{!q}> quickslot, <{!Escape}> exit.',
+    Point( 0, 0 ), DarkGray );
+
+  // Handle confirm via selectable return value
+  if iConfirmItem <> nil then
+  begin
+    UI.UpdateStatus( nil );
+    Finish;
+    FreeAndNil( iInvList );
+    FreeAndNil( iEqList );
+    UI.Player.ActionWear( iConfirmItem );
+    Exit;
+  end;
+  if iConfirmSlot > 0 then
+    UI.Player.ActionWear( nil, iConfirmSlot );
+
+  // Handle tab
+  if VTIG_Event( VTIG_IE_TAB ) then
+  begin
+    if FMode = InvMode then
+    begin
+      if not iEqEmpty then
+      begin
+        FMode := EqMode;
+        VTIG_ResetSelect('inv', 0);
+      end;
+    end
+    else
+    begin
+      if iInvList.Size > 0 then
+      begin
+        FMode := InvMode;
+        VTIG_ResetSelect('inv', 0);
+      end;
+    end;
+    UI.PlaySound('sfx/items/invgrab.wav');
+  end;
+
+  // Handle key actions from HandleEvent
+  if FKeyAction > 0 then
+  begin
+    case FKeyAction of
+      1 : // Drop
+        begin
+          if iCurrent <> nil then
+          begin
+            UI.Player.ActionDrop( iCurrent );
+            VTIG_ResetSelect('inv', 0);
+          end;
+        end;
+      2 : // Quickslot
+        begin
+          if iCurrent <> nil then
+          begin
+            UI.Player.ActionQuickslotItem( iCurrent );
+            VTIG_ResetSelect('inv', 0);
+          end;
+        end;
+    end;
+    FKeyAction := 0;
+  end;
+
+  if VTIG_EventCancel then
+  begin
+    UI.UpdateStatus( nil );
+    Finish;
+  end;
+
+  FreeAndNil( iInvList );
+  FreeAndNil( iEqList );
+end;
+
+function TInventoryWindow.IsModal : Boolean;
+begin
+  Exit( False );
+end;
+
+function TInventoryWindow.HandleEvent( const aEvent : TIOEvent ) : Boolean;
+begin
+  if aEvent.EType <> VEVENT_KEYDOWN then Exit( inherited HandleEvent( aEvent ) );
+  if aEvent.Key.ModState <> [] then Exit( inherited HandleEvent( aEvent ) );
+  case aEvent.Key.Code of
+    VKEY_D : begin FKeyAction := 1; Exit( True ); end;
+    VKEY_Q : begin FKeyAction := 2; Exit( True ); end;
+  end;
+  Exit( inherited HandleEvent( aEvent ) );
+end;
+
+destructor TInventoryWindow.Destroy;
+begin
+  UI.UpdateStatus( nil );
+  inherited Destroy;
+end;
+
+{ TSpellWindow }
+
+constructor TSpellWindow.Create( aOwner : TMainScreen );
+begin
+  inherited Create( aOwner );
+end;
+
+procedure TSpellWindow.Update( aDTime : Integer; aActive : Boolean );
+var iSize  : TIOPoint;
+    iCount : Byte;
+    iBonus : Integer;
+    iSpellCount : Integer;
+    iSpellPicked : Integer;
+    Name   : AnsiString;
+    Slvl   : Byte;
+    Cost   : DWord;
+    DMin   : DWord;
+    DMax   : DWord;
+begin
+  iSize := Point( UI.SizeX div 2, UI.SizeY - 5 );
+
+  VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
+  VTIG_BeginWindow( 'Spells', 'spells', iSize, Point( UI.SizeX div 2 + 1, 3 ) );
+
+  iBonus := UI.Player.getItemSumBonus( STAT_SPELLLEVEL );
+  iSpellCount := 0;
+  iSpellPicked := 0;
+
+  for iCount := 1 to MaxSpells do
+    if LuaSystem.Defined(['spells', iCount]) then
+      with LuaSystem.GetTable(['spells', iCount]) do
+        try
+          Slvl := UI.Player.Spells[iCount];
+          if getInteger('page') <> 0 then
+          begin
+            if slvl <> 0 then
+            begin
+              Name := getString('name');
+              Cost := max(Integer(LuaSystem.ProtectedCall(['spells', iCount, 'cost'], [20, UI.Player])),
+                (LuaSystem.ProtectedCall(['spells', iCount, 'cost'], [slvl, UI.Player]) * UI.Player.SpellCost) div 100);
+
+              if isFunction('dmin')
+                then DMin := ProtectedCall('dmin',[slvl, UI.Player])
+                else DMin := GetInteger('dmin');
+              if isFunction('dmax')
+                then DMax := ProtectedCall('dmax',[slvl, UI.Player])
+                else DMax := GetInteger('dmax');
+
+              Inc( iSpellCount );
+
+              if (dmax > 0) then
+              begin
+                if VTIG_Selectable(Format('%s (L:{!%d}) {!%d-%d}  Cost: {!%d}',
+                  [Padded(Name, 13), slvl + iBonus, dmin, dmax, cost]), True, DarkGray) then
+                  iSpellPicked := iCount;
+              end
+              else
+                if VTIG_Selectable(Format('%s (L:{!%d}) Cost: {!%d}',
+                  [Padded(Name, 13), slvl + iBonus, cost]), True, DarkGray) then
+                  iSpellPicked := iCount;
+            end;
+          end;
+        finally
+          Free;
+        end;
+
+  if VTIG_Selectable( 'Close' ) then
+    Finish;
+  VTIG_Scrollbar;
+
+  VTIG_End;
+  VTIG_PopStyle;
+  VTIG_FreeLabel( ' Press <{!Enter}> to select, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+
+  if iSpellPicked > 0 then
+  begin
+    UI.Player.Spell.Init(UI.Player, iSpellPicked);
+    Finish;
+  end;
+
+  if VTIG_EventCancel then
+    Finish;
+end;
+
+function TSpellWindow.IsModal : Boolean;
+begin
+  Exit( False );
 end;
 
 { TSkillWindow }

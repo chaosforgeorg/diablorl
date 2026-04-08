@@ -5,12 +5,19 @@
 unit rlui;
 
 interface
-uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils, vioevent, rlviews, rlgviews, vcolor, vuielement, viotypes, vioconsole, vuiconsole, vluastate,
-  viorl, vrltools, rlglobal, rlthing, vconuirl, vtigstyle,
-  vutil, rlplayer, rlitem, rlconfig;
+uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils,
+  vioevent, vcolor, viotypes, vioconsole, vluastate,
+  viorl, vrltools, vtigstyle, vtextmap, vmessages, 
+  vutil, 
+  // TODO: Remove
+  vuielement, // TUIStyle
+  vuitypes, // StripEncoding
+  vuiconsole, // TUIConsole
+  rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig;
 
 var TIGFramedWindowStyle       : TTIGStyle;
     TIGNarrowFramedWindowStyle : TTIGStyle;
+    TIGEmbeddedStyle           : TTIGStyle;
 
 {type
   TItemWindow = class(TWindow)
@@ -24,7 +31,7 @@ var TIGFramedWindowStyle       : TTIGStyle;
 {TGameUI}
 
 type
-  TGameUI = class(TIORL, IConUIASCIIMap)
+  TGameUI = class(TIORL, ITextMap)
   public
     constructor Create( aConfig : TDiabloConfig );
     function getGylph( const aCoord : TCoord2D ): TIOGylph;
@@ -80,8 +87,8 @@ type
   private
     FAnimTime      : DWord;
     FAnimCount     : DWord;
-    FMainScreen    : TUIMainScreen;
     FUIConsole     : TUIConsole;
+    FMainScreen    : TMainScreen;
     FSizeX, FSizeY : Word;
     FGraphicsMode  : Boolean;
     FMPQHandle     : THandle;
@@ -89,7 +96,7 @@ type
     FLastMVolume   : Byte;
     FLastMusic     : AnsiString;
   public
-    property MainScreen : TUIMainScreen read FMainScreen;
+    property MainScreen : TMainScreen read FMainScreen;
     property SizeX : Word read FSizeX;
     property SizeY : Word read FSizeY;
     property Player : TPlayer read GetPlayer;
@@ -105,7 +112,7 @@ implementation
 
 uses DateUtils, variants, 
     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF}
-    vuitypes, vluasystem, rlshop, rllua, rlgame, rlpersistence,
+    vluasystem, rlshop, rllua, rlgame, rlpersistence,
     vsystems, vstormlibrary,
     vsdlio, vglconsole,
     vlog, vdebug, vmath, rllevel, vsound, vfmodsound, vsdlsound;
@@ -241,12 +248,18 @@ begin
   TIGFramedWindowStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
   TIGFramedWindowStyle.Color[ VTIG_SELECTED_DISABLED_COLOR ]   := LightRed;
   TIGFramedWindowStyle.Color[ VTIG_DISABLED_COLOR ]            := Red;
+  TIGFramedWindowStyle.Color[ VTIG_FOOTER_COLOR ]              := DarkGray;
   TIGFramedWindowStyle.Padding[ VTIG_WINDOW_PADDING ]          := Point( 2, 1 );
+
   TIGNarrowFramedWindowStyle := TIGFramedWindowStyle;
   TIGNarrowFramedWindowStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 1, 1 );
   TIGNarrowFramedWindowStyle.Padding[ VTIG_SELECTABLE_PADDING ] := Point( 0,0 );
   TIGNarrowFramedWindowStyle.Padding[ VTIG_GROUP_PADDING ]      := Point( 1,0 );
   TIGNarrowFramedWindowStyle.Padding[ VTIG_GROUP_FRAME_PADDING ]:= Point( 0,1 );
+
+  TIGEmbeddedStyle := TIGNarrowFramedWindowStyle;
+  TIGEmbeddedStyle.Frame[ VTIG_BORDER_FRAME ] := '';
+  TIGEmbeddedStyle.Padding[ VTIG_WINDOW_PADDING ] := Point( 0, 1 );
 
   VTIGDefaultStyle.Color[ VTIG_TEXT_COLOR ]                := DarkGray;
   VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
@@ -274,7 +287,7 @@ end;
 procedure TGameUI.Draw;
 begin
   FConsole.Clear;
-  FMainScreen.Map.SetCenter(FPlayer.Position);
+  if FTMap <> nil then FTMap.SetCenter( NewCoord2D( FPlayer.Position.X, FPlayer.Position.Y - 1 ) );
 end;
 
 function TGameUI.Strip ( const aInput : AnsiString ) : AnsiString;
@@ -289,12 +302,13 @@ end;
 
 procedure TGameUI.Focus(c: TCoord2D);
 begin
-  FMainScreen.Map.SetCenter( c );
+  if FTMap <> nil then FTMap.SetCenter( NewCoord2D( c.X, c.Y - 1 ) );
 end;
 
 procedure TGameUI.ShowRecent;
 begin
-  UI.RunLayer( TMessagesScreen.Create( FMainScreen.Msg.Content ) );
+  if FTMessages <> nil then
+    UI.RunLayer( TMessagesScreen.Create( FTMessages.Content ) );
 end;
 
 procedure TGameUI.UpdateStatus(c: TCoord2D);
@@ -332,9 +346,10 @@ end;
 procedure TGameUI.Prepare;
 begin
   FConsole.Clear;
-  FMainScreen    := TUIMainScreen.Create( FUIRoot );
-  FUIMessages    := FMainScreen.Msg;
-  FUIMap         := FMainScreen.Map;
+  FTMessages     := TMessages.Create( 2, FSizeX - 2, nil, 1000 );
+  FTMap          := TTextMap.Create( FConsole, Rectangle( 1, 3, FSizeX, FSizeY - 5 ), Self );
+  FMainScreen    := TMainScreen.Create( FTMap, FTMessages );
+  PushLayer( FMainScreen );
   FPlayer        := Game.Player;
 end;
 
@@ -342,7 +357,13 @@ procedure TGameUI.UnPrepare;
 begin
   FUIMessages := nil;
   FUIMap      := nil;
-  FreeAndNil( FMainScreen );
+  if FMainScreen <> nil then
+  begin
+    FMainScreen.Finish;
+    FMainScreen := nil;
+  end;
+  FreeAndNil( FTMap );
+  FreeAndNil( FTMessages );
 end;
 
 procedure TGameUI.Msg ( const aMessage : Ansistring ) ;
@@ -351,10 +372,40 @@ begin
 end;
 
 function TGameUI.GetCommand(valid: TCommandSet = []): byte;
+var iEvent   : TIOEvent;
+    iCommand : Byte;
 begin
   Inc(FAnimCount);
-  GetCommand := inherited WaitForCommand( valid );
-  if TPlayer(FPlayer).SpeedCount >= 100 then FMainScreen.Msg.Update;
+
+// UGLY HACK REMOVE
+// This is here due to key rebinding and that not playing well with tig commands
+  repeat
+    iCommand := 0;
+    FBreakLoop := False;
+    // Event loop: mirrors WaitForKeyEvent but adds OnEvent for VTIG + layers
+    repeat
+      repeat
+        FullUpdate;
+        FIODriver.Sleep(10);
+      until FIODriver.EventPending and FIODriver.PollEvent( iEvent );
+      // VTIG state + layer HandleEvent dispatch (the critical addition)
+      if OnEvent( iEvent ) then iEvent.EType := VEVENT_KEYUP;
+      // ConUI dispatch (original WaitForKeyEvent behavior)
+      if FUIRoot.OnEvent( iEvent ) then iEvent.EType := VEVENT_KEYUP;
+      // System/break checks
+      if (iEvent.EType = VEVENT_SYSTEM) and (iEvent.System.Code = VIO_SYSEVENT_QUIT) then
+        begin GetCommand := COMMAND_SYSQUIT; Exit; end;
+      if FBreakLoop then begin GetCommand := 0; Exit; end;
+    until iEvent.EType = VEVENT_KEYDOWN;
+    // Translate to command
+    FKeyCode := IOKeyEventToIOKeyCode( iEvent.Key );
+    iCommand := FConfig.Commands[ FKeyCode ];
+    GetCommand := iCommand;
+    // If MainScreen consumed it (panel toggle/panel interaction), loop again
+  until (FMainScreen = nil) or not FMainScreen.HandleCommand( iCommand );
+// WAS:  GetCommand := inherited WaitForCommand( valid );
+  if TPlayer(FPlayer).SpeedCount >= 100 then
+    if FTMessages <> nil then FTMessages.Update;
 end;
 
 {var Spec : Variant;
@@ -743,7 +794,8 @@ begin
   if iCount < 2 then Exit(0);
 
   UI.MainScreen.ClearBoth;
-  iWindow := TTalkWindow.Create( State.ToString(1) );
+  iWindow := TTalkWindow.Create( UI.MainScreen, State.ToString(1) );
+  UI.MainScreen.Right := iWindow;
   UI.MainScreen.UpdateMap;
 
   for iChoice := 2 to iCount do
