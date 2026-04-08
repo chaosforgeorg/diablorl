@@ -8,7 +8,6 @@ unit rlviews;
 interface
 
 uses Classes, SysUtils,
-     vuitypes, // TUIChunkBuffer
      viotypes, vtigstyle, vmessages;
 
 const GAMEMENU_CONT = 0;
@@ -19,20 +18,16 @@ const GAMEMENU_CONT = 0;
 type TMenuScreen = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
-  function IsFinished : Boolean; override;
   function IsModal : Boolean; override;
 protected
-  FFinished : Boolean;
   FShift   : TIOPoint;
 end;
 
 type TFullScreenLayer = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
-  function IsFinished : Boolean; override;
   function IsModal : Boolean; override;
 protected
-  FFinished : Boolean;
   FHeader   : Ansistring;
   FFooter   : Ansistring;
 end;
@@ -56,7 +51,6 @@ type TMortemScreen = class( TScrollingLayer )
 end;
 
 type TMessagesScreen = class( TScrollingLayer )
-  constructor Create( aMessages : TUIChunkBuffer );
   constructor Create( aMessages : TMessageBuffer );
 end;
 
@@ -71,10 +65,7 @@ end;
 type TOutroScreen = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
-  function IsFinished : Boolean; override;
   function IsModal : Boolean; override;
-protected
-  FFinished : Boolean;
 end;
 
 type TMainMenuScreen = class( TMenuScreen )
@@ -112,10 +103,8 @@ end;
 type TConfirmDialog = class( TIOLayer )
   constructor Create( const aQuery : AnsiString );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
-  function IsFinished : Boolean; override;
   function IsModal : Boolean; override;
 protected
-  FFinished : Boolean;
   FQuery    : AnsiString;
   class var FResult   : DWord;
 public
@@ -125,10 +114,8 @@ end;
 type TGameMenu = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
-  function IsFinished : Boolean; override;
   function IsModal : Boolean; override;
 protected
-  FFinished : Boolean;
   class var FResult   : DWord;
 public
   class property Result : DWord read FResult;
@@ -144,7 +131,6 @@ constructor TMenuScreen.Create;
 var iSize : TIOPoint;
 begin
   VTIG_EventClear;
-  FFinished := False;
   iSize  := VTIG_GetIOState.Size;
   FShift := Point( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
 end;
@@ -168,11 +154,6 @@ begin
   VTIG_End;
 end;
 
-function TMenuScreen.IsFinished : Boolean;
-begin
-  Exit( FFinished );
-end;
-
 function TMenuScreen.IsModal : Boolean;
 begin
   Exit( True );
@@ -184,18 +165,12 @@ constructor TFullScreenLayer.Create;
 begin
   VTIG_EventClear;
   VTIG_Clear;
-  FFinished := False;
   FHeader   := '';
   FFooter   := ' Use {!arrows}, {!PgUp}, {!PgDown} to scroll, {!Escape} or {!Enter} to exit.';
 end;
 
 procedure TFullScreenLayer.Update( aDTime : Integer; aActive : Boolean );
 begin
-end;
-
-function TFullScreenLayer.IsFinished : Boolean;
-begin
-  Exit( FFinished );
 end;
 
 function TFullScreenLayer.IsModal : Boolean;
@@ -257,18 +232,6 @@ end;
 
 { TMessagesScreen }
 
-constructor TMessagesScreen.Create( aMessages : TUIChunkBuffer );
-var iChunkList : TUIChunkList;
-begin
-  inherited Create( nil );
-  FHeader  := ' {!DiabloRL} Past messages viewer';
-  FContent := TIOStringArray.Create;
-  for iChunkList in aMessages do
-    FContent.Push( ChunkListToString( iChunkList ) );
-  FScrollDown := True;
-  FStyle.Padding[ VTIG_WINDOW_PADDING ] := Point(-1,1 );
-end;
-
 constructor TMessagesScreen.Create( aMessages : TMessageBuffer );
 var iMsg : AnsiString;
 begin
@@ -314,7 +277,6 @@ constructor TOutroScreen.Create;
 begin
   VTIG_EventClear;
   VTIG_Clear;
-  FFinished := False;
 end;
 
 procedure TOutroScreen.Update( aDTime : Integer; aActive : Boolean );
@@ -344,11 +306,6 @@ begin
   VTIG_Text( 'Press {!Enter} to quit...' );
   VTIG_End;
   if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
-end;
-
-function TOutroScreen.IsFinished : Boolean;
-begin
-  Exit( FFinished );
 end;
 
 function TOutroScreen.IsModal : Boolean;
@@ -491,7 +448,6 @@ constructor TConfirmDialog.Create( const aQuery : AnsiString );
 begin
   VTIG_EventClear;
   VTIG_ResetSelect( 'confirm_dialog' );
-  FFinished := False;
   FResult   := 0;
   FQuery    := aQuery;
 end;
@@ -510,11 +466,6 @@ begin
   if VTIG_EventCancel then begin FResult := 0; FFinished := True; end;
 end;
 
-function TConfirmDialog.IsFinished : Boolean;
-begin
-  Exit( FFinished );
-end;
-
 function TConfirmDialog.IsModal : Boolean;
 begin
   Exit( True );
@@ -525,7 +476,6 @@ end;
 constructor TGameMenu.Create;
 begin
   VTIG_EventClear;
-  FFinished := False;
   FResult   := GAMEMENU_CONT;
 end;
 
@@ -560,11 +510,6 @@ begin
     FResult   := GAMEMENU_CONT;
     FFinished := True;
   end;
-end;
-
-function TGameMenu.IsFinished : Boolean;
-begin
-  Exit( FFinished );
 end;
 
 function TGameMenu.IsModal : Boolean;
