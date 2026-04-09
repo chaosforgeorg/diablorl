@@ -238,7 +238,7 @@ end;
 
 implementation
 
-uses math, vutil, vuiconsole, vluasystem,
+uses math, vutil, vluasystem,
      rlgame, rlconfig, rllevel, rlui, rlnpc, rlplayer;
 
 { TPanel }

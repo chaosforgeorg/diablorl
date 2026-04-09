@@ -35,8 +35,6 @@ Keybindings = {
 	["ESCAPE"]      = COMMAND_ESCAPE,
 	["BACKSPACE"]   = COMMAND_CWIN,
 	["TAB"]         = COMMAND_SWITCHMODE,
-	["F10"]         = COMMAND_SSHOT,
-	["F9"]          = COMMAND_SSHOTBB,
 
 	["M"]           = COMMAND_MESSAGES,
 	["D"]           = COMMAND_DROP,

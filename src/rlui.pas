@@ -7,12 +7,8 @@ unit rlui;
 interface
 uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils,
   vioevent, vcolor, viotypes, vioconsole, vluastate,
-  viorl, vrltools, vtigstyle, vtextmap, vmessages, 
+  viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, 
   vutil, 
-  // TODO: Remove
-  vuielement, // TUIStyle
-  vuitypes, // StripEncoding
-  vuiconsole, // TUIConsole
   rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig;
 
 var TIGFramedWindowStyle       : TTIGStyle;
@@ -44,11 +40,8 @@ type
     procedure Msg( const aMessage : Ansistring); override;
     // Marks the given tile with specified glyph
     function Strip( const aInput : AnsiString ) : AnsiString;
-    function CodedLength( const aInput : AnsiString ) : Word;
     //focuses onto the specified cell
     procedure Focus(c: TCoord2D);
-    //creates a screenshot
-    procedure ScreenShot(BBCode: boolean = False);
     //waits for Enter key
     procedure PressEnter();
     //front-end for TInput.GetCommand
@@ -82,12 +75,9 @@ type
     function GetPlayer : TPlayer;
     function TranslateColor( aColor : Byte; aPosition : TCoord2D ) : Byte;
     function TranslateColorFull( aColor : Byte; aPosition : TCoord2D ) : TColor;
-    function ScreenShotCallback( aEvent : TIOEvent ) : Boolean;
-    function BBScreenShotCallback( aEvent : TIOEvent ) : Boolean;
   private
     FAnimTime      : DWord;
     FAnimCount     : DWord;
-    FUIConsole     : TUIConsole;
     FMainScreen    : TMainScreen;
     FSizeX, FSizeY : Word;
     FGraphicsMode  : Boolean;
@@ -137,11 +127,9 @@ end;
 { TGameUI }
 
 constructor TGameUI.Create( aConfig : TDiabloConfig );
-var iStyle  : TUIStyle;
-    iFlags  : TSDLIOFlags;
+var iFlags  : TSDLIOFlags;
     iSound  : AnsiString;
     iMPQ    : AnsiString;
-    i       : byte;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
@@ -221,28 +209,6 @@ begin
   end;
   Log( LOGINFO, 'Loading default style...' );
 
-  iStyle := TUIStyle.Create('default');
-  iStyle.Add('','fore_color', LightGray );
-  iStyle.Add('','selected_color', White );
-  iStyle.Add('','inactive_color', Red );
-  iStyle.Add('','selinactive_color', LightRed );
-  iStyle.Add('menu','fore_color', DarkGray );
-  iStyle.Add('','back_color', Black );
-  iStyle.Add('','scroll_chars', '^v' );
-  iStyle.Add('','icon_color', LightGray );
-  iStyle.Add('','opaque', False );
-  //iStyle.Add('','frame_chars', '-|-|/\\/-|^v' )
-  iStyle.Add('','frame_chars', #196+#179+#196+#179+#218+#191+#192+#217+#196+#179+'^v' );
-  iStyle.Add('window','fore_color', LightGray );
-  iStyle.Add('full_window','fore_color', LightGray );
-  iStyle.Add('','frame_color', DarkGray );
-  iStyle.Add('full_window','title_color', LightGray );
-  iStyle.Add('full_window','footer_color', LightGray );
-  iStyle.Add('input','fore_color', White );
-  iStyle.Add('input','back_color', Black );
-  iStyle.Add('text','fore_color', LightGray );
-  iStyle.Add('text','back_color', ColorNone );
-
   TIGFramedWindowStyle := VTIGDefaultStyle;
   TIGFramedWindowStyle.Color[ VTIG_TEXT_COLOR ]                := DarkGray;
   TIGFramedWindowStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
@@ -273,10 +239,9 @@ begin
   VTIGDefaultStyle.Frame[ VTIG_GROUP_FRAME ]  := '';
 
   Log( LOGINFO, 'Initializing core driver...' );
-  inherited Create( FIODriver, FConsole, iStyle, True );
+  inherited Create( FIODriver, FConsole, nil, True );
   Log( LOGINFO, 'Configuring...' );
   Configure( aConfig );
-  FUIConsole.Init( FConsole );
   ReadConfig;
   Log( LOGINFO, 'GameIO ready.' );
   FAnimCount := 0;
@@ -292,12 +257,7 @@ end;
 
 function TGameUI.Strip ( const aInput : AnsiString ) : AnsiString;
 begin
-  Exit( StripEncoding( aInput ) );
-end;
-
-function TGameUI.CodedLength ( const aInput : AnsiString ) : Word;
-begin
-  Exit( Length( StripEncoding( aInput ) ) );
+  Exit( VTIG_StripTags( aInput ) );
 end;
 
 procedure TGameUI.Focus(c: TCoord2D);
@@ -390,8 +350,6 @@ begin
       until FIODriver.EventPending and FIODriver.PollEvent( iEvent );
       // VTIG state + layer HandleEvent dispatch (the critical addition)
       if OnEvent( iEvent ) then iEvent.EType := VEVENT_KEYUP;
-      // ConUI dispatch (original WaitForKeyEvent behavior)
-      if FUIRoot.OnEvent( iEvent ) then iEvent.EType := VEVENT_KEYUP;
       // System/break checks
       if (iEvent.EType = VEVENT_SYSTEM) and (iEvent.System.Code = VIO_SYSEVENT_QUIT) then
         begin GetCommand := COMMAND_SYSQUIT; Exit; end;
@@ -470,8 +428,6 @@ end;
 procedure TGameUI.ReadConfig;
 begin
   Config.LoadKeybindings('Keybindings');
-  FIODriver.RegisterInterrupt( Config.GetKeyCode( COMMAND_SSHOT ), @ScreenShotCallback );
-  FIODriver.RegisterInterrupt( Config.GetKeyCode( COMMAND_SSHOTBB ), @BBScreenShotCallback );
 end;
 
 function TGameUI.GetPlayer : TPlayer;
@@ -546,36 +502,7 @@ begin
   Exit( NewColor( TranslateColor( aColor, aPosition ) ) );
 end;
 
-function TGameUI.ScreenShotCallback(aEvent: TIOEvent): Boolean;
-begin
-  ScreenShot( False );
-  Exit( True );
-end;
 
-function TGameUI.BBScreenShotCallback(aEvent: TIOEvent): Boolean;
-begin
-  ScreenShot( True );
-  Exit( True );
-end;
-
-procedure TGameUI.ScreenShot(BBCode: boolean = False);
-var
-  key: word;
-begin
-  Key := 1;
-  while FileExists( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt' ) do
-    Inc(Key);
-  if BBCode then
-    FUIConsole.ScreenShot( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt', 1 )
-  else
-    FUIConsole.ScreenShot( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt', 0 );
-  if not FileExists( WritePath + 'DiabloRL' + IntToStr(Key) + '.txt' ) then
-    exit;
-  if BBCode then
-    Msg( 'BB code screenshot "' + 'DiabloRL' + IntToStr(Key) + '.txt" created.' )
-  else
-    Msg( 'Screenshot "' + 'DiabloRL' + IntToStr(Key) + '.txt" created.' );
-end;
 
 procedure TGameUI.PlayMusic(const sID: ansistring);
 var iStream : TStream;

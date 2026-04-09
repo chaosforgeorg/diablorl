@@ -3,7 +3,7 @@
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
 unit rlpersistence;
 interface
-uses DOM, vxml, vuitypes, vxmldata;
+uses DOM, vxml, viotypes, vxmldata;
 
 const MAX_SCORE_ENTRIES = 500;
 const SCORE_FILE_NAME   = 'score.mpq';
@@ -15,7 +15,7 @@ type
 TPersistence = class
   constructor Create;
   procedure Add( aScore : LongInt; const aName : AnsiString; aLevel : DWord; const aGrave, aKlass, aResult : AnsiString );
-  function ScoreList : TUIStringArray;
+  function ScoreList : TIOStringArray;
   destructor Destroy; override;
 private
   FScoreFile : TScoreFile;
@@ -58,12 +58,12 @@ begin
   end;
 end;
 
-function TPersistence.ScoreList: TUIStringArray;
+function TPersistence.ScoreList: TIOStringArray;
 var iCount : DWord;
     iEntry : TScoreEntry;
     iColor : string[2];
 begin
-  Result := TUIStringArray.Create;
+  Result := TIOStringArray.Create;
   if FScoreFile.Entries = 0 then Exit;
   for iCount := 1 to FScoreFile.Entries do
   begin
