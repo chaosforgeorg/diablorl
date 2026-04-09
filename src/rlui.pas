@@ -15,15 +15,6 @@ var TIGFramedWindowStyle       : TTIGStyle;
     TIGNarrowFramedWindowStyle : TTIGStyle;
     TIGEmbeddedStyle           : TTIGStyle;
 
-{type
-  TItemWindow = class(TWindow)
-    constructor Create(newParent: TUIElement; newItem: TItem; newTitle: ansistring = '');
-    procedure Draw; override;
-    procedure Run;
-  private
-    Item: TItem;
-  end;}
-
 {TGameUI}
 
 type
@@ -336,53 +327,12 @@ var iEvent   : TIOEvent;
     iCommand : Byte;
 begin
   Inc(FAnimCount);
-
-// UGLY HACK REMOVE
-// This is here due to key rebinding and that not playing well with tig commands
   repeat
-    iCommand := 0;
-    FBreakLoop := False;
-    // Event loop: mirrors WaitForKeyEvent but adds OnEvent for VTIG + layers
-    repeat
-      repeat
-        FullUpdate;
-        FIODriver.Sleep(10);
-      until FIODriver.EventPending and FIODriver.PollEvent( iEvent );
-      // VTIG state + layer HandleEvent dispatch (the critical addition)
-      if OnEvent( iEvent ) then iEvent.EType := VEVENT_KEYUP;
-      // System/break checks
-      if (iEvent.EType = VEVENT_SYSTEM) and (iEvent.System.Code = VIO_SYSEVENT_QUIT) then
-        begin GetCommand := COMMAND_SYSQUIT; Exit; end;
-      if FBreakLoop then begin GetCommand := 0; Exit; end;
-    until iEvent.EType = VEVENT_KEYDOWN;
-    // Translate to command
-    FKeyCode := IOKeyEventToIOKeyCode( iEvent.Key );
-    iCommand := FConfig.Commands[ FKeyCode ];
-    GetCommand := iCommand;
-    // If MainScreen consumed it (panel toggle/panel interaction), loop again
-  until (FMainScreen = nil) or not FMainScreen.HandleCommand( iCommand );
-// WAS:  GetCommand := inherited WaitForCommand( valid );
+    GetCommand := inherited WaitForCommand( valid );
+  until (FMainScreen = nil) or not FMainScreen.HandleCommand( GetCommand );
   if TPlayer(FPlayer).SpeedCount >= 100 then
     if FTMessages <> nil then FTMessages.Update;
 end;
-
-{var Spec : Variant;
-begin
-    case GetCommand of
-      COMMAND_SOUNDVOLUP: Sound.setSoundVolume(min(Sound.mySoundVolume div
-          10 * 10 + 10, 100));
-      COMMAND_SOUNDVOLDN: Sound.setSoundVolume(max(Sound.mySoundVolume div
-          10 * 10 - 10, 0));
-      COMMAND_MUSICVOLUP: Sound.setMusicVolume(min(Sound.myMusicVolume div
-          10 * 10 + 10, 100));
-      COMMAND_MUSICVOLDN: Sound.setMusicVolume(max(Sound.myMusicVolume div
-          10 * 10 - 10, 0));
-    end;
-
-  until not (GetCommand in [COMMAND_SOUNDVOLUP, COMMAND_SOUNDVOLDN,
-      COMMAND_MUSICVOLUP, COMMAND_MUSICVOLDN]);
-  FMainScreen.Msg.Update;
-end;}
 
 procedure TGameUI.PressEnter;
 begin
