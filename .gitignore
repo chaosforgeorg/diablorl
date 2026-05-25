@@ -12,3 +12,7 @@ bin/score.mpq
 src/fpcmade.x86_64-linux
 *.a
 src/Makefile
+bin/console.history
+*.exe
+bin/*.dll
+bin/error.log
