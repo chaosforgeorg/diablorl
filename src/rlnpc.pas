@@ -471,10 +471,10 @@ begin
   Ray.Init(Position,c);
   repeat
     Ray.Next;
-    if Ray.GetC = c then
+    if Ray.Current = c then
       CanCharge := true;
-  until not TLevel(Parent).isEmpty(Ray.GetC, [efNoMonsters, efNoObstacles]);
-  FTarget:=Ray.GetC;
+  until not TLevel(Parent).isEmpty(Ray.Current, [efNoMonsters, efNoObstacles]);
+  FTarget:=Ray.Current;
 end;
 
 procedure TNPC.Seek( c : TCoord2D; dst : shortint = 1);
@@ -598,53 +598,53 @@ begin
   iAnimTgt  := Position;
   iDuration := DrawDelay;
   repeat
-    Old := Ray.GetC;
+    Old := Ray.Current;
     Ray.Next;
-    if TLevel(Parent).isVisible(Ray.GetC) then
+    if TLevel(Parent).isVisible(Ray.Current) then
     begin
-      iAnimTgt  := Ray.GetC;
+      iAnimTgt  := Ray.Current;
       iDuration += DrawDelay;
     end;
     //hit obstacle
-    if not TLevel(Parent).isEmpty(Ray.GetC, [efNoBlockMissile]) then begin
+    if not TLevel(Parent).isEmpty(Ray.Current, [efNoBlockMissile]) then begin
       // Missile hits non-passable feature
       if (mtype = mt_Arrow) then
-         UI.PlaySound('sfx/misc/arrowall.wav',Ray.GetC);
+         UI.PlaySound('sfx/misc/arrowall.wav',Ray.Current);
       if explosion > 0 then
       begin
         include(Fflags, nfUnAffected);
         TLevel(Parent).Explosion(Old, Col, explosion, DMin, DMax, 50, dmgtype, Self, iDuration );
         exclude(Fflags, nfUnAffected);
       end
-      else if TLevel(Parent).isVisible(Ray.GetC) then
+      else if TLevel(Parent).isVisible(Ray.Current) then
       begin
-        UI.AddMarkAnimation( Ray.GetC, '*', LightGray, HITDELAY, iDuration );
+        UI.AddMarkAnimation( Ray.Current, '*', LightGray, HITDELAY, iDuration );
       end;
       Break;
     end;
    //hit monster
-   if not TLevel(Parent).isEmpty(Ray.GetC, [efNoMonsters]) then
+   if not TLevel(Parent).isEmpty(Ray.Current, [efNoMonsters]) then
     begin
         bHit := false;
         case mtype of
-            mt_Arrow  : if isPlayer or (tg = ray.GetC)
-                         then bHit := Attack(TLevel(Parent).NPCs[Ray.GetC], true);
-            mt_Spell  : if isPlayer or (tg = ray.GetC) then
+            mt_Arrow  : if isPlayer or (tg = Ray.Current)
+                         then bHit := Attack(TLevel(Parent).NPCs[Ray.Current], true);
+            mt_Spell  : if isPlayer or (tg = Ray.Current) then
                           if explosion > 0 then
                           begin
                             bHit := true;
                             include(Fflags, nfUnAffected);
-                            TLevel(Parent).Explosion(Ray.GetC, Col, explosion, DMin, DMax, 50, dmgtype, self);
+                            TLevel(Parent).Explosion(Ray.Current, Col, explosion, DMin, DMax, 50, dmgtype, self);
                             exclude(Fflags, nfUnAffected);
                             break;
                           end
                           else
-                            bHit := Attack(TLevel(Parent).NPCs[Ray.GetC], true, mid);
+                            bHit := Attack(TLevel(Parent).NPCs[Ray.Current], true, mid);
         end;
         if bHit and (explosion = 0) then
         begin
-          if TLevel(Parent).isVisible(Ray.GetC) then
-            UI.AddMarkAnimation( Ray.GetC, '*', Red, HITDELAY, iDuration );
+          if TLevel(Parent).isVisible(Ray.Current) then
+            UI.AddMarkAnimation( Ray.Current, '*', Red, HITDELAY, iDuration );
           Break;
         end;
     end;
