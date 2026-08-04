@@ -230,14 +230,13 @@ begin
   VTIGDefaultStyle.Frame[ VTIG_GROUP_FRAME ]  := '';
 
   Log( LOGINFO, 'Initializing core driver...' );
-  inherited Create( FIODriver, FConsole, nil, True );
+  inherited Create( FIODriver, FConsole );
   Log( LOGINFO, 'Configuring...' );
   Configure( aConfig );
   ReadConfig;
   Log( LOGINFO, 'GameIO ready.' );
   FAnimCount := 0;
   TItem.InitColors( FGraphicsMode );
-  FUIRoot.UpdateOnRender := False;
 end;
 
 procedure TGameUI.Draw;
@@ -258,8 +257,8 @@ end;
 
 procedure TGameUI.ShowRecent;
 begin
-  if FTMessages <> nil then
-    UI.RunLayer( TMessagesScreen.Create( FTMessages.Content ) );
+  if FMessages <> nil then
+    UI.RunLayer( TMessagesScreen.Create( FMessages.Content ) );
 end;
 
 procedure TGameUI.UpdateStatus(c: TCoord2D);
@@ -297,24 +296,22 @@ end;
 procedure TGameUI.Prepare;
 begin
   FConsole.Clear;
-  FTMessages     := TMessages.Create( 2, FSizeX - 2, nil, 1000 );
-  FTMap          := TTextMap.Create( FConsole, Rectangle( 1, 3, FSizeX, FSizeY - 5 ), Self );
-  FMainScreen    := TMainScreen.Create( FTMap, FTMessages );
+  FMessages     := TMessages.Create( 2, FSizeX - 2, nil, 1000 );
+  FTMap         := TTextMap.Create( FConsole, Rectangle( 1, 3, FSizeX, FSizeY - 5 ), Self );
+  FMainScreen   := TMainScreen.Create( FTMap, FMessages );
   PushLayer( FMainScreen );
   FPlayer        := Game.Player;
 end;
 
 procedure TGameUI.UnPrepare;
 begin
-  FUIMessages := nil;
-  FUIMap      := nil;
   if FMainScreen <> nil then
   begin
     FMainScreen.Finish;
     FMainScreen := nil;
   end;
   FreeAndNil( FTMap );
-  FreeAndNil( FTMessages );
+  FreeAndNil( FMessages );
 end;
 
 procedure TGameUI.Msg ( const aMessage : Ansistring ) ;
@@ -331,7 +328,7 @@ begin
     GetCommand := inherited WaitForCommand( valid );
   until (FMainScreen = nil) or not FMainScreen.HandleCommand( GetCommand );
   if TPlayer(FPlayer).SpeedCount >= 100 then
-    if FTMessages <> nil then FTMessages.Update;
+    if FMessages <> nil then FMessages.Update;
 end;
 
 procedure TGameUI.PressEnter;
@@ -553,7 +550,6 @@ end;
 
 function TGameUI.GetTravelDestination ( out aWhere : TCoord2D ) : Boolean;
 begin
-  FUILoopResult := 0;
   RunLayer( TTravelWindow.Create );
   if TTravelWindow.Result >= 0 then
   begin
