@@ -181,23 +181,6 @@ begin
   Log( LOGINFO, 'IO driver and console initialized.' );
   FIODriver.SetTitle('DiabloRL','DiabloRL');
 
-  iSound := aConfig.Configure('sound','NONE');
-  if iSound <> 'NONE' then
-  begin
-    Log( LOGINFO, 'Sound mode requested, loading StormLib...' );
-    LoadStorm;
-    iMPQ := aConfig.Configure('mpq','DIABDAT.MPQ');
-    if not SFileOpenArchive( PChar(iMPQ), 0, STREAM_FLAG_READ_ONLY, @FMPQHandle ) then
-    begin
-      Log('Failed to open MPQ!');
-    end;
-    if iSound = 'DEFAULT' then iSound := {$IFDEF WINDOWS}'FMOD'{$ELSE}'SDL'{$ENDIF};
-    if iSound = 'FMOD'
-      then Sound := Systems.Add(TFMODSound.Create) as TSound
-      else Sound := Systems.Add(TSDLSound.Create) as TSound;
-    Sound.SetMusicVolume( aConfig.Configure('music_volume',100) );
-    Sound.SetSoundVolume( aConfig.Configure('sound_volume',100) );
-  end;
   Log( LOGINFO, 'Loading default style...' );
 
   TIGFramedWindowStyle := VTIGDefaultStyle;
@@ -231,6 +214,23 @@ begin
 
   Log( LOGINFO, 'Initializing core driver...' );
   inherited Create( FIODriver, FConsole );
+  iSound := aConfig.Configure('sound','NONE');
+  if iSound <> 'NONE' then
+  begin
+    Log( LOGINFO, 'Sound mode requested, loading StormLib...' );
+    LoadStorm;
+    iMPQ := aConfig.Configure('mpq','DIABDAT.MPQ');
+    if not SFileOpenArchive( PChar(iMPQ), 0, STREAM_FLAG_READ_ONLY, @FMPQHandle ) then
+    begin
+      Log('Failed to open MPQ!');
+    end;
+    if iSound = 'DEFAULT' then iSound := {$IFDEF WINDOWS}'FMOD'{$ELSE}'SDL'{$ENDIF};
+    if iSound = 'FMOD'
+      then Sound := Systems.Add(TFMODSound.Create) as TSound
+      else Sound := Systems.Add(TSDLSound.Create( VisualRNG )) as TSound;
+    Sound.SetMusicVolume( aConfig.Configure('music_volume',100) );
+    Sound.SetSoundVolume( aConfig.Configure('sound_volume',100) );
+  end;
   Log( LOGINFO, 'Configuring...' );
   Configure( aConfig );
   ReadConfig;
