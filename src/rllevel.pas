@@ -208,7 +208,8 @@ begin
         else
         begin
           NPCs[a].Flags[ nfAffected ] := True;
-          NPCs[a].ApplyDamage(randrange(DmgMin, DmgMax), DamageType, Attacker);
+          NPCs[a].ApplyDamage(
+            RandRange( Game.RNG, DmgMin, DmgMax ), DamageType, Attacker );
         end;
 
   //Clear nfAffected flag
@@ -252,7 +253,8 @@ var iCoord : TCoord2D;
 begin
   RemovePortals( aPortalID );
   try
-    iCoord := DropCoord(aWhere,[efNoMonsters,efNoObstacles,efNoItems,efNoChangeRes]);
+    iCoord := DropCoord( Game.RNG, aWhere,
+      [efNoMonsters,efNoObstacles,efNoItems,efNoChangeRes] );
     Cell[iCoord] := aPortalID;
     if isVisible(iCoord) then UI.Msg('A portal appears!');
     AddTravelPoint( iCoord, 'Town Portal' );
@@ -418,7 +420,7 @@ begin
   else
   begin
     NPC := TNPC.Create(tid);
-    Level.Drop(NPC, c);
+    Level.Drop( Game.RNG, NPC, c );
   end;
   State.Push( NPC );
   Result := 1;
@@ -446,7 +448,7 @@ begin
     Item := TItem.Create(tid,State.ToInteger(4))
   else
     Item :=TItem.Create(tid);
-  Level.Drop(Item, Coord);
+  Level.Drop( Game.RNG, Item, Coord );
   State.Push(Item);
   Result := 1;
 end;
@@ -591,7 +593,7 @@ begin
   repeat
     if Critical > CriticalSize then Exit(False);
     Inc(Critical);
-    GC := Where.RandomShifted(Range);
+    GC := Where.RandomShifted( Game.RNG, Range );
   until isProperCoord(GC) and (GetCell(GC) = CELL_FLOOR) and (isEmpty(GC,EmptyFlags));
   Where := GC;
   Exit(true);

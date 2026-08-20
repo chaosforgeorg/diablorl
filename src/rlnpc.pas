@@ -142,7 +142,8 @@ begin
     iCorpse  := GetString('corpse');
     if iCorpse <> '' then  FCorpse := LuaSystem.Defines[iCorpse];
     FAI      := GetInteger('ai');
-    FStats[ STAT_HPMAX ] := RandRange(GetInteger('hpmin'),GetInteger('hpmax'));
+    FStats[ STAT_HPMAX ] := RandRange( Game.RNG,
+      GetInteger( 'hpmin' ), GetInteger( 'hpmax' ) );
     if (nfUnique in FFlags) then FStats[ STAT_EXPVALUE ] *= 2;
     FSound   := GetString('sound','');
   finally
@@ -150,7 +151,7 @@ begin
   end;
 
   FStats[ STAT_HP ] := FStats[ STAT_HPMAX ];
-  FSpeedCount := 90-Random(40);
+  FSpeedCount := 90 - Game.RNG.RLongInt( 40 );
   FActivated  := False;
   FRecovery := 0;
 
@@ -232,7 +233,7 @@ begin
       16 : if HitChance < 30  then HitChance := 30;
     end;
 
-    if Random(100) >= HitChance then
+    if Game.RNG.RLongInt( 100 ) >= HitChance then
     begin
       if NPC.isPlayer then
         UI.Msg(GetName(TheName)+' misses you.')
@@ -252,7 +253,7 @@ begin
   else
     UI.Msg(GetName(TheName)+' hits '+NPC.GetName(TheName)+'.');
 
-  Damage := RandRange(DmgMin,DmgMax);
+  Damage := RandRange( Game.RNG, DmgMin, DmgMax );
 
   DmgType := DAMAGE_GENERAL;
   if spellID > 0 then
@@ -524,12 +525,14 @@ begin
 
   if MoveResult = 100 then
     if m.x = 0 then
-      MoveResult := TryMove(NewCoord2D(Position.x+(Random(2)*2-1),Position.y+m.y))
+      MoveResult := TryMove( NewCoord2D(
+        Position.x + ( Game.RNG.RLongInt( 2 ) * 2 - 1 ), Position.y + m.y ) )
     else
       MoveResult := TryMove(Position.IfIncX(m.x));
   if MoveResult = 100 then
     if m.y = 0 then
-      MoveResult := TryMove(Position.IfInc(m.x,Random(2)*2-1))
+      MoveResult := TryMove( Position.IfInc(
+        m.x, Game.RNG.RLongInt( 2 ) * 2 - 1 ) )
     else
       MoveResult := TryMove(Position.IfIncY(m.y));
 
@@ -978,7 +981,7 @@ begin
   TLevel(npc.Parent).Area.Clamp(aoe);
   Count := 10;
   repeat
-    pos := aoe.RandomEdgeCoord;
+    pos := aoe.RandomEdgeCoord( Game.RNG );
     dec(Count);
   until (Count = 0) or (TLevel(npc.Parent).isEmpty(pos,[efNoMonsters, efNoObstacles, efSpawnOk]));
   if Count = 0 then

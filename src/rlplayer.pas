@@ -999,7 +999,7 @@ begin
 
     if HitChance < 5  then HitChance := 5;
     if HitChance > 95 then HitChance := 95;
-    if Random(100) >= HitChance then
+    if Game.RNG.RLongInt( 100 ) >= HitChance then
     begin
       if (NPC.Visible) then
         UI.Msg('You miss '+NPC.GetName(TheName)+'.');
@@ -1011,7 +1011,7 @@ begin
 
   if SpellID = 0 then
   begin
-    Damage := RandRange( getFullDmgMin, getFullDmgMax );
+    Damage := RandRange( Game.RNG, getFullDmgMin, getFullDmgMax );
   end
   else // spell
   begin
@@ -1025,13 +1025,14 @@ begin
         then iDMax := ProtectedCall('dmax',[FSpells[SpellID],Self])
         else iDMax:= GetInteger('dmax');
 
-      Damage := RandRange( iDMin, iDMax );
+      Damage := RandRange( Game.RNG, iDMin, iDMax );
     finally
       Free;
     end;
   end;
   // Critical hit
-  if (not aRanged) and (FKlass = KlassWarrior) and (Random(100) < Level)
+  if (not aRanged) and (FKlass = KlassWarrior) and
+     ( Game.RNG.RLongInt( 100 ) < Level )
     then begin Damage := 2*Damage;
                UI.Msg('You criticaly hit '+NPC.GetName(TheName)+'.');
                end
@@ -1061,7 +1062,7 @@ begin
     if iMax > 0 then
     begin
       iMin := getItemSumBonus( STAT_LIFESTEALMIN );
-      iAmount := RandRange( iMin, iMax );
+      iAmount := RandRange( Game.RNG, iMin, iMax );
       iAmount := Ceil((Damage*iAmount+500) / 1000 );
       if iAmount > 0
         then hp := min( hp + max( hp, 1 ), hpmax )
@@ -1072,7 +1073,7 @@ begin
     if iMax > 0 then
     begin
       iMin := getItemSumBonus( STAT_MANASTEALMIN );
-      iAmount := RandRange( iMin, iMax );
+      iAmount := RandRange( Game.RNG, iMin, iMax );
       iAmount := Ceil((Damage*iAmount+500) / 1000 );
       if iAmount > 0
         then mp := min( mp + max( mp, 1 ), mpmax )
@@ -1086,7 +1087,7 @@ begin
     if iMax <> 0 then
     begin
       iMin := getItemSumBonus( STAT_DMGFIREMIN );
-      if NPC.ApplyDamage( RandRange( iMin, iMax ), DAMAGE_FIRE, self ) then NPC := nil;
+      if NPC.ApplyDamage( RandRange( Game.RNG, iMin, iMax ), DAMAGE_FIRE, self ) then NPC := nil;
     end;
   end;
 
@@ -1096,7 +1097,7 @@ begin
     if iMax <> 0 then
     begin
       iMin := getItemSumBonus( STAT_DMGLIGHTNINGMIN );
-      if NPC.ApplyDamage( RandRange( iMin, iMax ), DAMAGE_LIGHTNING, self ) then NPC := nil;
+      if NPC.ApplyDamage( RandRange( Game.RNG, iMin, iMax ), DAMAGE_LIGHTNING, self ) then NPC := nil;
     end;
   end;
 
@@ -1121,7 +1122,7 @@ begin
         BlockChance := getBlock;
         if (npcAttacker <> nil) then
            BlockChance += 2*(Level-npcAttacker.Level);
-        if (Random(100) < BlockChance) then begin
+        if ( Game.RNG.RLongInt( 100 ) < BlockChance ) then begin
           UI.PlaySound('sfx/items/invsword.wav');
           if (npcAttacker = nil) then
               UI.Msg('You block the trap.')
@@ -1145,7 +1146,7 @@ begin
     if FEq[slotTorso] = nil then
       Slot := slotHead
     else if FEq[slotHead] <> nil then
-      if Random(3)=0 then
+      if Game.RNG.RLongInt( 3 ) = 0 then
         Slot := slotHead;
   end;
   if FEq[slot] = nil then Exit;
@@ -1153,14 +1154,14 @@ begin
   case slot of
     slotRHand : begin
                   if TYPE_BOW = FEq[Slot].IType then begin
-                    if Random(40)=0 then FEq[slot].Dur:=FEq[slot].Dur-1;    //Bow
-                  end else if Random(30)=0 then FEq[slot].Dur := FEq[slot].Dur - 1;
+                    if Game.RNG.RLongInt( 40 ) = 0 then FEq[slot].Dur:=FEq[slot].Dur-1;    //Bow
+                  end else if Game.RNG.RLongInt( 30 ) = 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
                   // If two weapons are wielded check both
                   if (FEq[slotLHand]<>nil)and(FEq[slotLHand].IType in [ TYPE_WEAPON, TYPE_STAFF ])
-                    and (Random(30)=0) then FEq[slotLHand].Dur := FEq[slotLHand].Dur - 1;
+                    and ( Game.RNG.RLongInt( 30 ) = 0 ) then FEq[slotLHand].Dur := FEq[slotLHand].Dur - 1;
                 end;
-    slotTorso, slotHead : if Random(4)<>0 then FEq[slot].Dur := FEq[slot].Dur - 1;
-    slotLHand : if Random(10)=0 then FEq[slot].Dur := FEq[slot].Dur - 1;
+    slotTorso, slotHead : if Game.RNG.RLongInt( 4 ) <> 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
+    slotLHand : if Game.RNG.RLongInt( 10 ) = 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
   end;
   if FEq[slot].Dur = 0 then
   begin
@@ -2094,7 +2095,7 @@ begin
   else
     NilItem( aItem );
 
-  TLevel(Parent).Drop( aItem, FPosition );
+  TLevel(Parent).Drop( Game.RNG, aItem, FPosition );
   Exit( Success( 'You drop %s.', [ aItem.GetName(TheName) ], SpdMov ) );
 end;
 

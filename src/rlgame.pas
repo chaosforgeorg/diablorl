@@ -8,7 +8,7 @@
 unit rlgame;
 interface
 uses classes, zstream,
-     vsystem, vnode,
+     vsystem, vnode, vrandom,
      rllevel, rlconfig, rlglobal, rlplayer, rllua, rlui, rlshop, rlpersistence;
 
 type
@@ -17,6 +17,7 @@ type
 
 TGame = class(TSystem)
        Player      : TPlayer;
+       RNG         : TRNG;
        Persistence : TPersistence;
        Level       : TLevel;
        NextLevelID : AnsiString;
@@ -37,17 +38,19 @@ TGame = class(TSystem)
 const Game : TGame = nil;
 
 implementation
-uses sysutils, vutil, vuid, vioevent,
+uses sysutils, vutil, vuid, vioevent, vlua,
      rlviews, vrltools, vluasystem, vsystems, rlnpc;
 
 constructor TGame.Create( aConfig : TDiabloConfig );
 var i: byte;
 begin
   inherited Create;
+  RNG := TRNG.Create;
   Game := Self;
   NextLevelID := 'town';
   TurnCount   := 0;
   UI := Systems.Add(TGameUI.Create( aConfig ) ) as TGameUI;
+  LuaRNG := RNG;
   Lua := TRLLua.Create;
   LuaSystem := Systems.Add(Lua) as TLuaSystem;
   if GodMode then
@@ -171,10 +174,10 @@ begin
 
       // Now we can properly displace the player :D
       // GenX and GenY are taken from the generator
-      Level.Drop( Player, iStartPos );
+      Level.Drop( RNG, Player, iStartPos );
 
       //drop player's golem here
-      if iGolem <> nil then Level.Drop( iGolem, iStartPos );
+      if iGolem <> nil then Level.Drop( RNG, iGolem, iStartPos );
 
       LevelChange := False;
       Player.Enemy := 0;
@@ -212,6 +215,8 @@ destructor TGame.Destroy;
 begin
   FreeAndNil( Persistence );
   inherited Destroy;
+  LuaRNG := nil;
+  FreeAndNil( RNG );
   Log('Destroyed.');
 end;
 

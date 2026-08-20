@@ -157,7 +157,8 @@ begin
   ReadStatistics( 'items' );
 
   FStats[ STAT_DURMAX ] := FStats[ STAT_DUR ];
-  FStats[ STAT_DUR ]    := RandRange(1+(FStats[ STAT_DURMAX ] div 4),(3*FStats[ STAT_DURMAX ] div 4));
+  FStats[ STAT_DUR ]    := RandRange( Game.RNG,
+    1 + ( FStats[ STAT_DURMAX ] div 4 ), ( 3 * FStats[ STAT_DURMAX ] div 4 ) );
 
   with LuaSystem.GetTable( ['items', thingID] ) do
   try
@@ -168,7 +169,8 @@ begin
     if isString('spell') then
       FSpell := LuaSystem.Get(['spells', GetString('spell'), 'nid']);
 
-    FStats[ STAT_AC ] := RandRange(GetInteger('acmin',0),GetInteger('acmax',0));
+    FStats[ STAT_AC ] := RandRange( Game.RNG,
+      GetInteger( 'acmin', 0 ), GetInteger( 'acmax', 0 ) );
     if  flags[ ifUnique ] then Include( FFlags, ifUnknown );
   finally
     Free;
@@ -272,7 +274,7 @@ procedure TItem.Repair(RLevel: Byte);
 begin
   if RLevel > 0 then
   repeat
-    FStats[ STAT_DUR ]    += RLevel + Random(RLevel);
+    FStats[ STAT_DUR ]    += RLevel + Game.RNG.RLongInt( RLevel );
     FStats[ STAT_DURMAX ] := Max( FStats[ STAT_DURMAX ] - Max(1, Round(FStats[ STAT_DURMAX ] / (RLevel + 9))), 1 );
   until FStats[ STAT_DUR ] >= FStats[ STAT_DURMAX ];
   FStats[ STAT_DUR ] := FStats[ STAT_DURMAX ];
@@ -282,7 +284,8 @@ procedure TItem.Recharge(RLevel: Byte);
 begin
   if RLevel > 0 then
   repeat
-    FStats[ STAT_CHARGES ] += Random(RLevel div LuaSystem.Get(['spells',FSpell,'book','level'],0))+1;
+    FStats[ STAT_CHARGES ] += Game.RNG.RLongInt(
+      RLevel div LuaSystem.Get( ['spells', FSpell, 'book', 'level'], 0 ) ) + 1;
     dec(FStats[ STAT_CHARGESMAX ] );
   until FStats[ STAT_CHARGES ] >= FStats[ STAT_CHARGESMAX ];
   FStats[ STAT_CHARGES ] := FStats[ STAT_CHARGESMAX ];

@@ -8,7 +8,7 @@
 
 unit rlglobal;
 interface
-uses sysutils, vrltools, vutil, vnode;
+uses sysutils, vrandom, vrltools, vutil, vnode;
 
 const
       // All the below paths can be set from the command line (see berserk.pas),
@@ -226,7 +226,7 @@ CELL_STAIR_UP      : Byte;
 CELL_TOWN_PORTAL   : Byte;
 
 
-function RandRange(RangeMin,RangeMax : LongInt) : LongInt;
+function RandRange( aRNG : TRNG; RangeMin,RangeMax : LongInt ) : LongInt;
 function ModColor(aModifier : Integer): byte;
 
 implementation
@@ -238,10 +238,10 @@ begin
   else Exit( LightGray );
 end;
 
-function RandRange(RangeMin,RangeMax : LongInt) : LongInt;
+function RandRange( aRNG : TRNG; RangeMin,RangeMax : LongInt ) : LongInt;
 begin
   if RangeMin > RangeMax then Exit(RangeMin)
-                         else Exit(Random(RangeMax-RangeMin+1)+RangeMin);
+                         else Exit( aRNG.RLongInt( RangeMax - RangeMin + 1 ) + RangeMin );
 end;
 
 end.
