@@ -992,7 +992,7 @@ begin
         else HitChance := getToHitMagic
     else begin
       HitChance := getToHitMelee;
-      if (Random(2) = 0) then UI.PlaySound('sfx/misc/swing.wav')
+      if (UI.VisualRNG.RLongInt(2) = 0) then UI.PlaySound('sfx/misc/swing.wav')
       else UI.PlaySound('sfx/misc/swing2.wav');
     end;
     HitChance := HitChance-NPC.getAC;
@@ -1586,7 +1586,7 @@ begin
         end;
   254:  UI.Msg('But there is nothing here!');
   255:  begin
-          nSound := 14 + Random(3);
+          nSound := 14 + UI.VisualRNG.RLongInt(3);
           case nSound of
           14: UI.Msg('@<"I can''t carry any more"@>');
           15: UI.Msg('@<"I have no room!"@>');

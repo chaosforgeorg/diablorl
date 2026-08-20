@@ -751,7 +751,7 @@ procedure TNPC.PlaySound(sID: char);
 begin
      if (FSound = '') then exit;
      // There are two versions of each sound, pick one randomly
-     UI.PlaySound(FSound + sID + IntToStr(Random(2) + 1) + '.wav',Position);
+     UI.PlaySound(FSound + sID + IntToStr(UI.VisualRNG.RLongInt(2) + 1) + '.wav',Position);
 end;
 
 constructor TNPC.CreateFromStream(ISt: TStream);
