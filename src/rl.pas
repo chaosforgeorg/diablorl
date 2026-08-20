@@ -30,8 +30,6 @@ var RootPath : AnsiString = '';
     CmdLine  : TParams;
 
 begin
-  Randomize;
-
   {$IFDEF Darwin}
   {$IFDEF OSX_APP_BUNDLE}
   RootPath := GetResourcesPath();
