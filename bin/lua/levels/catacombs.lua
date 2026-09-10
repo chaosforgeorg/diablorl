@@ -15,7 +15,7 @@ register_level "level5"
 		--place shortcut to town
 		self:set_cell( self:find_empty_square(), "stairs_up_catacombs")
 		--prepare sky rock quest
-		if quests["sky_rock_quest"].enabled then
+		if world.quests["sky_rock_quest"].enabled then
 			self:set_cell( self:find_empty_square(), "magic_rock")
 		end
 	end,
@@ -36,7 +36,7 @@ register_level "level6"
 	OnCreate = function(self)
 		generator.room_level( self, "catacombs" )
 		-- place the Book of the Blind if needed
-		if quests["bone_chamber"].enabled then
+		if world.quests["bone_chamber"].enabled then
 			self:set_cell( self:find_empty_square(), "mythical_book")
 		end
 	end,
@@ -57,7 +57,7 @@ register_level "level7"
   	OnCreate = function(self)
 		generator.room_level( self, "catacombs" )
 		-- place the Book of the Blind if needed
-		if quests["halls_of_blind"].enabled then
+		if world.quests["halls_of_blind"].enabled then
 			self:set_cell( self:find_empty_square(), "book_of_the_blind")
 		end
 	end,

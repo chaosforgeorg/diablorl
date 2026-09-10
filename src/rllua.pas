@@ -88,14 +88,6 @@ end;
 procedure TGameLua.RegisterPlayer(Thing: TThing);
 begin
   SetValue( 'player', Thing );
-  if Thing = nil then
-  begin
-    RegisterKillsClass( Raw, nil, 'kills' );
-    RegisterStatisticsClass( Raw, nil, 'stats' );
-    SetValue( 'kills', TObject( nil ) );
-    SetValue( 'stats', TObject( nil ) );
-    Exit;
-  end;
   RegisterKillsClass( Raw, TPlayer(Thing).Kills, 'kills' );
   RegisterStatisticsClass( Raw, TPlayer(Thing).Stats, 'stats' );
 end;
@@ -228,7 +220,6 @@ begin
   end
   else
     ReadData( aDataPath + 'diablorl.mpq' );
-
 
 end;
 

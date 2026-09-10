@@ -47,7 +47,7 @@ register_npc( "ogden", "townperson" )
 			ui.play_sound("sfx/towners/tavown23.wav")
 			ui.plot_talk("The curse of our King has passed, but I fear that it was only part of a greater Evil at work. However, we may yet be saved from the Darkness that consumes our land, for your victory is a good omen. May Light guide you on your way, Good Master.")
 			player.quest["leoric_quest"] = 4
-		elseif quests["sign"].enabled and player.quest["sign"] == 0 and player.maxdepth > 2 then
+		elseif world.quests["sign"].enabled and player.quest["sign"] == 0 and player.maxdepth > 2 then
 			quests["sign"].OnJournal()
 			player.quest["sign"] = 1
 		elseif player.quest["sign"] == 2 and qitem then
@@ -91,7 +91,7 @@ register_npc( "griswold", "townperson" )
 	OnTalk = function(self)
 		self:set_travel_point()
 		local qitem = player:get_item("sky_rock_quest")
-		if (quests["sky_rock_quest"].enabled) and (player.maxdepth >= 4)
+		if (world.quests["sky_rock_quest"].enabled) and (player.maxdepth >= 4)
 										and (player.quest["sky_rock_quest"] == 0) then
 			quests["sky_rock_quest"].OnJournal()
 			player.quest["sky_rock_quest"] = 1
@@ -197,7 +197,7 @@ register_npc( "pepin", "townperson" )
 
 	OnTalk = function(self)
 		self:set_travel_point()
-		if (quests["water"].enabled) then
+		if (world.quests["water"].enabled) then
 			if player.quest["water"] == 1 then
 				quests["water"].OnJournal()
 				player.quest["water"] = 2

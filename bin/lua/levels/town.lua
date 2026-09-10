@@ -151,28 +151,28 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 
 		-- Decide which quests to disable
 		local qset = {"leoric_quest","water"}
-		quests[qset[math.random(2)]].enabled = false
+		world.quests[qset[math.random(2)]].enabled = false
 		qset = {"butcher","gharbad_quest","sign"}
-		quests[ qset[math.random(3)] ].enabled = false
+		world.quests[ qset[math.random(3)] ].enabled = false
 		qset = {"sky_rock_quest","valor","halls_of_blind"}
-		quests[ qset[math.random(3)] ].enabled = false
-		if math.random(3)~=2 then quests['mad_mage'].enabled = false end
+		world.quests[ qset[math.random(3)] ].enabled = false
+		if math.random(3)~=2 then world.quests['mad_mage'].enabled = false end
 		--[[
 		qset = {"mad_mage","anvil","mushroom"}
-		quests[qset[math.random(3)] ].enabled = false
+		world.quests[qset[math.random(3)] ].enabled = false
 		qset = {"lachdanan","warlord"}
-		quests[ qset[math.random(2)] ].enabled = false
+		world.quests[ qset[math.random(2)] ].enabled = false
 		]]--
 		world.load_quest_maps()
 
 		-- select 1 of the 3 story tome series
 		player.quest["tomes"] = math.random(3)
 
-		if quests["butcher"].enabled then
+		if world.quests["butcher"].enabled then
 			self:drop_npc("dying", coord(28, 38) )
 		end
 
-		if quests["water"].enabled then
+		if world.quests["water"].enabled then
 			self:set_cell(self:find_coord("fountain"),"poison_fountain")
 		end
 	end,

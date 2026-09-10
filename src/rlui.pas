@@ -49,6 +49,7 @@ type
     procedure ItemInfo( aItem : TItem );
     procedure Update( aMSec : DWord ); override;
     procedure SetAudio( aAudio : TGameAudio );
+    function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
     //Sound procedures wrapping
     procedure PlayMusic( const sID: ansistring );
     procedure PlaySound( const sID: ansistring; aSource : TCoord2D );
@@ -431,6 +432,16 @@ begin
 end;
 
 
+
+function TGameUI.OnEvent( const aEvent : TIOEvent ) : Boolean;
+begin
+  // Title/child menus have no Session to abandon. Gameplay retains its existing
+  // system-event routing; this does not invent a close/save policy for a run.
+  if ( Game = nil ) and ( aEvent.EType = VEVENT_SYSTEM ) and
+     ( aEvent.System.Code = VIO_SYSEVENT_QUIT ) then
+    raise EGameProcessQuit.Create( 'System quit requested' );
+  Result := inherited OnEvent( aEvent );
+end;
 
 procedure TGameUI.SetAudio( aAudio : TGameAudio );
 begin

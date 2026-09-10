@@ -2,7 +2,7 @@
 unit rlapplication;
 interface
 
-uses SysUtils, vapp, vrlapp, viorl, vluasystem, rlgame, rlpersistence, rlaudio;
+uses SysUtils, vapp, vrlapp, viorl, vluasystem, rlgame, rlpersistence, rlaudio, rlviews;
 
 // Owns reusable services and one content generation, with one active Session.
 type TGameRuntime = class( TRLRuntime )
@@ -78,11 +78,34 @@ begin
 end;
 
 function TGameRuntime.RunGame : TVRunResult;
+var iChoice : TGameMenuResult;
 begin
-  FSession := TGameSession.Create( Self, FPersistence );
-  Game := FSession;
-  if FSession.Prepare then FSession.Run;
   Result := VRR_QUIT;
+  try
+    IO.HideCursor;
+    UI.PlayMusic( 'music/dintro.wav' );
+    IO.RunLayer( TIntroScreen.Create );
+    repeat
+      IO.RunLayer( TMainMenuScreen.Create( FPersistence, iChoice ) );
+      if iChoice = GMR_QUIT then
+      begin
+        IO.RunLayer( TOutroScreen.Create );
+        Exit;
+      end;
+      FSession := TGameSession.Create( Self, FPersistence );
+      Game := FSession;
+      if FSession.Execute( iChoice = GMR_LOAD ) = GSR_LOAD_FAILED then
+        Log( 'Load failed; returning to main menu.' );
+      // Exceptional Sessions stay alive for the outer crash-save handler.
+      UI.UnPrepare;
+      IO.Clear;
+      FreeAndNil( FSession );
+      UI.HaltSound;
+      UI.PlayMusic( 'music/dintro.wav' );
+    until False;
+  except
+    on E : EGameProcessQuit do Result := VRR_QUIT;
+  end;
 end;
 
 procedure TGameRuntime.HandleGameException( aException : Exception );

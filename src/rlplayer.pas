@@ -1841,9 +1841,9 @@ begin
   for Count := 1 to LuaSystem.Get(['quests','__counter'])  do
     begin
       if Count in tsob then
-        Game.Lua.SetValue( ['quests', Count, 'enabled'], true )
+        Game.Lua.SetValue( ['world', 'quests', Count, 'enabled'], true )
       else
-        Game.Lua.SetValue( ['quests', Count, 'enabled'], false );
+        Game.Lua.SetValue( ['world', 'quests', Count, 'enabled'], false );
       FQuests[Count] := ISt.ReadByte;
     end;
 
@@ -1891,7 +1891,7 @@ begin
 
   tsob := [];
   for Count := 1 to LuaSystem.Get(['quests','__counter']) do
-    if LuaSystem.Get(['quests', Count, 'enabled']) then
+    if LuaSystem.Get(['world', 'quests', Count, 'enabled']) then
       include(tsob, Count);
   OSt.Write(tsob, sizeof(tsob));
   for Count := 1 to LuaSystem.Get(['quests','__counter']) do

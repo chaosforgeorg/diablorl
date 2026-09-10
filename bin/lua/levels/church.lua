@@ -35,11 +35,11 @@ register_level "level2"
 
 	OnCreate = function(self)
 		generator.room_level( self, "church" )
-		if (quests["butcher"].enabled) then
+		if (world.quests["butcher"].enabled) then
 			ui.msg("The smell of blood is everywhere!")
 		end
 
-		if (quests["water"].enabled) then
+		if (world.quests["water"].enabled) then
 			self:set_cell(self:find_empty_square(),"stairs_down_special")
 			player.quest["water"] = 1
 		end
@@ -60,7 +60,7 @@ register_level "level3"
 
   	OnCreate = function(self)
 		generator.room_level( self, "church")
-		if (quests["leoric_quest"].enabled) then
+		if (world.quests["leoric_quest"].enabled) then
 			player.quest["leoric_quest"] = 1
 		end
 	end,
@@ -79,7 +79,7 @@ register_level "level4"
 
   	OnCreate = function(self)
 		generator.room_level( self, "church" )
-		if (quests["gharbad_quest"].enabled) then
+		if (world.quests["gharbad_quest"].enabled) then
 			self:drop_npc( "gharbad", self:find_empty_square() )
 			core.log("Gharbad placed.")
 		end
@@ -90,7 +90,7 @@ register_level "level4"
 	end,
 
 	OnEnter = function(self)
-		if quests["sign"].enabled then
+		if world.quests["sign"].enabled then
 			if player.quest["sign"] == 3 or player.quest["sign"] == 5 then
 				self:move_walls("moving_wall_1")
 				self:move_walls("moving_grate_1")

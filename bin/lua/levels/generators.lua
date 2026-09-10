@@ -1,5 +1,3 @@
-generator.hotspots = {}
-
 function generator.code_to_translation( code )
 	local translation = {}
 	for k,v in pairs(code) do
@@ -39,7 +37,7 @@ function generator.tile_place_hotspots( level, pos, tile )
 		if level:get_cell( c ) == cell_marker then
 			level:set_cell( c, cell_wall )
 			if area.FULL_SHRINKED:contains( c ) then
-				table.insert( generator.hotspots, c:clone() )
+				table.insert( world.hotspots, c:clone() )
 			end
 		end
 	end
@@ -49,11 +47,6 @@ function generator.roll_monsters( self )
 	local monster_size = 4000-386 -- golem
 	local full_list = table.icopy( npcs["level"..self.depth] )
 
-	if (levels[self.id].monsters_list == nil) then
-		-- TODO: preload this list with base monster of any quest uniques appearing on the level
-		levels[self.id].monsters_list = {}
-	end
-
 	if #full_list == 0 then
 		error("Monster table for level "..self.id.." is empty!")
 	end
@@ -61,13 +54,13 @@ function generator.roll_monsters( self )
 	while #full_list > 0 do
 		local roll = math.random(#full_list)
 		if npcs[ full_list[roll] ].size <= monster_size then
-			table.insert( levels[self.id].monsters_list, full_list[roll] )
+			table.insert( world.levels[self.id].monsters_list, full_list[roll] )
 			monster_size = monster_size - npcs[ full_list[roll] ].size
 		end
 		table.remove( full_list, roll )
 	end
 
-	if #levels[self.id].monsters_list == 0 then
+	if #world.levels[self.id].monsters_list == 0 then
 		error("Monster table for level "..self.id.." generated empty!")
 	end
 
@@ -89,7 +82,7 @@ function generator.roll_monsters( self )
 		if (npcs[n].random and npcs[n].dlvl == self.depth) then
 			-- found a possible unique
 			-- see if it's in the monster list
-			for _, m in ipairs(levels[self.id].monsters_list) do
+			for _, m in ipairs(world.levels[self.id].monsters_list) do
 				if (npcs[n].base == m) then
 					local c = self:roll_monster(n)
 					count = count - 1
@@ -112,7 +105,7 @@ function generator.roll_monsters( self )
 	end
 
 	repeat
-		local monster = npcs[ table.random_pick( levels[self.id].monsters_list ) ]
+		local monster = npcs[ table.random_pick( world.levels[self.id].monsters_list ) ]
 		local amount  = math.random( monster.amountmin, monster.amountmax )
 		local c = self:roll_monster( monster.id)
 		if c then
@@ -401,8 +394,8 @@ end
 
 function generator.room_level( self, gen_type )
 	self:fill( "stone_wall" )
-	if not generators[ gen_type ].tile_data then
-		generators[ gen_type ].tile_data = generator.load_tile_data( self, generators[ gen_type ].tiles )
+	if not world.generators[ gen_type ] then
+		world.generators[ gen_type ] = generator.load_tile_data( self, generators[ gen_type ].tiles )
 	end
 
 	local count = 0
@@ -412,31 +405,32 @@ function generator.room_level( self, gen_type )
 	local cell_wall   = cells["stone_wall"].nid
 	local level_area  = self:get_area()
 
-	if self.__proto.map then
-		self.__proto.map_key["*"] = "marker"
+	if world.levels[self.id].map then
+		local translation = generator.code_to_translation( world.levels[self.id].map_key )
+		translation["*"] = cells["marker"].nid
 		local w,h         = level_area.b.x, level_area.b.y
-		local tile_object = generator.tile_new( self, self.__proto.map, generator.code_to_translation( self.__proto.map_key ), true )
+		local tile_object = generator.tile_new( self, world.levels[self.id].map, translation, true )
 		local size        = tile_object:get_size_coord()
 		local pos         = coord( math.floor( w / 2 - size.x / 2 ), math.floor( h / 2 - size.y / 2 ) )
 		core.log("placing map at "..pos:tostring())
-		generator.tile_place_object( self, tile_object, self.__proto.map_key, pos )
+		generator.tile_place_object( self, tile_object, world.levels[self.id].map_key, pos )
 		count = 1
 	end
 
-	if #generator.hotspots == 0 then
+	if #world.hotspots == 0 then
 		local w,h = level_area.b.x, level_area.b.y
 		local c = coord( math.random( w/2) + w/4, math.random( h/2) + h/4)
 		for i=1,20 do
-			table.insert( generator.hotspots, c:clone() )
+			table.insert( world.hotspots, c:clone() )
 		end
 	end
 
 	repeat
-		local tile = table.random_pick( generators[ gen_type ].tile_data )
+		local tile = table.random_pick( world.generators[ gen_type ] )
 		--check if tile fits
-		local entry = table.random_pick( generator.hotspots )
+		local entry = table.random_pick( world.hotspots )
 		while self:cross_around( entry, cell_floor ) > 1 do
-			entry = table.random_pick( generator.hotspots )
+			entry = table.random_pick( world.hotspots )
 		end
 
 		local direction = "n"
@@ -507,7 +501,7 @@ function generator.room_level( self, gen_type )
 		count = count + 1
 	until count > limit
 
-	for _,h in ipairs( generator.hotspots ) do
+	for _,h in ipairs( world.hotspots ) do
 		if self:get_cell( h ) == cell_wall and
 			self:cross_around( h, cell_floor ) == 2 and
 			self:cross_around( h, cell_wall  ) == 2 and
@@ -517,7 +511,7 @@ function generator.room_level( self, gen_type )
 		end
 	end
 
-	generator.hotspots = {}
+	world.hotspots = {}
 
 	generators[ gen_type ].OnPlaceItems( self )
 	generators[ gen_type ].OnPlaceMonsters( self )

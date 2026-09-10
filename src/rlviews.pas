@@ -1,4 +1,4 @@
-{$include rl.inc}
+{$INCLUDE rl.inc}
 // @abstract(Non-game views for DiabloRL)
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
 //
@@ -8,7 +8,7 @@ unit rlviews;
 interface
 
 uses Classes, SysUtils,
-     viotypes, vtigstyle, vmessages;
+     viotypes, vtigstyle, vmessages, rlpersistence;
 
 const GAMEMENU_CONT = 0;
       GAMEMENU_HELP = 2;
@@ -68,11 +68,15 @@ type TOutroScreen = class( TIOLayer )
   function IsModal : Boolean; override;
 end;
 
+type TGameMenuResult = ( GMR_NEW, GMR_LOAD, GMR_QUIT );
+
 type TMainMenuScreen = class( TMenuScreen )
-  constructor Create;
+  constructor Create( aPersistence : TPersistence; var aResult : TGameMenuResult );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
   FCanLoad : Boolean;
+  FPersistence : TPersistence;
+  FResult : ^TGameMenuResult;
 end;
 
 type TKlassInfo = record
@@ -95,6 +99,7 @@ end;
 
 type TNameScreen = class( TMenuScreen )
   constructor Create;
+  destructor Destroy; override;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
   FName : array[0..32] of Char;
@@ -194,6 +199,7 @@ end;
 procedure TScrollingLayer.Update( aDTime : Integer; aActive : Boolean );
 var i : Integer;
 begin
+  if not aActive then Exit;
   VTIG_PushStyle( @FStyle );
   VTIG_BeginWindow( FHeader, 'scrolling_view', VTIG_GetIOState.Size, Point( 1, 1 ) );
   if FContent.Size > 0 then
@@ -256,6 +262,7 @@ end;
 
 procedure TIntroScreen.Update( aDTime : Integer; aActive : Boolean );
 begin
+  if not aActive then Exit;
   inherited Update( aDTime, aActive );
   VTIG_Begin( 'intro_text', Point( 60, 10 ), Point( 10, 15 ) + FShift );
   VTIG_Text( 'This is the 0.5 version of Diablo Roguelike, much features' );
@@ -281,6 +288,7 @@ end;
 
 procedure TOutroScreen.Update( aDTime : Integer; aActive : Boolean );
 begin
+  if not aActive then Exit;
   VTIG_Begin( 'outro_text', VTIG_GetIOState.Size - Point( 2, 2 ), Point( 1, 1 ) );
   VTIG_Text( 'Thank you for playing Diablo Roguelike!' );
   VTIG_Text( 'This is just a beta, keep your eyes open for the full release!' );
@@ -315,47 +323,51 @@ end;
 
 { TMainMenuScreen }
 
-constructor TMainMenuScreen.Create;
+constructor TMainMenuScreen.Create( aPersistence : TPersistence; var aResult : TGameMenuResult );
 begin
   inherited Create;
+  FPersistence := aPersistence;
+  FResult := @aResult;
+  FResult^ := GMR_QUIT;
   FCanLoad := FileExists( WritePath + 'save' );
+  VTIG_ResetSelect( 'main_menu' );
 end;
 
 procedure TMainMenuScreen.Update( aDTime : Integer; aActive : Boolean );
+var iChild : Integer;
 begin
+  if not aActive then Exit;
   inherited Update( aDTime, aActive );
+  iChild := 0;
   VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
   VTIG_Begin( 'main_menu', Point( 21, 9 ), Point( 29, 15 ) + FShift );
   VTIG_PopStyle;
 
   if VTIG_Selectable( '   New Game' ) then
   begin
+    FResult^ := GMR_NEW;
     UI.PlaySound('sfx/items/titlslct.wav');
     FFinished := True;
   end;
   if VTIG_Selectable( '   Load Game', FCanLoad ) then
   begin
-    Game.Loading := True;
+    FResult^ := GMR_LOAD;
     UI.PlaySound('sfx/items/titlslct.wav');
     FFinished := True;
   end;
-  if VTIG_Selectable( 'Show Highscores' ) then
-  begin
-    UI.PushLayer( THighscoreViewer.Create( Game.Persistence.ScoreList ) );
-    UI.WaitForLayer;
-  end;
-  if VTIG_Selectable( '  Show Manual' ) then
-  begin
-    UI.PushLayer( TManualScreen.Create );
-    UI.WaitForLayer;
-  end;
+  if VTIG_Selectable( 'Show Highscores' ) then iChild := 1;
+  if VTIG_Selectable( '  Show Manual' ) then iChild := 2;
   if VTIG_Selectable( '   Quit Game' ) then
   begin
-    Game.Ended := True;
+    FResult^ := GMR_QUIT;
     UI.PlaySound('sfx/items/titlslct.wav');
     FFinished := True;
   end;
   VTIG_End;
+  case iChild of
+    1 : UI.PushLayer( THighscoreViewer.Create( FPersistence.ScoreList ) );
+    2 : UI.PushLayer( TManualScreen.Create );
+  end;
 end;
 
 { TKlassScreen }
@@ -385,6 +397,7 @@ procedure TKlassScreen.Update( aDTime : Integer; aActive : Boolean );
 var iSelected : Integer;
     i         : Integer;
 begin
+  if not aActive then Exit;
   inherited Update( aDTime, aActive );
   VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
   VTIG_BeginWindow( 'Choose class', 'klass_menu', Point( 29, 11 ), Point( 1, 15 ) + FShift );
@@ -426,8 +439,15 @@ begin
   UI.Driver.StartTextInput;
 end;
 
+destructor TNameScreen.Destroy;
+begin
+  UI.Driver.StopTextInput;
+  inherited Destroy;
+end;
+
 procedure TNameScreen.Update( aDTime : Integer; aActive : Boolean );
 begin
+  if not aActive then Exit;
   inherited Update( aDTime, aActive );
   VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
   VTIG_BeginWindow( 'Enter name', 'name_input', Point( 18, 5 ), Point( 30, 16 ) + FShift );
@@ -436,7 +456,6 @@ begin
   begin
     Game.PlayerName := AnsiString( FName );
     UI.PlaySound('sfx/items/titlslct.wav');
-    UI.Driver.StopTextInput;
     FFinished := True;
   end;
   VTIG_End;
@@ -493,12 +512,12 @@ begin
     FResult   := GAMEMENU_HELP;
     FFinished := True;
   end;
-  if VTIG_Selectable( 'Save and quit' ) then
+  if VTIG_Selectable( 'Save and return' ) then
   begin
     FResult   := GAMEMENU_SAVE;
     FFinished := True;
   end;
-  if VTIG_Selectable( '    Quit' ) then
+  if VTIG_Selectable( 'Abandon game' ) then
   begin
     FResult   := GAMEMENU_QUIT;
     FFinished := True;
@@ -518,4 +537,3 @@ begin
 end;
 
 end.
-

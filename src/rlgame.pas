@@ -4,8 +4,12 @@
 unit rlgame;
 interface
 
-uses Classes, vnode, vuid, vrandom, vrlapp,
+uses Classes, SysUtils, vnode, vuid, vrandom, vrlapp,
      rllevel, rlglobal, rlplayer, rlnpc, rllua, rlshop, rlpersistence;
+
+type
+  EGameProcessQuit = class( Exception );
+  TGameSessionResult = ( GSR_RETURN_TO_MENU, GSR_LOAD_FAILED );
 
 // Owns one playthrough, including entities temporarily detached from levels.
 // Runtime services are borrowed; Game is only the current Session alias.
@@ -32,6 +36,7 @@ type TGameSession = class( TNode )
   public
     constructor Create( aRuntime : TRLRuntime; aPersistence : TPersistence ); reintroduce;
     destructor Destroy; override;
+    function Execute( aLoad : Boolean ) : TGameSessionResult;
     function Prepare : Boolean;
     procedure Run;
     function Load : Boolean;
@@ -57,7 +62,7 @@ var Game : TGameSession = nil;
 
 implementation
 
-uses SysUtils, zstream, vutil, vrltools, vluasystem, rlui, rlviews;
+uses zstream, vutil, vrltools, vluasystem, rlui, rlviews;
 
 constructor TGameSession.Create( aRuntime : TRLRuntime; aPersistence : TPersistence );
 begin
@@ -79,14 +84,19 @@ begin
   Result := TGameLua( FRuntime.Lua );
 end;
 
+function TGameSession.Execute( aLoad : Boolean ) : TGameSessionResult;
+begin
+  Lua.Call( ['world', 'start_session'], [] );
+  FLoading := aLoad;
+  if not Prepare then Exit( GSR_LOAD_FAILED );
+  Run;
+  Result := GSR_RETURN_TO_MENU;
+end;
+
 function TGameSession.Prepare : Boolean;
 var iCount : Word;
 begin
   UI.HideCursor;
-  UI.PlayMusic( 'music/dintro.wav' );
-  UI.RunLayer( TIntroScreen.Create );
-  UI.RunLayer( TMainMenuScreen.Create );
-  if FEnded then Exit( True );
   if FLoading then
   begin
     if not Load then Exit( False );
@@ -223,7 +233,6 @@ begin
     end;
     FPlayer.Detach;
     UI.UnPrepare;
-    UI.RunLayer( TOutroScreen.Create );
   end;
 end;
 
@@ -231,7 +240,6 @@ destructor TGameSession.Destroy;
 begin
   // Runtime has retired all views before releasing its Session. Lua and UIDs
   // remain alive until every owned entity (parented or detached) is gone.
-  if FRuntime <> nil then Lua.RegisterPlayer( nil );
   FreeAndNil( FTravellingGolem );
   FreeAndNil( FPlayer );
   inherited Destroy;
@@ -273,7 +281,7 @@ begin
       until iType = 0;
     except
       Log( 'save file corrupt!' );
-      // Stage 2 returns a failed Session outcome; menu re-entry is Stage 3.
+      // Runtime releases this partial Session before returning to its menu.
       Exit( False );
     end;
   finally

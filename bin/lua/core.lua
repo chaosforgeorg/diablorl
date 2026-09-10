@@ -388,7 +388,7 @@ function player:write_memorial( killer )
 	local score       = self.exp / 100 + player.maxdepth * player.maxdepth * 1000
 	local score_base  = score
 	for i,v in ipairs(quests) do
-		if v.enabled and self.quest[i] >= v.completed then
+		if world.quests[i].enabled and self.quest[i] >= v.completed then
 			score = score + v.score
 		end
 	end
@@ -413,7 +413,7 @@ function player:write_memorial( killer )
 	self:memorial_print("  "..self:pronoun().." advanced to level "..tostring(self.level).." gaining "..tostring(self.exp).." experience.")
 	self:memorial_print("  "..self:pronoun().." amassed "..tostring(self.gold).." gold coins.")
 	for i,v in ipairs(quests) do
-		if v.enabled and self.quest[i] >= v.completed then
+		if world.quests[i].enabled and self.quest[i] >= v.completed then
 			self:memorial_print("  "..self:pronoun().." "..v.message)
 		end
 	end
@@ -922,6 +922,26 @@ end
 table.merge( level, thing )
 setmetatable( level, getmetatable(thing) )
 
+-- The interpreter and definitions belong to Runtime; these tables belong to
+-- one playthrough. Keep the player type separate from its published instance.
+local player_type = player
+
+function world.start_session()
+	player = player_type
+	world.quests = {}
+	for i,q in ipairs(quests) do
+		local state = { enabled = q.enabled }
+		world.quests[i] = state
+		world.quests[q.id] = state
+	end
+	world.levels = {}
+	for _,l in ipairs(levels) do
+		world.levels[l.id] = { map = l.map, map_key = l.map_key, monsters_list = {} }
+	end
+	world.generators = {}
+	world.hotspots = {}
+end
+
 function world.refresh_shops()
 	for _,shop in ipairs(shops) do
 		shop.OnRefill( world.get_shop( shop.id ) )
@@ -935,8 +955,8 @@ end
 function world.load_quest_maps()
 	  -- Adjust level maps for applicable quests
 	for _,q in ipairs(quests) do
-		if (q.enabled and q.map) then
-			local l = levels[q.level]
+		if (world.quests[q.id].enabled and q.map) then
+			local l = world.levels[q.level]
 			l.map = q.map
 			l.map_key = q.map_key
 		end
