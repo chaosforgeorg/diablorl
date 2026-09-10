@@ -402,7 +402,7 @@ end;
 
 procedure TNPC.TimeFlow(time : LongInt);
 begin
-  if GameEnd then Exit;
+  if Game.Ended then Exit;
   // Do your action
   if not (isPlayer()or (nfNoHeal in Fflags)) then
   begin
@@ -421,7 +421,7 @@ begin
   Inc(FSpeedCount,Max(0,time-FRecovery));
   FRecovery := Max(0,FRecovery-Time);
   if FRecovery = 0 then exclude( Fflags, nfStatue );
-  while (FSpeedCount >= 100) and (GameEnd = False) do Action;
+  while (FSpeedCount >= 100) and (Game.Ended = False) do Action;
 end;
 
 function TNPC.getResist(aResStat: DWord): LongInt;

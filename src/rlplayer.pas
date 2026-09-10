@@ -869,7 +869,7 @@ begin
   UI.PressEnter;
   if iAttacker <> nil then
     FEnemy := iAttacker.UID;
-  GameEnd := True;
+  Game.Ended := True;
 end;
 
 function TPlayer.UseItem(item : TItem) : Boolean;
@@ -1179,8 +1179,6 @@ end;
 
 procedure TPlayer.Init;
 begin
-  Game.Lua.RegisterPlayer(Self);
-
   with LuaSystem.GetTable( [ 'klasses', id ] ) do
   try
     FKlass := GetInteger('klassid');
@@ -1211,7 +1209,6 @@ end;
 constructor TPlayer.Create(const thingID :string);
 var Count : byte;
 begin
-  Game.Player := Self;
   // Set other atributes and find given thingID
   inherited Create(thingID);
 
@@ -1249,7 +1246,6 @@ begin
   FLightStrength  := 0;
   FTravelMode     := False;
   FTravelTarget   := NewCoord2D(1,1);
-  RunHook( Hook_OnCreate, [] );
 end;
 
 procedure TPlayer.doAct;
@@ -1641,7 +1637,7 @@ var iKey   : Byte;
      begin
        ActivateCell(Position+Dir);
        Dec(FSpeedCount,SpdMov);
-       if LevelChange then FTravelMode := False;
+       if Game.LevelChange then FTravelMode := False;
      end;
    end;
 
@@ -1656,7 +1652,7 @@ begin
   iLevel.CellHook( CellHook_OnStep, Position, [] );
 
   // Portal possibility
-  if LevelChange then
+  if Game.LevelChange then
   begin
     Dec(FSpeedCount,50);
     Exit;
@@ -1749,11 +1745,11 @@ begin
         GAMEMENU_QUIT : begin
           if (GodMode) or UI.YesNoDialog('If you quit without saving, your character will be lost!'#10'Are you sure?') then
           begin
-            GameEnd := True;
+            Game.Ended := True;
             Dec(FSpeedCount,50);
           end;
         end;
-        GAMEMENU_SAVE : begin GameEnd := True; Game.Save; Dec(FSpeedCount,50); end;
+        GAMEMENU_SAVE : begin Game.Ended := True; Game.Save; Dec(FSpeedCount,50); end;
       end;
     end;
     COMMAND_ACT        : doAct;
@@ -2434,7 +2430,7 @@ var State  : TGameLuaState;
 begin
   State.Init(L);
   Player := State.ToObject(1) as TPlayer;
-  LevelChange := True;
+  Game.LevelChange := True;
   Game.NextLevelID := State.ToString(2);
   Game.StairNumber := State.ToID(3);
     if Game.StairNumber = 0 then raise EException.Create( 'Cell 0! at exit');

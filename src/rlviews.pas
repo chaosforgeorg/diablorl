@@ -335,7 +335,7 @@ begin
   end;
   if VTIG_Selectable( '   Load Game', FCanLoad ) then
   begin
-    GameLoad := True;
+    Game.Loading := True;
     UI.PlaySound('sfx/items/titlslct.wav');
     FFinished := True;
   end;
@@ -351,7 +351,7 @@ begin
   end;
   if VTIG_Selectable( '   Quit Game' ) then
   begin
-    GameEnd := True;
+    Game.Ended := True;
     UI.PlaySound('sfx/items/titlslct.wav');
     FFinished := True;
   end;
@@ -392,7 +392,7 @@ begin
       for i := 0 to FCount - 1 do
         if VTIG_Selectable( FKlasses[i].Name ) then
         begin
-          GameClass := i + 1;
+          Game.PlayerClass := i + 1;
           UI.PlaySound('sfx/items/titlslct.wav');
           FFinished := True;
         end;
@@ -434,7 +434,7 @@ begin
   VTIG_PopStyle;
   if VTIG_Input( @FName[0], 12 ) then
   begin
-    GameName := AnsiString( FName );
+    Game.PlayerName := AnsiString( FName );
     UI.PlaySound('sfx/items/titlslct.wav');
     UI.Driver.StopTextInput;
     FFinished := True;

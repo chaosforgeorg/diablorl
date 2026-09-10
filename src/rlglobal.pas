@@ -174,11 +174,6 @@ const MapSizeX  = 100;
       MaxQuickSkills = 4;
 
       GodMode           : Boolean = False;
-      GameEnd           : Boolean = False;
-      GameLoad          : Boolean = False;
-      GameClass         : Byte = 0;
-      GameName          : AnsiString = '';
-      LevelChange       : Boolean = False;
       Option_WalkSound  : Boolean = True;
       Option_RunDelay   : DWord = 10;
       Option_TownReveal : Boolean = False;

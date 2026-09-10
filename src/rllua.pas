@@ -5,7 +5,7 @@
 unit rllua;
 interface
 
-uses SysUtils, vrltools, vluasystem, vluagamestate, rlnpc, rlitem, rlthing, rllevel, vdf;
+uses SysUtils, vrltools, vluasystem, vluagamestate, rlnpc, rlitem, rlthing, rllevel, vdf, rlconfig;
 
 var LuaPlayerX : Byte = 2;
     LuaPlayerY : Byte = 2;
@@ -15,7 +15,8 @@ type
 { TGameLua }
 
 TGameLua = class(TLuaSystem)
-       constructor Create;
+       constructor Create( aConfig : TGameConfig );
+       procedure Initialize( const aDataPath : AnsiString );
        destructor Destroy; override;
 //       function RunHook(const TableName: Ansistring; Index: Variant; const Name: Ansistring; const Args: array of const ) : Variant;
        procedure RegisterPlayer(Thing: TThing);
@@ -87,6 +88,14 @@ end;
 procedure TGameLua.RegisterPlayer(Thing: TThing);
 begin
   SetValue( 'player', Thing );
+  if Thing = nil then
+  begin
+    RegisterKillsClass( Raw, nil, 'kills' );
+    RegisterStatisticsClass( Raw, nil, 'stats' );
+    SetValue( 'kills', TObject( nil ) );
+    SetValue( 'stats', TObject( nil ) );
+    Exit;
+  end;
   RegisterKillsClass( Raw, TPlayer(Thing).Kills, 'kills' );
   RegisterStatisticsClass( Raw, TPlayer(Thing).Stats, 'stats' );
 end;
@@ -105,7 +114,7 @@ end;
 function lua_world_end_game(L: Plua_State): Integer; cdecl;
 begin
   Result := 0;
-  GameEnd:=true;
+  Game.Ended:=true;
   Game.Player.SpeedCount := Game.Player.SpeedCount - 50;
 end;
 
@@ -155,17 +164,15 @@ const lua_world_lib : array[0..4] of luaL_Reg = (
     ( name : nil;                func : nil; )
 );
 
-constructor TGameLua.Create;
+constructor TGameLua.Create( aConfig : TGameConfig );
+begin
+  if GodMode then inherited Create( aConfig.Raw ) else inherited Create;
+end;
+
+procedure TGameLua.Initialize( const aDataPath : AnsiString );
 var Count     : DWord;
     LuaInfo   : TLuaClassInfo;
 begin
-  if GodMode
-    then inherited Create( UI.Config.Raw )
-    else inherited Create;
-
-  CoreData := nil;
-  LuaSystem := Self;
-
   for Count := 0 to 15 do SetValue(ColorNames[Count],Count);
 
   RegisterTableAuxFunctions( Raw );
@@ -181,16 +188,16 @@ begin
   RegisterType( TNPC,   'npc',  'npcs' );
   RegisterType( TPlayer,'player',  'klasses' );
 
-  LuaInfo := LuaSystem.GetClassInfo( TLevel );
+  LuaInfo := GetClassInfo( TLevel );
   LuaInfo.RegisterHooks( [ Hook_OnCreate, Hook_OnEnter, Hook_OnKillAll ], HookNameList );
 
-  LuaInfo := LuaSystem.GetClassInfo( TItem );
+  LuaInfo := GetClassInfo( TItem );
   LuaInfo.RegisterHooks( [ Hook_OnCreate, Hook_OnUse, Hook_OnHit, Hook_OnPickUp, Hook_OnDrop ], HookNameList );
 
-  LuaInfo := LuaSystem.GetClassInfo( TNPC );
+  LuaInfo := GetClassInfo( TNPC );
   LuaInfo.RegisterHooks( [ Hook_OnCreate, Hook_OnAttack, Hook_OnBroadcast, Hook_OnAct, Hook_OnTalk, Hook_OnSpot, Hook_OnHit, Hook_OnDrop, Hook_OnDie ], HookNameList );
 
-  LuaInfo := LuaSystem.GetClassInfo( TPlayer );
+  LuaInfo := GetClassInfo( TPlayer );
   LuaInfo.RegisterHooks( [ Hook_OnCreate, Hook_OnAttack, Hook_OnBroadcast, Hook_OnAct, Hook_OnTalk, Hook_OnSpot, Hook_OnHit, Hook_OnDie ], HookNameList );
 
 //  AddVar('VERSION',Version);
@@ -220,7 +227,7 @@ begin
       raise Exception.Create( e.Message );
   end
   else
-    ReadData(DataPath+'diablorl.mpq');
+    ReadData( aDataPath + 'diablorl.mpq' );
 
 
 end;

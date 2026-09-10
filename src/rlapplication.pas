@@ -2,21 +2,24 @@
 unit rlapplication;
 interface
 
-uses SysUtils, vapp, vrlapp, viorl, vluasystem, rlgame;
+uses SysUtils, vapp, vrlapp, viorl, vluasystem, rlgame, rlpersistence, rlaudio;
 
-// Stage 1 adapter: owns IO, Lua and configuration around one legacy TGame.
-// TGame still owns its randomized gameplay RNG and playthrough services.
-// Replace this adapter with Runtime/Session ownership in Stage 2.
+// Owns reusable services and one content generation, with one active Session.
 type TGameRuntime = class( TRLRuntime )
   private
-    FLegacyGame : TGame;
-    FPrepared   : Boolean;
+    FSession     : TGameSession;
+    FPersistence : TPersistence;
+    FAudio       : TGameAudio;
+    procedure LoadCells;
   protected
     function CreateIO : TIORL; override;
     function CreateLua : TLuaSystem; override;
+    procedure PrepareGameData; override;
+    procedure InitializeGameData; override;
     function RunGame : TVRunResult; override;
     procedure ShutdownGameData; override;
   public
+    constructor Create( const aPaths : TGamePaths; var aConfiguration : TObject ); override;
     destructor Destroy; override;
     procedure HandleGameException( aException : Exception ); override;
   end;
@@ -37,7 +40,7 @@ type TGameApplication = class( TRLApplication )
 
 implementation
 
-uses vos, vuid, vdebug, rlconfig, rlglobal, rlui;
+uses vos, vioevent, vdebug, rlconfig, rlglobal, rlui, rllua;
 
 function TGameRuntime.CreateIO : TIORL;
 begin
@@ -47,31 +50,47 @@ begin
   Result := UI;
 end;
 
+constructor TGameRuntime.Create( const aPaths : TGamePaths; var aConfiguration : TObject );
+begin
+  inherited Create( aPaths, aConfiguration );
+  // The former TGame used TRNG.Create, which randomizes instead of seeding zero.
+  GameRNG.Randomize;
+end;
+
 function TGameRuntime.CreateLua : TLuaSystem;
 begin
-  // The legacy constructor still loads Lua after publishing its randomized RNG.
-  // On success the shared Runtime takes sole ownership of that Lua system.
-  FLegacyGame := TGame.Create;
-  Result := FLegacyGame.Lua;
+  Result := TGameLua.Create( TGameConfig( Configuration ) );
+end;
+
+procedure TGameRuntime.PrepareGameData;
+begin
+  FPersistence := TPersistence.Create( Paths.ScorePath );
+  if TGameConfig( Configuration ).Configure( 'sound', 'NONE' ) <> 'NONE' then
+    FAudio := TGameAudio.Create( TGameConfig( Configuration ), IO.VisualRNG, SoundPath );
+  TGameUI( IO ).SetAudio( FAudio );
+end;
+
+procedure TGameRuntime.InitializeGameData;
+begin
+  TGameLua( Lua ).Initialize( Paths.DataPath );
+  LoadCells;
+  if GodMode then IO.RegisterDebugConsole( VKEY_F1 );
 end;
 
 function TGameRuntime.RunGame : TVRunResult;
 begin
-  FLegacyGame.Prepare;
-  FPrepared := True;
-  FLegacyGame.Run;
+  FSession := TGameSession.Create( Self, FPersistence );
+  Game := FSession;
+  if FSession.Prepare then FSession.Run;
   Result := VRR_QUIT;
 end;
 
 procedure TGameRuntime.HandleGameException( aException : Exception );
 begin
-  // Preserve the old Run-only crash-save boundary. Preparation failures do not
-  // have a valid playthrough, and must not try to save a partially built player.
-  if not FPrepared or GameEnd or ( FLegacyGame = nil ) then Exit;
-  if ( FLegacyGame.Player = nil ) or ( FLegacyGame.Level = nil ) or
-     ( UIDs = nil ) then Exit;
+  if FSession = nil then Exit;
+  if FSession.Ended or not FSession.CanSave then Exit;
   try
-    FLegacyGame.Save;
+    FSession.Save;
   except
     on E : Exception do
       Log( 'Crash save failed: ' + E.Message );
@@ -79,23 +98,65 @@ begin
 end;
 
 procedure TGameRuntime.ShutdownGameData;
+var iCell : Integer;
 begin
-  FPrepared := False;
   if IO <> nil then
   begin
     TGameUI( IO ).UnPrepare;
     IO.Clear;
   end;
-  FreeAndNil( FLegacyGame );
-  // The legacy Prepare/Load paths still register this store with Systems.
-  // Freeing it detaches it, after the legacy node tree has been destroyed.
-  FreeAndNil( UIDs );
+  FreeAndNil( FSession );
+  if IO <> nil then TGameUI( IO ).SetAudio( nil );
+  FreeAndNil( FAudio );
+  FreeAndNil( FPersistence );
+  for iCell := Low( CellData ) to High( CellData ) do
+    CellData[ iCell ] := Default( TCellData );
+  CELL_FLOOR := 0;
+  CELL_STAIR_UP := 0;
+  CELL_TOWN_PORTAL := 0;
 end;
 
 destructor TGameRuntime.Destroy;
 begin
   ShutdownGameData;
   inherited Destroy;
+end;
+
+procedure TGameRuntime.LoadCells;
+var CellCount : Word;
+    Count,C   : Word;
+begin
+  for Count := 1 to 255 do CellData[Count].id := '';
+
+  CellCount := Lua.Get(['cells','__counter']);
+
+  for Count := 1 to CellCount do
+  with Lua.GetTable( ['cells', Count] ) do
+  try
+    with CellData[Count] do
+    begin
+      id      := GetString('id');
+
+      flags   := GetFlags('flags');
+      color   := GetInteger('color');
+      pic     := GetString('pic')[1];
+      if not Option_Graphics then
+        pic     := GetString('piclow')[1];
+      name    := GetString('name');
+      cost    := GetFloat('cost',1.0);
+      Hooks := [];
+      for C := Low( CellHookNames ) to High( CellHookNames ) do
+        if isFunction( CellHookNames[C] ) then
+          Include( Hooks, C );
+    end;
+  finally
+    Free;
+  end;
+
+  CELL_FLOOR         := Lua.Defines['floor'];
+  CELL_STAIR_UP      := Lua.Defines['stairs_up'];
+
+  CELL_TOWN_PORTAL   := Lua.Defines['shimmering_portal'];
 end;
 
 procedure TGameApplication.DefineOptions;

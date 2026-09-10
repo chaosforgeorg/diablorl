@@ -1,337 +1,330 @@
-{$include rl.inc}
-// @abstract(Core Game class for DiabloRL)
+{$INCLUDE rl.inc}
+// @abstract(One-playthrough state and ownership for DiabloRL)
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
-// @created(January 17, 2005)
-//
-// This unit holds the game's main class : TGame.
-
 unit rlgame;
 interface
-uses classes, zstream,
-     vsystem, vnode, vrandom,
-     rllevel, rlconfig, rlglobal, rlplayer, rllua, rlui, rlshop, rlpersistence;
 
-type
+uses Classes, vnode, vuid, vrandom, vrlapp,
+     rllevel, rlglobal, rlplayer, rlnpc, rllua, rlshop, rlpersistence;
 
-{ TGame }
+// Owns one playthrough, including entities temporarily detached from levels.
+// Runtime services are borrowed; Game is only the current Session alias.
+type TGameSession = class( TNode )
+  private
+    FRuntime         : TRLRuntime;
+    FPersistence     : TPersistence;
+    FUIDStore        : TUIDStore;
+    FPlayer          : TPlayer;
+    FLevel           : TLevel;
+    FTravellingGolem : TNPC;
+    FGraveYard       : TNode;
+    FNextLevelID     : AnsiString;
+    FStairNumber     : Byte;
+    FTurnCount       : DWord;
+    FEnded           : Boolean;
+    FLoading         : Boolean;
+    FPlayerClass     : Byte;
+    FPlayerName      : AnsiString;
+    FLevelChange     : Boolean;
+    FPrepared        : Boolean;
+    function GetRNG : TRNG;
+    function GetLua : TGameLua;
+  public
+    constructor Create( aRuntime : TRLRuntime; aPersistence : TPersistence ); reintroduce;
+    destructor Destroy; override;
+    function Prepare : Boolean;
+    procedure Run;
+    function Load : Boolean;
+    procedure Save;
+    function CanSave : Boolean;
+    property Player : TPlayer read FPlayer;
+    property Level : TLevel read FLevel;
+    property RNG : TRNG read GetRNG;
+    property Lua : TGameLua read GetLua;
+    property Persistence : TPersistence read FPersistence;
+    property GraveYard : TNode read FGraveYard;
+    property NextLevelID : AnsiString read FNextLevelID write FNextLevelID;
+    property StairNumber : Byte read FStairNumber write FStairNumber;
+    property TurnCount : DWord read FTurnCount;
+    property Ended : Boolean read FEnded write FEnded;
+    property Loading : Boolean read FLoading write FLoading;
+    property PlayerClass : Byte read FPlayerClass write FPlayerClass;
+    property PlayerName : AnsiString read FPlayerName write FPlayerName;
+    property LevelChange : Boolean read FLevelChange write FLevelChange;
+end;
 
-TGame = class(TSystem)
-       Player      : TPlayer;
-       RNG         : TRNG;
-       Persistence : TPersistence;
-       Level       : TLevel;
-       NextLevelID : AnsiString;
-       StairNumber : Byte;
-       Lua         : TGameLua;
-       TurnCount   : DWord;
-       GraveYard   : TNode;
-       constructor Create; override;
-       procedure Prepare;
-       procedure Run;
-       destructor Destroy; override;
-       procedure Load;
-       procedure Save;
-       procedure LoadCells;
-     end;
-
-// TGame singleton.
-const Game : TGame = nil;
+var Game : TGameSession = nil;
 
 implementation
-uses sysutils, vutil, vuid, vioevent, vlua,
-     rlviews, vrltools, vluasystem, vsystems, rlnpc;
 
-constructor TGame.Create;
+uses SysUtils, zstream, vutil, vrltools, vluasystem, rlui, rlviews;
+
+constructor TGameSession.Create( aRuntime : TRLRuntime; aPersistence : TPersistence );
 begin
   inherited Create;
-  RNG := TRNG.Create;
-  Game := Self;
-  NextLevelID := 'town';
-  TurnCount   := 0;
-  LuaRNG := RNG;
-  try
-    Lua := TGameLua.Create;
-    if GodMode then
-      UI.RegisterDebugConsole( VKEY_F1 );
-
-    GraveYard := TNode.Create;
-    Add( GraveYard );
-    Persistence := TPersistence.Create;
-  except
-    // Runtime receives Lua only after this legacy constructor succeeds.
-    FreeAndNil( Lua );
-    raise;
-  end;
+  FRuntime := aRuntime;
+  FPersistence := aPersistence;
+  FNextLevelID := 'town';
+  FGraveYard := TNode.Create;
+  Add( FGraveYard );
 end;
 
-procedure TGame.Prepare;
-var Count  : Word;
+function TGameSession.GetRNG : TRNG;
+begin
+  Result := FRuntime.GameRNG;
+end;
 
+function TGameSession.GetLua : TGameLua;
+begin
+  Result := TGameLua( FRuntime.Lua );
+end;
+
+function TGameSession.Prepare : Boolean;
+var iCount : Word;
 begin
   UI.HideCursor;
-  LoadCells;
-
-  UI.PlayMusic('music/dintro.wav');
+  UI.PlayMusic( 'music/dintro.wav' );
   UI.RunLayer( TIntroScreen.Create );
   UI.RunLayer( TMainMenuScreen.Create );
-  if GameEnd then Exit;
-  if GameLoad
-    then Load
+  if FEnded then Exit( True );
+  if FLoading then
+  begin
+    if not Load then Exit( False );
+  end
+  else
+  begin
+    FUIDStore := TUIDStore.Create;
+    UIDs := FUIDStore;
+    FUID := FUIDStore.Register( Self );
+    if FileExists( FRuntime.Paths.WritePath + 'save' ) then
+      DeleteFile( FRuntime.Paths.WritePath + 'save' );
+    UI.RunLayer( TKlassScreen.Create );
+    if Option_AlwaysName = '' then
+      UI.RunLayer( TNameScreen.Create )
     else
-    begin
-      UIDs := Systems.Add( TUIDStore.Create ) as TUIDStore;
-      FUID := UIDs.Register( Self );
+      FPlayerName      := Option_AlwaysName;
 
-      // We create a new player
-      if FileExists( WritePath + 'save' ) then DeleteFile( WritePath + 'save' );
-      UI.RunLayer( TKlassScreen.Create );
-      if Option_AlwaysName = '' then
-        UI.RunLayer( TNameScreen.Create )
-      else
-        GameName := Option_AlwaysName;
+    FPlayer := TPlayer.Create( Lua.Get( ['klasses', FPlayerClass, 'id'] ) );
+    Lua.RegisterPlayer( FPlayer );
+    FPlayer.RunHook( Hook_OnCreate, [] );
+    if FPlayerName <> '' then FPlayer.Name := FPlayerName;
 
-      Player := TPlayer.Create(LuaSystem.Get(['klasses', GameClass, 'id']));
-      if GameName <> '' then
-        Player.Name := GameName;
-
-      for Count := 1 to LuaSystem.Get(['shops','__counter']) do
-        Add( TShop.Create(LuaSystem.Get(['shops',Count,'id'])) );
-
-      UI.HideCursor;
-    end;
+    for iCount := 1 to Lua.Get( ['shops', '__counter'] ) do
+      Add( TShop.Create( Lua.Get( ['shops', iCount, 'id'] ) ) );
+    UI.HideCursor;
+  end;
+  FPrepared := True;
+  Result := True;
 end;
 
-procedure TGame.Run;
-var iGolem    : TNPC;
-    iStartPos : TCoord2D;
+procedure TGameSession.Run;
+var iStartPos : TCoord2D;
     iLevelID  : AnsiString;
   function FindCell( aCell : DWord ) : TCoord2D;
   var iCoord : TCoord2D;
   begin
-    for iCoord in Level.Area do
-      if Level.GetCell( iCoord ) = aCell then
+    for iCoord in FLevel.Area do
+      if FLevel.GetCell( iCoord ) = aCell then
         Exit( iCoord );
     raise EException.Create('FindCell for stairs failed!');
   end;
 
 begin
-  if not GameEnd then
+  if not FEnded then
   begin
-    Lua.RegisterPlayer(Player);
+    Lua.RegisterPlayer(FPlayer);
     Lua.SetValue( 'TOWN_REVEAL', Option_TownReveal );
-    iGolem := nil;
-    UI.Prepare;
+    UI.Prepare( FPlayer );
     repeat
-      Player.Detach;
-      iLevelID := NextLevelID;
-      Level := FindChild( iLevelID ) as TLevel;
+      FPlayer.Detach;
+      iLevelID := FNextLevelID;
+      FLevel := FindChild( iLevelID ) as TLevel;
 
-      if Level = nil then
+      if FLevel = nil then
       begin
          // We create a new level
-         Level := TLevel.Create(iLevelID);
-         // Makes Level a child of TGame, so we don't have to dispose of it manualy.
-         Add(Level);
-         if Level.Depth > Player.MaxDepth then
-           Player.MaxDepth := Level.Depth;
-         StairNumber := CELL_STAIR_UP;
+         FLevel := TLevel.Create(iLevelID);
+         // Makes FLevel a child of TGameSession, so we don't have to dispose of it manualy.
+         Add(FLevel);
+         if FLevel.Depth > FPlayer.MaxDepth then
+           FPlayer.MaxDepth := FLevel.Depth;
+         FStairNumber := CELL_STAIR_UP;
       end;
 
-      if StairNumber <> CELL_TOWN_PORTAL then
-        if StairNumber = 0
-          then iStartPos := Player.Position
-          else iStartPos := FindCell(StairNumber);
+      if FStairNumber <> CELL_TOWN_PORTAL then
+        if FStairNumber = 0
+          then iStartPos := FPlayer.Position
+          else iStartPos := FindCell(FStairNumber);
 
-      UI.SetLevel( Level );
-      // Makes Player a child of TLevel. We don't have to dispose of it manualy.
-      // And also it sets the player in his world ;-)
-      Player.Move(Level);
+      UI.SetLevel( FLevel );
+      // Attach to the active level; Session also owns the player while detached.
+      FPlayer.Move(FLevel);
 
-      Level.RunHook( Hook_OnEnter, [GameLoad] );
-      GameLoad := False;
+      FLevel.RunHook( Hook_OnEnter, [FLoading] );
+      FLoading         := False;
 
       // If player came throgh portal, destroy portal
-      if StairNumber = CELL_TOWN_PORTAL then
+      if FStairNumber = CELL_TOWN_PORTAL then
       begin
-        iStartPos := FindCell(StairNumber);
-        if Level.Flags[ lfTown ] then
+        iStartPos := FindCell(FStairNumber);
+        if FLevel.Flags[ lfTown ] then
         begin
-          Level.AddTravelPoint( iStartPos, 'Portal to Dungeon' );
+          FLevel.AddTravelPoint( iStartPos, 'Portal to Dungeon' );
           Inc(iStartPos.Y)
         end
         else
         begin
-          Level.RemovePortals( CELL_TOWN_PORTAL );
-          Player.PortalLevel := '';
+          FLevel.RemovePortals( CELL_TOWN_PORTAL );
+          FPlayer.PortalLevel := '';
         end;
       end;
 
       // If not portal level then destroy any portals on it.
-      if (Level.ID <> Player.PortalLevel)and(not Level.Flags[ lfTown ]) then
-        Level.RemovePortals( CELL_TOWN_PORTAL );
+      if (FLevel.ID <> FPlayer.PortalLevel)and(not FLevel.Flags[ lfTown ]) then
+        FLevel.RemovePortals( CELL_TOWN_PORTAL );
 
-      UI.PlayMusic(Level.Music);
+      UI.PlayMusic(FLevel.Music);
 
       // Now we can properly displace the player :D
       // GenX and GenY are taken from the generator
-      Level.Drop( RNG, Player, iStartPos );
+      FLevel.Drop( RNG, FPlayer, iStartPos );
 
       //drop player's golem here
-      if iGolem <> nil then Level.Drop( RNG, iGolem, iStartPos );
-
-      LevelChange := False;
-      Player.Enemy := 0;
-      if Player.Flags[ nfManaShield ] then
-        UI.Msg('Your protection worn off.');
-      Player.Flags[ nfInfravision ] := False;
-      Player.Flags[ nfManaShield  ] := False;
-      Player.Flags[ nfReflect     ] := False;
-      repeat
-        Level.TimeFlow(10);
-        Inc(TurnCount);
-        Graveyard.DestroyChildren;
-      until GameEnd or LevelChange;
-      iGolem := nil;
-      if Player.Parent <> nil then
+      if FTravellingGolem <> nil then
       begin
-        iGolem := TLevel(Player.Parent).Find('golem') as TNPC;
-        if iGolem <> nil then iGolem.Detach;
+        FLevel.Drop( RNG, FTravellingGolem, iStartPos );
+        FTravellingGolem := nil;
       end;
-    until GameEnd;
-    if (Player.HP <= 0) or (Level.Depth > 12) then
+
+      FLevelChange     := False;
+      FPlayer.Enemy := 0;
+      if FPlayer.Flags[ nfManaShield ] then
+        UI.Msg('Your protection worn off.');
+      FPlayer.Flags[ nfInfravision ] := False;
+      FPlayer.Flags[ nfManaShield  ] := False;
+      FPlayer.Flags[ nfReflect     ] := False;
+      repeat
+        FLevel.TimeFlow(10);
+        Inc(FTurnCount);
+        FGraveYard.DestroyChildren;
+      until FEnded or FLevelChange;
+      FTravellingGolem := nil;
+      if FPlayer.Parent <> nil then
+      begin
+        FTravellingGolem := TLevel(FPlayer.Parent).Find('golem') as TNPC;
+        if FTravellingGolem <> nil then FTravellingGolem.Detach;
+      end;
+    until FEnded;
+    if (FPlayer.HP <= 0) or (FLevel.Depth > 12) then
     begin
-      Game.Player.WriteMemorial;
+      FPlayer.WriteMemorial;
       UI.UnPrepare;
       UI.ShowMortem;
     end;
-    Player.Detach;
+    FPlayer.Detach;
     UI.UnPrepare;
     UI.RunLayer( TOutroScreen.Create );
   end;
 end;
 
-destructor TGame.Destroy;
+destructor TGameSession.Destroy;
 begin
-  FreeAndNil( Persistence );
+  // Runtime has retired all views before releasing its Session. Lua and UIDs
+  // remain alive until every owned entity (parented or detached) is gone.
+  if FRuntime <> nil then Lua.RegisterPlayer( nil );
+  FreeAndNil( FTravellingGolem );
+  FreeAndNil( FPlayer );
   inherited Destroy;
-  LuaRNG := nil;
-  FreeAndNil( RNG );
+  FLevel := nil;
+  FreeAndNil( FUIDStore );
   Game := nil;
-  Log('Destroyed.');
 end;
 
-procedure TGame.Load;
-var ISt: TGZFileStream;
-    ver : string;
+function TGameSession.Load : Boolean;
+var iStream : TGZFileStream;
+    iVersion : String;
     iType : Byte;
+    iUID : TUID;
 begin
   UI.HideCursor;
-  LoadCells;
-  StairNumber := 0;
-  ISt := TGZFileStream.Create( WritePath + 'save', gzOpenRead );
+  FStairNumber := 0;
+  iStream := TGZFileStream.Create( FRuntime.Paths.WritePath + 'save', gzOpenRead );
   try
     try
-      ver := ISt.ReadAnsiString;
-      if ver <> VERSION then raise Exception.Create('Wrong save file version!');
-
-      UIDs := Systems.Add( TUIDStore.CreateFromStream( ISt ) ) as TUIDStore;
-      FUID := ISt.ReadQWord;
-
-      Player := TPlayer.CreateFromStream(ISt);
-      NextLevelID := ISt.ReadAnsiString;
-      TurnCount := ISt.ReadDWord;
-
+      iVersion := iStream.ReadAnsiString;
+      if iVersion <> VERSION then raise Exception.Create( 'Wrong save file version!' );
+      FUIDStore := TUIDStore.CreateFromStream( iStream );
+      UIDs := FUIDStore;
+      iUID := iStream.ReadQWord;
+      if ( iUID = 0 ) or ( iUID >= FUIDStore.Size ) then
+        raise Exception.Create( 'Invalid Session UID in save file!' );
+      FUID := iUID;
+      FUIDStore.Register( Self, FUID );
+      FPlayer := TPlayer.CreateFromStream( iStream );
+      Lua.RegisterPlayer( FPlayer );
+      FNextLevelID := iStream.ReadAnsiString;
+      FTurnCount := iStream.ReadDWord;
       repeat
-        iType := ISt.ReadByte;
+        iType := iStream.ReadByte;
         case iType of
-          1 : Add( TLevel.CreateFromStream(ISt) );
-          2 : Add( TShop.CreateFromStream(ISt) );
+          1 : Add( TLevel.CreateFromStream( iStream ) );
+          2 : Add( TShop.CreateFromStream( iStream ) );
         end;
       until iType = 0;
-
     except
-      FreeAndNil(ISt);
-      DeleteFile( WritePath + 'save' );
-      Log('save file corrupt!');
-      Prepare;
+      Log( 'save file corrupt!' );
+      // Stage 2 returns a failed Session outcome; menu re-entry is Stage 3.
+      Exit( False );
     end;
   finally
-    FreeAndNil(ISt);
-    DeleteFile( WritePath + 'save' );
+    iStream.Free;
+    DeleteFile( FRuntime.Paths.WritePath + 'save' );
   end;
-  LuaSystem.ProtectedCall(['world','load_quest_maps'],[]);
+  Lua.ProtectedCall( ['world', 'load_quest_maps'], [] );
+  Result := True;
 end;
 
-procedure TGame.Save;
-var OSt: TGZFileStream;
+function TGameSession.CanSave : Boolean;
+begin
+  Result := FPrepared and ( FPlayer <> nil ) and ( FLevel <> nil ) and
+    ( FUIDStore <> nil );
+end;
+
+procedure TGameSession.Save;
+var iStream : TGZFileStream;
     iChild : TNode;
+    iParent : TNode;
 begin
-  OSt := TGZFileStream.Create( WritePath + 'save', gzOpenWrite );
-  OSt.WriteAnsiString(VERSION);
-
-  UIDs.WriteToStream( OSt );
-  OSt.WriteQWord(FUID);
-
-
-  Player.Detach;
-  Player.WriteToStream(OSt);
-
-  Ost.WriteAnsiString(NextLevelID);
-  Ost.WriteDWord(TurnCount);
-
-  for iChild in Self do
-    if iChild is TShop then
-    begin
-      Ost.WriteByte(2);
-      TShop(iChild).WriteToStream(OSt);
-    end
-    else if iChild is TLevel then
-    begin
-      Ost.WriteByte(1);
-      TLevel(iChild).WriteToStream(OSt);
-    end;
-  Ost.WriteByte(0);
-
-  FreeAndNil(OSt);
-  Level.Add(Player);
-  Log('Saving done!');
-end;
-
-procedure TGame.LoadCells;
-var CellCount : Word;
-    Count,C   : Word;
-begin
-  for Count := 1 to 255 do CellData[Count].id := '';
-
-  CellCount := LuaSystem.Get(['cells','__counter']);
-
-  for Count := 1 to CellCount do
-  with LuaSystem.GetTable( ['cells', Count] ) do
+  iStream := TGZFileStream.Create( FRuntime.Paths.WritePath + 'save', gzOpenWrite );
   try
-    with CellData[Count] do
-    begin
-      id      := GetString('id');
-
-      flags   := GetFlags('flags');
-      color   := GetInteger('color');
-      pic     := GetString('pic')[1];
-      if not Option_Graphics then
-        pic     := GetString('piclow')[1];
-      name    := GetString('name');
-      cost    := GetFloat('cost',1.0);
-      Hooks := [];
-      for C := Low( CellHookNames ) to High( CellHookNames ) do
-        if isFunction( CellHookNames[C] ) then
-          Include( Hooks, C );
+    iStream.WriteAnsiString( VERSION );
+    FUIDStore.WriteToStream( iStream );
+    iStream.WriteQWord( FUID );
+    iParent := FPlayer.Parent;
+    FPlayer.Detach;
+    try
+      FPlayer.WriteToStream( iStream );
+      iStream.WriteAnsiString( FNextLevelID );
+      iStream.WriteDWord( FTurnCount );
+      for iChild in Self do
+        if iChild is TShop then
+        begin
+          iStream.WriteByte( 2 );
+          TShop( iChild ).WriteToStream( iStream );
+        end
+        else if iChild is TLevel then
+        begin
+          iStream.WriteByte( 1 );
+          TLevel( iChild ).WriteToStream( iStream );
+        end;
+      iStream.WriteByte( 0 );
+    finally
+      FPlayer.Move( iParent );
     end;
   finally
-    Free;
+    iStream.Free;
   end;
-
-  CELL_FLOOR         := LuaSystem.Defines['floor'];
-  CELL_STAIR_UP      := LuaSystem.Defines['stairs_up'];
-
-  CELL_TOWN_PORTAL   := LuaSystem.Defines['shimmering_portal'];
+  Log( 'Saving done!' );
 end;
 
 end.

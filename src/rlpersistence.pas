@@ -13,7 +13,7 @@ type
 { TPersistence }
 
 TPersistence = class
-  constructor Create;
+  constructor Create( const aScorePath : AnsiString );
   procedure Add( aScore : LongInt; const aName : AnsiString; aLevel : DWord; const aGrave, aKlass, aResult : AnsiString );
   function ScoreList : TIOStringArray;
   destructor Destroy; override;
@@ -22,13 +22,13 @@ private
 end;
 
 implementation
-uses SysUtils, Classes, vutil, rlglobal;
+uses SysUtils, Classes, vutil;
 
 { TPersistence }
 
-constructor TPersistence.Create;
+constructor TPersistence.Create( const aScorePath : AnsiString );
 begin
-  FScoreFile := TScoreFile.Create( ScorePath + SCORE_FILE_NAME, MAX_SCORE_ENTRIES );
+  FScoreFile := TScoreFile.Create( aScorePath + SCORE_FILE_NAME, MAX_SCORE_ENTRIES );
   FScoreFile.Lock;
   try
     FScoreFile.Load;

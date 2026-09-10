@@ -9,7 +9,7 @@ uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils,
   vioevent, vcolor, viotypes, vioconsole, vluastate,
   viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, 
   vutil, 
-  rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig;
+  rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio;
 
 var TIGFramedWindowStyle       : TTIGStyle;
     TIGNarrowFramedWindowStyle : TTIGStyle;
@@ -25,7 +25,7 @@ type
     destructor Destroy; override;
     procedure Draw();
     procedure ShowMortem();
-    procedure Prepare;
+    procedure Prepare( aPlayer : TPlayer );
     procedure UnPrepare;
     // Adds a message for the message buffer
     procedure Msg( const aMessage : Ansistring); override;
@@ -48,6 +48,7 @@ type
     procedure PlotText( const Text: ansistring );
     procedure ItemInfo( aItem : TItem );
     procedure Update( aMSec : DWord ); override;
+    procedure SetAudio( aAudio : TGameAudio );
     //Sound procedures wrapping
     procedure PlayMusic( const sID: ansistring );
     procedure PlaySound( const sID: ansistring; aSource : TCoord2D );
@@ -61,7 +62,6 @@ type
     function YesNoDialog( const aQuery : AnsiString ) : Boolean;
     class procedure RegisterLuaAPI(State: TLuaState);
   private
-    function ReadFromMPQ( const aFileName : AnsiString ) : TStream;
     procedure ReadConfig();
     function GetPlayer : TPlayer;
     function TranslateColor( aColor : Byte; aPosition : TCoord2D ) : Byte;
@@ -72,10 +72,7 @@ type
     FMainScreen    : TMainScreen;
     FSizeX, FSizeY : Word;
     FGraphicsMode  : Boolean;
-    FMPQHandle     : THandle;
-    FLastSVolume   : Byte;
-    FLastMVolume   : Byte;
-    FLastMusic     : AnsiString;
+    FAudio         : TGameAudio; // borrowed from Runtime
   public
     property MainScreen : TMainScreen read FMainScreen;
     property SizeX : Word read FSizeX;
@@ -94,9 +91,8 @@ implementation
 uses DateUtils, variants, 
     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF}
     vluasystem, rlshop, rllua, rlgame, rlpersistence,
-    vsystems, vstormlibrary,
     vsdlio, vglconsole,
-    vlog, vdebug, vmath, rllevel, vsound, vfmodsound, vsdlsound;
+    vlog, vdebug, vmath, rllevel;
 
 function CommandDirection(Command: byte): TDirection;
 begin
@@ -118,9 +114,7 @@ end;
 { TGameUI }
 
 constructor TGameUI.Create( aConfig : TGameConfig );
-var iFlags  : TSDLIOFlags;
-    iSound  : AnsiString;
-    iMPQ    : AnsiString;
+var iFlags : TSDLIOFlags;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
@@ -129,7 +123,6 @@ begin
   FSizeX        := aConfig.Configure('console_x',80);
   FSizeY        := aConfig.Configure('console_y',25);
   FGraphicsMode := Option_Graphics;
-  FMPQHandle    := 0;
 
   if FGraphicsMode then
   begin
@@ -214,23 +207,6 @@ begin
 
   Log( LOGINFO, 'Initializing core driver...' );
   inherited Create( FIODriver, FConsole );
-  iSound := aConfig.Configure('sound','NONE');
-  if iSound <> 'NONE' then
-  begin
-    Log( LOGINFO, 'Sound mode requested, loading StormLib...' );
-    LoadStorm;
-    iMPQ := aConfig.Configure('mpq','DIABDAT.MPQ');
-    if not SFileOpenArchive( PChar(iMPQ), 0, STREAM_FLAG_READ_ONLY, @FMPQHandle ) then
-    begin
-      Log('Failed to open MPQ!');
-    end;
-    if iSound = 'DEFAULT' then iSound := {$IFDEF WINDOWS}'FMOD'{$ELSE}'SDL'{$ENDIF};
-    if iSound = 'FMOD'
-      then Sound := Systems.Add(TFMODSound.Create) as TSound
-      else Sound := Systems.Add(TSDLSound.Create( VisualRNG )) as TSound;
-    Sound.SetMusicVolume( aConfig.Configure('music_volume',100) );
-    Sound.SetSoundVolume( aConfig.Configure('sound_volume',100) );
-  end;
   Log( LOGINFO, 'Configuring...' );
   Configure( aConfig );
   ReadConfig;
@@ -293,14 +269,14 @@ begin
   getGylph.Color := ScaleColor( iColor, iSingle ).toIOColor;
 end;
 
-procedure TGameUI.Prepare;
+procedure TGameUI.Prepare( aPlayer : TPlayer );
 begin
   FConsole.Clear;
   FMessages     := TMessages.Create( 2, FSizeX - 2, nil, 1000 );
   FTMap         := TTextMap.Create( FConsole, Rectangle( 1, 3, FSizeX, FSizeY - 5 ), Self );
   FMainScreen   := TMainScreen.Create( FTMap, FMessages );
   PushLayer( FMainScreen );
-  FPlayer        := Game.Player;
+  FPlayer        := aPlayer;
 end;
 
 procedure TGameUI.UnPrepare;
@@ -346,8 +322,6 @@ end;
 destructor TGameUI.Destroy();
 begin
   UI := nil;
-  if Sound <> nil    then FreeAndNil( Sound );
-  if FMPQHandle <> 0 then SFileCloseArchive( FMPQHandle );
   inherited Destroy;
 end;
 
@@ -458,101 +432,48 @@ end;
 
 
 
-procedure TGameUI.PlayMusic(const sID: ansistring);
-var iStream : TStream;
+procedure TGameUI.SetAudio( aAudio : TGameAudio );
 begin
-  if Sound = nil then Exit;
-  if not Sound.MusicExists(sID) then
-  if FileExists( SoundPath + sID ) then
-    Sound.RegisterMusic( SoundPath + sID, sID )
-  else
-  begin
-    iStream := ReadFromMPQ( sID );
-    if iStream <> nil
-      then Sound.RegisterMusic( iStream, iStream.Size, sID, '.wav' )
-      else Exit;
-  end;
-  FLastMusic := sID;
-  Sound.PlayMusic(sID);
+  FAudio := aAudio;
 end;
 
-procedure TGameUI.PlaySound(const sID: ansistring; aSource : TCoord2D );
-const MAXDISTANCE = 15;
-var iStream   : TStream;
-    iVolume   : Integer;
-    iDelta    : Integer;
-    iPan      : Integer;
+procedure TGameUI.PlayMusic( const sID : AnsiString );
 begin
-  if Sound = nil then Exit;
-  if not Sound.SampleExists(sID) then
-  if FileExists( SoundPath + sID ) then
-    Sound.RegisterSample( SoundPath + sID, sID )
-  else
-  begin
-    iStream := ReadFromMPQ( sID );
-    if iStream <> nil
-      then Sound.RegisterSample( iStream, iStream.Size, sID )
-      else Exit;
-  end;
-  iVolume := 32 + Round((MAXDISTANCE - Min(Distance(Player.Position,aSource) - 1,MAXDISTANCE) * 96) / MAXDISTANCE);
-  iDelta  := aSource.x - Player.Position.x;
-  iPan    := Min( Abs( iDelta ) - 1, MAXDISTANCE) * Sgn( iDelta );
-  iPan    := Round(((iPan + MAXDISTANCE) * 255) / ( 2 * MAXDISTANCE ) );
-  Sound.PlaySample(sID,Clamp(iVolume,0,255),Clamp(iPan,-127,128));
+  if FAudio <> nil then FAudio.PlayMusic( sID );
 end;
 
-procedure TGameUI.PlaySound(const sID: ansistring);
-var iStream : TStream;
+procedure TGameUI.PlaySound( const sID : AnsiString; aSource : TCoord2D );
 begin
-  if Sound = nil then Exit;
-  if not Sound.SampleExists(sID) then
-  if FileExists( SoundPath + sID ) then
-    Sound.RegisterSample( SoundPath + sID, sID )
-  else
-  begin
-    iStream := ReadFromMPQ( sID );
-    if iStream <> nil
-      then Sound.RegisterSample( iStream, iStream.Size, sID )
-      else Exit;
-  end;
-  Sound.PlaySample(sID);
+  if FAudio <> nil then FAudio.PlaySound( sID, aSource, Player.Position );
 end;
 
-procedure TGameUI.HaltSound();
+procedure TGameUI.PlaySound( const sID : AnsiString );
 begin
-  if Sound = nil then Exit;
-  Sound.StopSound;
+  if FAudio <> nil then FAudio.PlaySound( sID );
 end;
 
-procedure TGameUI.Mute();
+procedure TGameUI.HaltSound;
 begin
-  if Sound = nil then Exit;
-  //Sound.SetSoundVolume(0);
-  //Sound.SetMusicVolume(0);
+  if FAudio <> nil then FAudio.HaltSound;
 end;
 
-procedure TGameUI.Unmute();
+procedure TGameUI.Mute;
 begin
-  if Sound = nil then Exit;
-  //Sound.SetSoundVolume(FLastSVolume);
-  //Sound.SetMusicVolume(FLastMVolume);
+  // Legacy no-op; generation never changed the backend volumes here.
 end;
 
-procedure TGameUI.SetMusicVolume(Volume: byte);
-var iResume : Boolean;
+procedure TGameUI.Unmute;
 begin
-  if Sound = nil then Exit;
-  iResume := ( FLastMVolume = 0 );
-  FLastMVolume := Volume;
-  Sound.SetMusicVolume(Volume);
-  if iResume and (Volume > 0) then Sound.PlayMusic( FLastMusic );
 end;
 
-procedure TGameUI.SetSoundVolume(Volume: byte);
+procedure TGameUI.SetMusicVolume( Volume : Byte );
 begin
-  if Sound = nil then Exit;
-  FLastSVolume := Volume;
-  Sound.SetSoundVolume(Volume);
+  if FAudio <> nil then FAudio.SetMusicVolume( Volume );
+end;
+
+procedure TGameUI.SetSoundVolume( Volume : Byte );
+begin
+  if FAudio <> nil then FAudio.SetSoundVolume( Volume );
 end;
 
 function TGameUI.GetTravelDestination ( out aWhere : TCoord2D ) : Boolean;
@@ -787,66 +708,6 @@ begin
 
   State.Register('ui', 'play_music', @lua_ui_play_music);
   State.Register('ui', 'play_sound', @lua_ui_play_sound);
-end;
-
-type
-
-{ TMPQStream }
-
- TMPQStream = class( TStream )
-private
-  FHandle : THandle;
-  FSize   : Int64;
-protected
-  function  GetSize: Int64; override;
-public
-  constructor Create(AHandle: THandle);
-  function Read(var Buffer; Count: Longint): Longint; override;
-  function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
-  destructor Destroy; override;
-end;
-
-{ TMPQStream }
-
-function TMPQStream.GetSize: Int64;
-begin
-  Result := FSize;
-end;
-
-constructor TMPQStream.Create(AHandle: THandle);
-begin
-  FHandle := aHandle;
-  FSize   := SFileGetFileSize(AHandle,nil);
-end;
-
-function TMPQStream.Read(var Buffer; Count: Longint): Longint;
-var iBytesRead : Cardinal;
-begin
-  SFileReadFile(FHandle, @Buffer, Count, @iBytesRead, nil);
-  Result:=iBytesRead;
-end;
-
-function TMPQStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
-begin
-  raise EStreamError.CreateFmt('Seek not implemented',[ClassName]);
-  Seek := 0;
-end;
-
-destructor TMPQStream.Destroy;
-begin
-  SFileCloseFile( FHandle );
-  inherited Destroy;
-end;
-
-function TGameUI.ReadFromMPQ(const aFileName: AnsiString): TStream;
-var iHandle   : THandle;
-begin
-  if not SFileOpenFileEx( FMPQHandle, PChar(aFileName), 0, @iHandle ) then
-  begin
-    Log('Sound file "'+aFileName+'" not found!');
-    Exit( nil );
-  end;
-  Exit( TMPQStream.Create( iHandle ) );
 end;
 
 end.
