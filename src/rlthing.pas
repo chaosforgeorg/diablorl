@@ -138,7 +138,7 @@ begin
 end;
 
 function lua_thing_get_name(L: Plua_State) : Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     th    : TThing;
 begin
   State.Init(L);
@@ -151,7 +151,7 @@ begin
 end;
 
 function lua_thing_get_stat(L: Plua_State) : Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     th    : TThing;
 begin
   State.Init(L);

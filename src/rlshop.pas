@@ -119,7 +119,7 @@ begin
 end;
 
 function lua_shop_item_get(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     Shop   : TShop;
     Slot   : Word;
 begin
@@ -134,7 +134,7 @@ begin
 end;
 
 function lua_shop_item_set(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     Slot   : Word;
     Shop   : TShop;
 begin
@@ -148,7 +148,7 @@ begin
 end;
 
 function lua_shop_nil_item(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     Shop   : TShop;
     Item   : TItem;
     Count   : Word;
@@ -174,7 +174,7 @@ begin
 end;
 
 function lua_shop_sort(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     Shop   : TShop;
 begin
   State.Init(L);

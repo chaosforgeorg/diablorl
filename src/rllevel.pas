@@ -398,7 +398,7 @@ begin
 end;
 
 function lua_level_drop_npc(L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     Level : TLevel;
     NPC   : TNPC;
     tid   : AnsiString;
@@ -427,7 +427,7 @@ begin
 end;
 
 function lua_level_drop_item(L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     Level : TLevel;
     Item  : TItem;
     Coord : TCoord2D;
@@ -454,7 +454,7 @@ begin
 end;
 
 function lua_level_explosion (L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     Level  : TLevel;
 begin
   State.Init(L);
@@ -471,7 +471,7 @@ begin
 end;
 
 function lua_level_broadcast_event (L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     Level : TLevel;
 begin
   State.Init(L);
@@ -481,7 +481,7 @@ begin
 end;
 
 function lua_level_has_travel_point (L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     Level : TLevel;
 begin
   State.Init(L);
@@ -491,7 +491,7 @@ begin
 end;
 
 function lua_level_remove_travel_point (L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     Level : TLevel;
 begin
   State.Init(L);
@@ -501,7 +501,7 @@ begin
 end;
 
 function lua_level_add_travel_point (L: Plua_State): Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     Level : TLevel;
 begin
   State.Init(L);
@@ -512,7 +512,7 @@ end;
 
 
 function lua_level_find(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     Level : TLevel;
 begin
   State.Init(L);
@@ -522,7 +522,7 @@ begin
 end;
 
 function lua_level_random_near_coord(L: Plua_State): Integer; cdecl;
-var iState : TRLLuaState;
+var iState : TGameLuaState;
     iLevel : TLevel;
     iCoord : TCoord2D;
 begin

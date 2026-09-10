@@ -20,7 +20,7 @@ var TIGFramedWindowStyle       : TTIGStyle;
 type
   TGameUI = class(TIORL, ITextMap)
   public
-    constructor Create( aConfig : TDiabloConfig );
+    constructor Create( aConfig : TGameConfig );
     function getGylph( const aCoord : TCoord2D ): TIOGylph;
     destructor Destroy; override;
     procedure Draw();
@@ -117,7 +117,7 @@ end;
 
 { TGameUI }
 
-constructor TGameUI.Create( aConfig : TDiabloConfig );
+constructor TGameUI.Create( aConfig : TGameConfig );
 var iFlags  : TSDLIOFlags;
     iSound  : AnsiString;
     iMPQ    : AnsiString;
@@ -307,11 +307,17 @@ procedure TGameUI.UnPrepare;
 begin
   if FMainScreen <> nil then
   begin
+    FMainScreen.ClearBoth;
+    // Panel destructors still update the main screen's status line.
+    ClearFinishedLayers;
     FMainScreen.Finish;
     FMainScreen := nil;
+    ClearFinishedLayers;
   end;
   FreeAndNil( FTMap );
   FreeAndNil( FMessages );
+  FPlayer := nil;
+  FLevel := nil;
 end;
 
 procedure TGameUI.Msg ( const aMessage : Ansistring ) ;
@@ -339,6 +345,7 @@ end;
 
 destructor TGameUI.Destroy();
 begin
+  UI := nil;
   if Sound <> nil    then FreeAndNil( Sound );
   if FMPQHandle <> 0 then SFileCloseArchive( FMPQHandle );
   inherited Destroy;
@@ -598,7 +605,7 @@ end;}
 
 function lua_ui_get_key(L: Plua_State): integer; cdecl;
 var
-  State: TRLLuaState;
+  State: TGameLuaState;
   KeyFilter: TKeySet = [];
   Count: byte;
 begin
@@ -615,7 +622,7 @@ end;
 
 function lua_ui_msg(L: Plua_State): integer; cdecl;
 var
-  State: TRLLuaState;
+  State: TGameLuaState;
 begin
   State.Init(L);
   if State.StackSize = 0 then
@@ -627,7 +634,7 @@ end;
 
 function lua_ui_delay(L: Plua_State): integer; cdecl;
 var
-  State: TRLLuaState;
+  State: TGameLuaState;
 begin
   State.Init(L);
   UI.Delay(State.ToInteger(1));
@@ -636,7 +643,7 @@ end;
 
 function lua_ui_plot_talk(L: Plua_State): integer; cdecl;
 var
-  State: TRLLuaState;
+  State: TGameLuaState;
 begin
   State.Init(L);
   UI.PlotText(State.ToString(1));
@@ -645,7 +652,7 @@ end;
 
 function lua_ui_item_info(L: Plua_State): integer; cdecl;
 var
-  State: TRLLuaState;
+  State: TGameLuaState;
 begin
   State.Init(L);
   UI.ItemInfo(State.ToObject(1) as TItem);
@@ -656,7 +663,7 @@ end;
 
 function lua_ui_talk_run(L: Plua_State): integer; cdecl;
 var
-  State       : TRLLuaState;
+  State       : TGameLuaState;
   iCount      : Word;
   iChoice     : Word;
   iValue      : AnsiString;
@@ -682,7 +689,7 @@ begin
 end;
 
 function lua_ui_shop_run(L: Plua_State): integer; cdecl;
-var State       : TRLLuaState;
+var State       : TGameLuaState;
     iCount      : byte;
     iChoice     : Integer;
     iSource     : AnsiString;
@@ -745,7 +752,7 @@ end;
 
 function lua_ui_play_music(L: Plua_State): integer; cdecl;
 var
-  State: TRLLuaState;
+  State: TGameLuaState;
 begin
   State.Init(L);
   if State.StackSize = 1 then
@@ -755,7 +762,7 @@ end;
 
 function lua_ui_play_sound(L: Plua_State): integer; cdecl;
 var
-  State : TRLLuaState;
+  State : TGameLuaState;
   nargs: integer;
 begin
   State.Init(L);
@@ -843,4 +850,3 @@ begin
 end;
 
 end.
-

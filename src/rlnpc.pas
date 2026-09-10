@@ -857,7 +857,7 @@ begin
 end;
 
 function lua_npc_is_active(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -867,7 +867,7 @@ begin
 end;
 
 function lua_npc_die(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -877,7 +877,7 @@ begin
 end;
 
 function lua_npc_can_charge(L: Plua_State): Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -887,7 +887,7 @@ begin
 end;
 
 function lua_npc_get_target(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -898,7 +898,7 @@ end;
 
 
 function lua_npc_target_closest(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
     Target  : TNPC;
 begin
@@ -914,7 +914,7 @@ begin
 end;
 
 function lua_npc_attack(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
     c       : TCoord2D;
 begin
@@ -927,7 +927,7 @@ begin
 end;
 
 function lua_npc_seek(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -937,7 +937,7 @@ begin
 end;
 
 function lua_npc_send_missile(L: Plua_State) : Integer; cdecl;
-var State : TRLLuaState;
+var State : TGameLuaState;
     npc   : TNPC;
 begin
   State.Init(L);
@@ -948,7 +948,7 @@ begin
 end;
 
 function lua_npc_cast_spell(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
     spellID : Integer;
     spellLvl: Integer;
@@ -969,7 +969,7 @@ begin
 end;
 
 function lua_npc_phasing(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
     Count: byte;
     aoe : TArea;
@@ -995,7 +995,7 @@ begin
 end;
 
 function lua_npc_knockback(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     npc     : TNPC;
 begin
   State.Init(L);

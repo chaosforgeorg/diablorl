@@ -22,10 +22,10 @@ TGame = class(TSystem)
        Level       : TLevel;
        NextLevelID : AnsiString;
        StairNumber : Byte;
-       Lua         : TRLLua;
+       Lua         : TGameLua;
        TurnCount   : DWord;
        GraveYard   : TNode;
-       constructor Create( aConfig : TDiabloConfig );
+       constructor Create; override;
        procedure Prepare;
        procedure Run;
        destructor Destroy; override;
@@ -41,27 +41,27 @@ implementation
 uses sysutils, vutil, vuid, vioevent, vlua,
      rlviews, vrltools, vluasystem, vsystems, rlnpc;
 
-constructor TGame.Create( aConfig : TDiabloConfig );
-var i: byte;
+constructor TGame.Create;
 begin
   inherited Create;
   RNG := TRNG.Create;
   Game := Self;
   NextLevelID := 'town';
   TurnCount   := 0;
-  UI := Systems.Add(TGameUI.Create( aConfig ) ) as TGameUI;
   LuaRNG := RNG;
-  Lua := TRLLua.Create;
-  LuaSystem := Systems.Add(Lua) as TLuaSystem;
-  if GodMode then
-  begin
-    UI.RegisterDebugConsole( VKEY_F1 );
+  try
+    Lua := TGameLua.Create;
+    if GodMode then
+      UI.RegisterDebugConsole( VKEY_F1 );
+
+    GraveYard := TNode.Create;
+    Add( GraveYard );
+    Persistence := TPersistence.Create;
+  except
+    // Runtime receives Lua only after this legacy constructor succeeds.
+    FreeAndNil( Lua );
+    raise;
   end;
-
-  GraveYard:=TNode.Create;
-  Add(GraveYard);
-
-  Persistence := TPersistence.Create;
 end;
 
 procedure TGame.Prepare;
@@ -208,7 +208,6 @@ begin
     UI.UnPrepare;
     UI.RunLayer( TOutroScreen.Create );
   end;
-  FreeAndNil(UI);
 end;
 
 destructor TGame.Destroy;
@@ -217,6 +216,7 @@ begin
   inherited Destroy;
   LuaRNG := nil;
   FreeAndNil( RNG );
+  Game := nil;
   Log('Destroyed.');
 end;
 

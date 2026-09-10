@@ -87,16 +87,16 @@ const
 
 type
 
-TDiabloConfig = class(TLuaConfig)
+TGameConfig = class(TLuaConfig)
   constructor Create( const aFilename : AnsiString );
   function RunGodKey( aKeyCode : Word ) : Variant;
 end;
 
 implementation
 
-uses vsystems, vluastate, vioevent, rlui, rlglobal, rlgame;
+uses vioevent, rlglobal;
 
-constructor TDiabloConfig.Create( const aFilename : AnsiString );
+constructor TGameConfig.Create( const aFilename : AnsiString );
 begin
   inherited Create();
 
@@ -177,14 +177,10 @@ begin
   Option_TownReveal := Configure( 'reveal_town', False );
   Option_WalkSound  := Configure( 'walk_sound', True );
 
-  UI.SetSoundVolume(Configure('sound_volume',100));
-  UI.SetMusicVolume(Configure('music_volume',100));
-  //lua bounds
   SetConstant('VERSION', Version);
-  TGameUI.RegisterLuaAPI( State );
 end;
 
-function TDiabloConfig.RunGodKey( aKeyCode : Word ) : Variant;
+function TGameConfig.RunGodKey( aKeyCode : Word ) : Variant;
 begin
   Exit( Call(['godkey', IOKeyCodeToString( aKeyCode ) ],[]) );
 end;

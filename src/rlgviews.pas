@@ -1120,7 +1120,7 @@ begin
     UI.Player.ActionWear( nil, iConfirmSlot );
 
   // Handle tab
-  if VTIG_Event( VTIG_IE_TAB ) then
+  if FKeyAction = 3 then
   begin
     if FMode = InvMode then
     begin
@@ -1187,6 +1187,7 @@ begin
   case aEvent.Key.Code of
     VKEY_D : begin FKeyAction := 1; Exit( True ); end;
     VKEY_Q : begin FKeyAction := 2; Exit( True ); end;
+    VKEY_TAB : begin FKeyAction := 3; Exit( True ); end;
   end;
   Exit( inherited HandleEvent( aEvent ) );
 end;

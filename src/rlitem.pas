@@ -553,7 +553,7 @@ end;
 
 
 function lua_item_new(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
 begin
   State.Init(L);
   State.Push( TItem.Create( State.ToString(1), State.ToInteger(2,0) ) );
@@ -561,7 +561,7 @@ begin
 end;
 
 function lua_item_identify(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     it      : TItem;
 begin
   State.Init(L);
@@ -571,7 +571,7 @@ begin
 end;
 
 function lua_item_get_price(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     it      : TItem;
 begin
   State.Init(L);
@@ -581,7 +581,7 @@ begin
 end;
 
 function lua_item_reqs_met(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     it      : TItem;
 begin
   State.Init(L);
@@ -592,7 +592,7 @@ end;
 
 
 function lua_item_repair(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     it      : TItem;
 begin
   State.Init(L);
@@ -605,7 +605,7 @@ begin
 end;
 
 function lua_item_recharge(L: Plua_State) : Integer; cdecl;
-var State   : TRLLuaState;
+var State   : TGameLuaState;
     it      : TItem;
 begin
   State.Init(L);

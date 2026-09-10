@@ -10,7 +10,7 @@
             "request": "launch",
             "target": "./rl.exe",
             "terminal": "external",
-            "arguments": "-god -nosound",
+            "arguments": "--god",
             "cwd": "${workspaceRoot}/../bin",
             "valuesFormatting": "parseText",
             "preLaunchTask": "Build rl.exe (debug)"

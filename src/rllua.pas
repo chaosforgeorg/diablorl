@@ -12,9 +12,9 @@ var LuaPlayerX : Byte = 2;
 
 type
 
-{ TRLLua }
+{ TGameLua }
 
-TRLLua = class(TLuaSystem)
+TGameLua = class(TLuaSystem)
        constructor Create;
        destructor Destroy; override;
 //       function RunHook(const TableName: Ansistring; Index: Variant; const Name: Ansistring; const Args: array of const ) : Variant;
@@ -26,9 +26,9 @@ TRLLua = class(TLuaSystem)
        procedure ReadData( const DataFile : AnsiString );
      end;
 
-{ TRLLuaState }
+{ TGameLuaState }
 
-TRLLuaState = object(TLuaGameState)
+TGameLuaState = object(TLuaGameState)
   function ToNewNPC( Index : Integer ) : TNPC;
   function ToNewItem( Index : Integer ) : TItem;
   function ToItemList( Index : Integer; MaxSize : DWord = 0 ) : TItemList;
@@ -40,23 +40,23 @@ implementation
 uses vnode, vlualibrary, vluaentitynode, vluatools, vdebug, rlglobal, viotypes, rlgame,
      vutil, vluadungen, rlplayer, rlui, rlshop;
 
-{ TRLLuaState }
+{ TGameLuaState }
 
-function TRLLuaState.ToNewNPC ( Index : Integer ) : TNPC;
+function TGameLuaState.ToNewNPC ( Index : Integer ) : TNPC;
 begin
   if IsString( Index ) then Exit( TNPC.Create( ToString( Index ) ) );
   if IsObject( Index ) then Exit( ToObject( Index ) as TNPC );
   Error('NPC/id expected!');
 end;
 
-function TRLLuaState.ToNewItem ( Index : Integer ) : TItem;
+function TGameLuaState.ToNewItem ( Index : Integer ) : TItem;
 begin
   if IsString( Index ) then Exit( TItem.Create( ToString( Index ) ) );
   if IsObject( Index ) then Exit( ToObject( Index ) as TItem );
   Error('Item/id expected!');
 end;
 
-function TRLLuaState.ToItemList ( Index : Integer; MaxSize : DWord = 0 ) : TItemList;
+function TGameLuaState.ToItemList ( Index : Integer; MaxSize : DWord = 0 ) : TItemList;
 begin
   Index := lua_absindex( FState, Index );
   if not IsTable( Index ) then Exit( nil );
@@ -73,7 +73,7 @@ end;
 // ************************************************************************ //
 // ************************************************************************ //
 
-procedure TRLLua.ReadData(const DataFile: AnsiString);
+procedure TGameLua.ReadData(const DataFile: AnsiString);
 begin
   Log('Loading data from %s...',[DataFile]);
   CoreData := TVDataFile.Create(DataFile);
@@ -84,14 +84,14 @@ begin
   Log('%s loaded.',[DataFile]);
 end;
 
-procedure TRLLua.RegisterPlayer(Thing: TThing);
+procedure TGameLua.RegisterPlayer(Thing: TThing);
 begin
   SetValue( 'player', Thing );
   RegisterKillsClass( Raw, TPlayer(Thing).Kills, 'kills' );
   RegisterStatisticsClass( Raw, TPlayer(Thing).Stats, 'stats' );
 end;
 
-procedure TRLLua.OnError(const ErrorString: Ansistring);
+procedure TGameLua.OnError(const ErrorString: Ansistring);
 begin
   if (UI <> nil)  then
   begin
@@ -111,7 +111,7 @@ end;
 
 // temp?
 function lua_world_get_shop(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     ID     : AnsiString;
     Shop   : TShop;
 begin
@@ -126,7 +126,7 @@ end;
 
 // temp?
 function lua_world_get_level(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
     ID     : AnsiString;
     Level  : TLevel;
 begin
@@ -140,7 +140,7 @@ begin
 end;
 
 function lua_world_get_turn_count(L: Plua_State): Integer; cdecl;
-var State  : TRLLuaState;
+var State  : TGameLuaState;
 begin
   State.Init(L);
   State.Push( LongInt( Game.TurnCount ) );
@@ -155,7 +155,7 @@ const lua_world_lib : array[0..4] of luaL_Reg = (
     ( name : nil;                func : nil; )
 );
 
-constructor TRLLua.Create;
+constructor TGameLua.Create;
 var Count     : DWord;
     LuaInfo   : TLuaClassInfo;
 begin
@@ -226,12 +226,12 @@ begin
 end;
 
 
-destructor TRLLua.Destroy;
+destructor TGameLua.Destroy;
 begin
   FreeAndNil(CoreData);
   inherited Destroy;
 end;
 
-{ TRLLuaState }
+{ TGameLuaState }
 
 end.
