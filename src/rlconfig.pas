@@ -1,4 +1,4 @@
-{$include rl.inc}
+{$INCLUDE rl.inc}
 // @abstract(Configuration for DiabloRL)
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
 
@@ -89,6 +89,7 @@ type
 
 TGameConfig = class(TLuaConfig)
   constructor Create( const aFilename : AnsiString );
+  function RunBinding( aKeyCode : Word ) : Variant;
   function RunGodKey( aKeyCode : Word ) : Variant;
 end;
 
@@ -173,11 +174,14 @@ begin
   if GodMode then
     Load( DataPath+'godmode.lua' );
 
-  Option_RunDelay   := Configure( 'run_delay', 10 );
-  Option_TownReveal := Configure( 'reveal_town', False );
-  Option_WalkSound  := Configure( 'walk_sound', True );
-
   SetConstant('VERSION', Version);
+end;
+
+function TGameConfig.RunBinding( aKeyCode : Word ) : Variant;
+begin
+  if GodMode and HasValue( 'godkey.' + IOKeyCodeToString( aKeyCode ) ) then
+    Exit( RunGodKey( aKeyCode ) );
+  Result := Call( ['Keybindings', IOKeyCodeToString( aKeyCode )], [] );
 end;
 
 function TGameConfig.RunGodKey( aKeyCode : Word ) : Variant;

@@ -479,9 +479,11 @@ begin
 end;
 
 function TMainScreen.HandleEvent( const aEvent : TIOEvent ) : Boolean;
+var iAction : Integer;
 begin
   if aEvent.EType <> VEVENT_KEYDOWN then Exit( inherited HandleEvent( aEvent ) );
-  if HandleCommand( UI.IOKeyCodeToCommand( IOKeyEventToIOKeyCode( aEvent.Key ) ) ) then
+  iAction := UI.GameBindings.ResolveKey( IOKeyEventToIOKeyCode( aEvent.Key ) );
+  if (iAction >= 0) and (iAction <= High( Byte )) and HandleCommand( Byte( iAction ) ) then
     Exit( True );
   Exit( inherited HandleEvent( aEvent ) );
 end;
@@ -617,7 +619,7 @@ begin
   VTIG_ResetScroll( 'plot_scroll', iScroll );
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( ' Press <{!Enter}>, <{!Space}> or <{!Escape}> to skip...                 ', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>, <{!' + UI.UIKey( VTIG_IE_SELECT ) + '}> or <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to skip...                 ', Point( 0, 0 ), DarkGray );
   if VTIG_EventConfirm or VTIG_EventCancel or VTIG_Event( VTIG_IE_SELECT ) then
   begin
     if iScroll < iPadding then
@@ -671,7 +673,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( ' Press <{!Enter}>, <{!Space}> or <{!Escape}> to continue...                 ', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>, <{!' + UI.UIKey( VTIG_IE_SELECT ) + '}> or <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to continue...                 ', Point( 0, 0 ), DarkGray );
   if VTIG_EventConfirm or VTIG_EventCancel or VTIG_Event( VTIG_IE_SELECT ) then
     FFinished := True;
 end;
@@ -743,7 +745,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( ' Press <{!Enter}> to buy, <{!Escape}> to exit...          ', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to buy, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...          ', Point( 0, 0 ), DarkGray );
 
   if VTIG_EventConfirm then
   begin
@@ -861,7 +863,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( ' Press <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...', Point( 0, 0 ), DarkGray );
 
   if VTIG_EventCancel then
     Finish;
@@ -919,7 +921,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( ' Press <{!Enter}> to view, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to view, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...', Point( 0, 0 ), DarkGray );
 
   if iQuestID > 0 then
     LuaSystem.ProtectedCall(['quests', iQuestID, 'OnJournal'], [] );
@@ -979,7 +981,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( ' Press <{!Enter}> to choose, <{!Escape}> to exit...                    ', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to choose, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...                    ', Point( 0, 0 ), DarkGray );
 
   if VTIG_EventCancel then
   begin
@@ -1103,7 +1105,7 @@ begin
   VTIG_End( iVolume );
   VTIG_PopStyle;
 
-  VTIG_FreeLabel( ' Inventory: <{!TAB}> switch, <{!Enter}> equip/use, <{!d}> drop, <{!q}> quickslot, <{!Escape}> exit.',
+  VTIG_FreeLabel( ' Inventory: <{!TAB}> switch, <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> equip/use, <{!d}> drop, <{!q}> quickslot, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> exit.',
     Point( 0, 0 ), DarkGray );
 
   // Handle confirm via selectable return value
@@ -1270,7 +1272,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( ' Press <{!Enter}> to select, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to select, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...', Point( 0, 0 ), DarkGray );
 
   if iSpellPicked > 0 then
   begin
@@ -1384,7 +1386,7 @@ begin
   
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( 'Press <{!Enter}> to select, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( 'Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to select, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...', Point( 0, 0 ), DarkGray );
 
   if VTIG_EventConfirm then
   begin
@@ -1457,7 +1459,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( 'Press <{!Enter}> to use, <{!d}> to drop, <{!i}> to store, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( 'Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to use, <{!d}> to drop, <{!i}> to store, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...', Point( 0, 0 ), DarkGray );
 
   if VTIG_EventConfirm then
   begin
@@ -1541,7 +1543,7 @@ begin
 
   VTIG_End;
   VTIG_PopStyle;
-  VTIG_FreeLabel( 'Press <{!Enter}> to select, <{!Escape}> to exit...', Point( 0, 0 ), DarkGray );
+  VTIG_FreeLabel( 'Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to select, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...', Point( 0, 0 ), DarkGray );
 end;
 
 function TTravelWindow.IsModal : Boolean;

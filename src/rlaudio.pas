@@ -51,8 +51,6 @@ begin
     FSound := TFMODSound.Create
   else
     FSound := TSDLSound.Create( aVisualRNG );
-  FSound.SetMusicVolume( aConfig.Configure( 'music_volume', 100 ) );
-  FSound.SetSoundVolume( aConfig.Configure( 'sound_volume', 100 ) );
   vsound.Sound := FSound;
 end;
 

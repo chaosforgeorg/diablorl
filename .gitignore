@@ -16,3 +16,4 @@ bin/console.history
 *.exe
 bin/*.dll
 bin/error.log
+bin/settings.lua

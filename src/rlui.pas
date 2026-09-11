@@ -1,4 +1,4 @@
-{$include rl.inc}
+{$INCLUDE rl.inc}
 // @abstract(UI base class for DiabloRL)
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
 
@@ -8,7 +8,7 @@ interface
 uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils,
   vioevent, vcolor, viotypes, vioconsole, vluastate,
   viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, 
-  vutil, 
+  vutil, vbindings, vtigio, rlconfiguration,
   rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio;
 
 var TIGFramedWindowStyle       : TTIGStyle;
@@ -20,7 +20,7 @@ var TIGFramedWindowStyle       : TTIGStyle;
 type
   TGameUI = class(TIORL, ITextMap)
   public
-    constructor Create( aConfig : TGameConfig );
+    constructor Create( aConfig : TGameConfiguration );
     function getGylph( const aCoord : TCoord2D ): TIOGylph;
     destructor Destroy; override;
     procedure Draw();
@@ -35,8 +35,10 @@ type
     procedure Focus(c: TCoord2D);
     //waits for Enter key
     procedure PressEnter();
-    //front-end for TInput.GetCommand
-    function GetCommand(valid: TCommandSet = []): byte;
+    // Gameplay input requires the active Session and its prepared main screen.
+    function GetCommand( aValid : TCommandSet = [] ) : Byte;
+    function CommandKey( aCommand : TBindingAction ) : AnsiString;
+    function UIKey( aAction : TBindingAction ) : AnsiString;
     //Put a message onto status bar
     procedure UpdateStatus(c: TCoord2D);
     procedure UpdateStatus(STarget: TThing);
@@ -48,6 +50,7 @@ type
     procedure PlotText( const Text: ansistring );
     procedure ItemInfo( aItem : TItem );
     procedure Update( aMSec : DWord ); override;
+    procedure Reconfigure;
     procedure SetAudio( aAudio : TGameAudio );
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
     //Sound procedures wrapping
@@ -63,11 +66,11 @@ type
     function YesNoDialog( const aQuery : AnsiString ) : Boolean;
     class procedure RegisterLuaAPI(State: TLuaState);
   private
-    procedure ReadConfig();
     function GetPlayer : TPlayer;
     function TranslateColor( aColor : Byte; aPosition : TCoord2D ) : Byte;
     function TranslateColorFull( aColor : Byte; aPosition : TCoord2D ) : TColor;
   private
+    FConfiguration : TGameConfiguration; // borrowed from Runtime
     FAnimTime      : DWord;
     FAnimCount     : DWord;
     FMainScreen    : TMainScreen;
@@ -114,15 +117,16 @@ end;
 
 { TGameUI }
 
-constructor TGameUI.Create( aConfig : TGameConfig );
+constructor TGameUI.Create( aConfig : TGameConfiguration );
 var iFlags : TSDLIOFlags;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
   Log( LOGINFO, 'Loading configuration file "'+ConfigurationPath+'"...' );
 
-  FSizeX        := aConfig.Configure('console_x',80);
-  FSizeY        := aConfig.Configure('console_y',25);
+  FConfiguration := aConfig;
+  FSizeX        := aConfig.GetInteger( 'console_x' );
+  FSizeY        := aConfig.GetInteger( 'console_y' );
   FGraphicsMode := Option_Graphics;
 
   if FGraphicsMode then
@@ -144,7 +148,7 @@ begin
     if Option_FullScreen then
       Include( iFlags, SDLIO_Fullscreen );
     Log( LOGINFO, 'Initializing driver...' );
-    FIODriver := TSDLIODriver.Create( aConfig.Configure('screen_x',1024), aConfig.Configure('screen_y',768), 32, iFlags );
+    FIODriver := TSDLIODriver.Create( aConfig.GetInteger( 'screen_x' ), aConfig.GetInteger( 'screen_y' ), 32, iFlags );
     Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
     FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
   end
@@ -209,8 +213,8 @@ begin
   Log( LOGINFO, 'Initializing core driver...' );
   inherited Create( FIODriver, FConsole );
   Log( LOGINFO, 'Configuring...' );
-  Configure( aConfig );
-  ReadConfig;
+  Configure( aConfig.LuaConfig );
+  Reconfigure;
   Log( LOGINFO, 'GameIO ready.' );
   FAnimCount := 0;
   TItem.InitColors( FGraphicsMode );
@@ -302,21 +306,50 @@ begin
   inherited Msg( Capitalized( aMessage ) );
 end;
 
-function TGameUI.GetCommand(valid: TCommandSet = []): byte;
-var iEvent   : TIOEvent;
-    iCommand : Byte;
+function TGameUI.GetCommand( aValid : TCommandSet ) : Byte;
+var iEvent : TIOEvent;
+    iAction : TBindingAction;
+    iValue : Variant;
 begin
-  Inc(FAnimCount);
+  Inc( FAnimCount );
   repeat
-    GetCommand := inherited WaitForCommand( valid );
-  until (FMainScreen = nil) or not FMainScreen.HandleCommand( GetCommand );
-  if TPlayer(FPlayer).SpeedCount >= 100 then
-    if FMessages <> nil then FMessages.Update;
+    if not WaitForKeyEvent( iEvent ) then Exit( 0 );
+    if (iEvent.EType = VEVENT_SYSTEM) and
+       (iEvent.System.Code = VIO_SYSEVENT_QUIT) then Exit( COMMAND_SYSQUIT );
+    if IsModal then Continue;
+    FKeyCode := IOKeyEventToIOKeyCode( iEvent.Key );
+    iAction := GameBindings.ResolveKey( FKeyCode );
+    if iAction = BINDING_FORWARD_LUA then
+    begin
+      iValue := FConfiguration.LuaConfig.RunBinding( FKeyCode );
+      if VarIsOrdinal( iValue ) and not VarIsType( iValue, varBoolean )
+        then iAction := Integer( iValue )
+        else iAction := 0;
+    end;
+    if (iAction < 0) or (iAction > High( Byte )) then Continue;
+    if (aValid <> []) and not (Byte( iAction ) in aValid) then Continue;
+    if FMainScreen.HandleCommand( Byte( iAction ) ) then Continue;
+    Result := Byte( iAction );
+    if Player.SpeedCount >= 100 then FMessages.Update;
+    Exit;
+  until False;
+end;
+
+function TGameUI.CommandKey( aCommand : TBindingAction ) : AnsiString;
+begin
+  if GameBindings.GetKey( aCommand ) = 0 then Exit( 'Unbound' );
+  Result := IOKeyCodeToStringShort( GameBindings.GetKey( aCommand ) );
+end;
+
+function TGameUI.UIKey( aAction : TBindingAction ) : AnsiString;
+begin
+  if UIBindings.GetKey( aAction ) = 0 then Exit( 'Unbound' );
+  Result := IOKeyCodeToStringShort( UIBindings.GetKey( aAction ) );
 end;
 
 procedure TGameUI.PressEnter;
 begin
-  WaitForKey([VKEY_ENTER]);
+  WaitForKey( [ UIBindings.GetKey( VTIG_IE_CONFIRM ) ] );
   PlaySound('sfx/items/titlslct.wav');
 end;
 
@@ -354,9 +387,12 @@ begin
   RunLayer( THighscoreViewer.Create( Game.Persistence.ScoreList ) );
 end;
 
-procedure TGameUI.ReadConfig;
+procedure TGameUI.Reconfigure;
 begin
-  Config.LoadKeybindings('Keybindings');
+  FConfiguration.ApplyLiveSettings;
+  FConfiguration.LoadBindings( GameBindings, UIBindings );
+  SetSoundVolume( FConfiguration.GetInteger( 'sound_volume' ) );
+  SetMusicVolume( FConfiguration.GetInteger( 'music_volume' ) );
 end;
 
 function TGameUI.GetPlayer : TPlayer;
@@ -446,6 +482,8 @@ end;
 procedure TGameUI.SetAudio( aAudio : TGameAudio );
 begin
   FAudio := aAudio;
+  SetSoundVolume( FConfiguration.GetInteger( 'sound_volume' ) );
+  SetMusicVolume( FConfiguration.GetInteger( 'music_volume' ) );
 end;
 
 procedure TGameUI.PlayMusic( const sID : AnsiString );
@@ -561,6 +599,16 @@ begin
     Exit(0);
   UI.Msg(State.ToString(1));
   UI.Draw;
+  Result := 0;
+end;
+
+function lua_ui_msg_enter( L : Plua_State ) : Integer; cdecl;
+var iState : TGameLuaState;
+begin
+  iState.Init( L );
+  UI.Msg( iState.ToString( 1 ) + ' Press <@<' + UI.UIKey( VTIG_IE_CONFIRM ) + '@>>...' );
+  UI.WaitForKey( [ UI.UIBindings.GetKey( VTIG_IE_CONFIRM ) ] );
+  UI.MsgUpdate;
   Result := 0;
 end;
 
@@ -711,6 +759,7 @@ end;
 class procedure TGameUI.RegisterLuaAPI(State: TLuaState);
 begin
   TIORL.RegisterLuaAPI( State, 'ui' );
+  State.Register( 'ui', 'msg_enter', @lua_ui_msg_enter );
   State.Register('ui', 'get_key', @lua_ui_get_key);
   State.Register('ui', 'talk_run', @lua_ui_talk_run);
   State.Register('ui', 'shop_run', @lua_ui_shop_run);

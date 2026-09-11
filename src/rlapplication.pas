@@ -40,13 +40,13 @@ type TGameApplication = class( TRLApplication )
 
 implementation
 
-uses vos, vioevent, vdebug, rlconfig, rlglobal, rlui, rllua;
+uses vos, vioevent, vdebug, rlconfiguration, rlconfig, rlglobal, rlui, rllua;
 
 function TGameRuntime.CreateIO : TIORL;
 begin
   // Configuration is already transferred; launch globals were resolved by
   // ApplyOptions before the inherited Runtime constructor calls this factory.
-  UI := TGameUI.Create( TGameConfig( Configuration ) );
+  UI := TGameUI.Create( TGameConfiguration( Configuration ) );
   Result := UI;
 end;
 
@@ -59,14 +59,14 @@ end;
 
 function TGameRuntime.CreateLua : TLuaSystem;
 begin
-  Result := TGameLua.Create( TGameConfig( Configuration ) );
+  Result := TGameLua.Create( TGameConfiguration( Configuration ).LuaConfig );
 end;
 
 procedure TGameRuntime.PrepareGameData;
 begin
   FPersistence := TPersistence.Create( Paths.ScorePath );
-  if TGameConfig( Configuration ).Configure( 'sound', 'NONE' ) <> 'NONE' then
-    FAudio := TGameAudio.Create( TGameConfig( Configuration ), IO.VisualRNG, SoundPath );
+  if TGameConfiguration( Configuration ).LuaConfig.Configure( 'sound', 'NONE' ) <> 'NONE' then
+    FAudio := TGameAudio.Create( TGameConfiguration( Configuration ).LuaConfig, IO.VisualRNG, SoundPath );
   TGameUI( IO ).SetAudio( FAudio );
 end;
 
@@ -237,20 +237,19 @@ begin
 end;
 
 function TGameApplication.CreateConfiguration( var aPaths : TGamePaths ) : TObject;
-var iConfig : TGameConfig;
+var iConfiguration : TGameConfiguration;
+    iConfig : TGameConfig;
 begin
-  iConfig := TGameConfig.Create( aPaths.ConfigurationPath );
+  iConfiguration := TGameConfiguration.Create( aPaths.ConfigurationPath, aPaths.SettingsPath );
+  iConfig := iConfiguration.LuaConfig;
   try
     aPaths.DataPath := iConfig.Configure( 'DataPath', aPaths.DataPath );
     aPaths.WritePath := iConfig.Configure( 'WritePath', aPaths.WritePath );
     aPaths.ScorePath := iConfig.Configure( 'ScorePath', aPaths.ScorePath );
     SoundPath := iConfig.Configure( 'SoundPath', SoundPath );
-    Option_AlwaysName := iConfig.Configure( 'always_name', Option_AlwaysName );
-    Option_Graphics := iConfig.Configure( 'graphics', Option_Graphics );
-    Option_FullScreen := iConfig.Configure( 'fullscreen', Option_FullScreen );
-    Result := iConfig;
+    Result := iConfiguration;
   except
-    iConfig.Free;
+    iConfiguration.Free;
     raise;
   end;
 end;
@@ -261,6 +260,7 @@ begin
   if HasOption( 'writepath' ) then FPaths.WritePath := GetOptionValue( 'writepath' );
   if HasOption( 'scorepath' ) then FPaths.ScorePath := GetOptionValue( 'scorepath' );
   if HasOption( 'soundpath' ) then SoundPath := GetOptionValue( 'soundpath' );
+  TGameConfiguration( Configuration ).NameOverridden := HasOption( 'name' );
   if HasOption( 'name' ) then Option_AlwaysName := GetOptionValue( 'name' );
   if HasOption( 'console' ) then Option_Graphics := False;
   if HasOption( 'graphics' ) then Option_Graphics := True;

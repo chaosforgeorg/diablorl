@@ -1699,7 +1699,7 @@ begin
       TryMove( NewDirection( FPosition, FPathfinder.Start.Coord ) );
     end;
     UI.Delay( Option_RunDelay );
-    UI.WaitForAnimations;
+    UI.WaitForAnimationCompletion( True );
     Exit;
   end;
 
@@ -1736,7 +1736,6 @@ begin
   end
   else case iKey of
     0 :;
-    COMMAND_GODKEY     : if GodMode then TGameConfig(UI.Config).RunGodKey( UI.LastKeyCode );
     COMMAND_ESCAPE     :
     begin
       UI.RunLayer( TGameMenu.Create );
@@ -1765,9 +1764,9 @@ begin
     COMMAND_QUICKSLOT1..COMMAND_QUICKSLOT8 : UseQuickSlot(iKey-COMMAND_QUICKSLOT1+1);
 {    COMMAND_QUICKSKILL1 ..
     COMMAND_QUICKSKILL4 : if QuickSkills[Key - COMMAND_QUICKSKILL1 + 1] > 0 then Spell:=QuickSkills[iKey - COMMAND_QUICKSKILL1 + 1];}
-    else UI.Msg('Unknown command. Press @<Escape@> for menu and help file!');
+    else UI.Msg( 'Unknown command. Press @<' + UI.CommandKey( COMMAND_ESCAPE ) + '@> for menu and help file!' );
   end;
-  UI.WaitForAnimations;
+  UI.WaitForAnimationCompletion( True );
 end;
 
 procedure TPlayer.WriteMemorial;

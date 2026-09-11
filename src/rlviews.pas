@@ -171,7 +171,7 @@ begin
   VTIG_EventClear;
   VTIG_Clear;
   FHeader   := '';
-  FFooter   := ' Use {!arrows}, {!PgUp}, {!PgDown} to scroll, {!Escape} or {!Enter} to exit.';
+  FFooter   := ' Use {!' + UI.UIKey( VTIG_IE_UP ) + '/' + UI.UIKey( VTIG_IE_DOWN ) + '}, {!' + UI.UIKey( VTIG_IE_PGUP ) + '}, {!' + UI.UIKey( VTIG_IE_PGDOWN ) + '} to scroll, {!' + UI.UIKey( VTIG_IE_CANCEL ) + '} or {!' + UI.UIKey( VTIG_IE_CONFIRM ) + '} to exit.';
 end;
 
 procedure TFullScreenLayer.Update( aDTime : Integer; aActive : Boolean );
@@ -273,7 +273,7 @@ begin
   VTIG_Text( 'encourage further development!' );
   VTIG_Text( '' );
   VTIG_Text( 'To enable sound and music, edit the {!config.lua} file.' );
-  VTIG_Text( 'Press <{!Enter}> to continue...' );
+  VTIG_Text( 'Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to continue...' );
   VTIG_End;
   if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
 end;
@@ -311,7 +311,7 @@ begin
   VTIG_Text( '{!epyon(at)chaosforge.org}... Comments, suggestions, death threats all welcome.' );
   VTIG_Text( '' );
   VTIG_Text( 'Again, thank you for your time spent playing DiabloRL.' );
-  VTIG_Text( 'Press {!Enter} to quit...' );
+  VTIG_Text( 'Press {!' + UI.UIKey( VTIG_IE_CONFIRM ) + '} to quit...' );
   VTIG_End;
   if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
 end;
