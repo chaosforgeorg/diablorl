@@ -90,7 +90,7 @@ begin
       if iChoice = GMR_QUIT then
       begin
         IO.RunLayer( TOutroScreen.Create );
-        Exit;
+        Break;
       end;
       FSession := TGameSession.Create( Self, FPersistence );
       Game := FSession;
@@ -106,6 +106,11 @@ begin
   except
     on E : EGameProcessQuit do Result := VRR_QUIT;
   end;
+  UI.UnPrepare;
+  IO.Clear;
+  UI.SaveWindowGeometry;
+  if not TGameConfiguration( Configuration ).WriteSettings then
+    Log( 'Could not save settings on shutdown.' );
 end;
 
 procedure TGameRuntime.HandleGameException( aException : Exception );

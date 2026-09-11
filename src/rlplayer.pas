@@ -407,7 +407,7 @@ begin
       then FEnemy := 0
       else FEnemy := iEnemy.UID;
 
-    UI.LookMode := TargetMode = TM_LOOK;
+    UI.TargetMode := TargetMode;
   repeat
     UI.FocusCursor(Target);
 
@@ -420,7 +420,7 @@ begin
     if Key in [COMMAND_ESCAPE, COMMAND_LOOK] then
     begin
       Target := ZeroCoord2D;
-      UI.LookMode := False;
+      UI.TargetMode := 0;
       UI.HideCursor;
       UI.MarkClear;
       FreeAndNil( iAuto );
@@ -441,7 +441,7 @@ begin
       UI.Focus(Target);
   until Key in [FireCmd,COMMAND_OK];
   FreeAndNil( iAuto );
-  UI.LookMode := False;
+  UI.TargetMode := 0;
   UI.HideCursor;
 
   if Position = Target then

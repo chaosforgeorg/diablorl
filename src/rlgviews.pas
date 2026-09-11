@@ -605,6 +605,8 @@ var iSize    : TIOPoint;
     iPadding : Integer;
     i        : Integer;
 begin
+  iSize := VTIG_GetIOState.Size;
+  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
   FStartTime += aDTime;
   iSize := Point( 65, 18 );
   iPadding := iSize.Y - 4;
@@ -661,6 +663,8 @@ end;
 procedure TItemInfo.Update( aDTime : Integer; aActive : Boolean );
 var iSize : TIOPoint;
 begin
+  iSize := VTIG_GetIOState.Size;
+  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 10) div 2 );
   iSize := Point( 66, 7 );
   VTIG_PushStyle( @TIGFramedWindowStyle );
   VTIG_Begin( 'item_info', iSize, Point(8, 4) + FShift );
@@ -722,6 +726,8 @@ var iSize  : TIOPoint;
     i      : Integer;
     iSel   : Integer;
 begin
+  iSize := VTIG_GetIOState.Size;
+  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
   iSize := Point( 66, 18 );
   VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
   VTIG_BeginWindow( FTitle, 'shop', iSize, Point(8, 4) + FShift );
@@ -1525,7 +1531,7 @@ begin
       iSize.X := Max( iSize.X, Length( iPoints[ iCount ].What ) + 4 );
 
   VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
-  VTIG_BeginWindow( 'Fast travel', 'fast_travel', iSize, Point( 46, 13 ) );
+  VTIG_BeginWindow( 'Fast travel', 'fast_travel', iSize );
 
   if iPoints.Size > 0 then
     for iCount := 0 to iPoints.Size - 1 do

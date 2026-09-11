@@ -177,12 +177,8 @@ begin
     ReportError( 'Invalid settings. Run and attack must use different modifiers unless disabled.' );
     Exit;
   end;
-  with FResolutions[ FConfiguration.GetInteger( 'display_mode' ) ] do
-  begin
-    FConfiguration.AccessInteger( 'screen_width' )^ := X;
-    FConfiguration.AccessInteger( 'screen_height' )^ := Y;
-  end;
   FOnApply;
+  UI.SaveWindowGeometry;
   FreeAndNil( FOriginalValues );
   FOriginalValues := FConfiguration.SnapshotValues;
   if not FConfiguration.WriteSettings then

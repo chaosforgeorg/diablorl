@@ -141,7 +141,10 @@ begin
 end;
 
 procedure TMenuScreen.Update( aDTime : Integer; aActive : Boolean );
+var iSize : TIOPoint;
 begin
+  iSize := VTIG_GetIOState.Size;
+  FShift := Point( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
   VTIG_Clear;
   VTIG_Begin( 'menu_logo', Point( 44, 13 ), Point( 19, 1 ) + FShift );
   VTIG_Text( '{r  ####                           ####   }');

@@ -54,6 +54,7 @@ type
     procedure ShowSettings;
     procedure ReconfigureDisplay;
     procedure FitDisplay;
+    procedure SaveWindowGeometry;
     procedure PostUpdate; override;
     procedure SetAudio( aAudio : TGameAudio );
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
@@ -80,7 +81,11 @@ type
     FMainScreen    : TMainScreen;
     FSizeX, FSizeY : Word;
     FGraphicsMode  : Boolean;
-    FLookMode      : Boolean;
+    FTargetMode    : Byte;
+    FDisplaySize   : TIOPoint;
+    FWindowSize    : TIOPoint;
+    FRequestedSize : TIOPoint;
+    FFontMultiplier : Integer;
     FAudio         : TGameAudio; // borrowed from Runtime
   public
     property MainScreen : TMainScreen read FMainScreen;
@@ -88,7 +93,7 @@ type
     property SizeY : Word read FSizeY;
     property Player : TPlayer read GetPlayer;
     property GraphicsMode : Boolean read FGraphicsMode;
-    property LookMode : Boolean read FLookMode write FLookMode;
+    property TargetMode : Byte read FTargetMode write FTargetMode;
   end;
 
 function CommandDirection(Command: byte): TDirection;
@@ -387,9 +392,14 @@ end;
 procedure TGameUI.Update( aMSec : DWord );
 begin
   FAnimTime := Driver.GetMs;
+  if FGraphicsMode and SDLIO.RefreshWindowSize then
+  begin
+    if FDisplaySize <> Point( SDLIO.Width, SDLIO.Height ) then FitDisplay;
+    if not SDLIO.FullScreen then FWindowSize := Point( SDLIO.Width, SDLIO.Height );
+  end;
   inherited Update( aMSec );
   // Restore Look after VTIG releases the string-entry cursor.
-  if FLookMode and not IsModal then ShowCursor;
+  if (FTargetMode = TM_LOOK) and not IsModal then ShowCursor;
 end;
 
 procedure TGameUI.ShowMortem;
@@ -417,44 +427,86 @@ begin
 end;
 
 procedure TGameUI.FitDisplay;
+var iMinimum : TIOPoint;
 begin
+  with TGLConsoleRenderer( FConsole ).Font.GylphSize do
+    iMinimum := Point( X, Y );
+  if (SDLIO.Width < DWord( iMinimum.X * 80 )) or
+     (SDLIO.Height < DWord( iMinimum.Y * 25 )) then Exit;
+  FDisplaySize := Point( SDLIO.Width, SDLIO.Height );
   TGLConsoleRenderer( FConsole ).FitToDevice( Point( 80, 25 ),
-    FConfiguration.GetInteger( 'font_multiplier' ) );
+    FFontMultiplier );
   // Resizing the renderer sets its cursor type and makes it visible.
   HideCursor;
   FSizeX := FConsole.SizeX;
   FSizeY := FConsole.SizeY;
   if FMessages <> nil then FMessages.Resize( 2, FSizeX - 2 );
-  if FMainScreen <> nil then FMainScreen.UpdateMap;
+  if FMainScreen <> nil then
+  begin
+    FMainScreen.UpdateMap;
+    if FTargetMode <> 0 then
+    begin
+      if FTargetMode = TM_LOOK then Focus( Player.Target );
+      FocusCursor( Player.Target );
+      if (FTargetMode = TM_FIRE) and Game.Level.isExplored( Player.Target ) then
+        MarkTile( Player.Target, 'X', Red );
+    end;
+  end;
 end;
 
 procedure TGameUI.ReconfigureDisplay;
-var iFlags : TSDLIOFlags;
-    iWidth, iHeight : Word;
+var iFlags, iOldFlags : TSDLIOFlags;
+    iSize, iOldSize, iMinimum : TIOPoint;
     iFullscreen : Boolean;
 begin
   if not FGraphicsMode then Exit;
+  with TGLConsoleRenderer( FConsole ).Font.GylphSize do
+    iMinimum := Point( X, Y );
+  if not SDLIO.SetMinimumSize( Point( iMinimum.X * 80, iMinimum.Y * 25 ) ) then
+    raise EIOException.Create( 'Could not set the minimum window size.' );
   iFullscreen := FConfiguration.GetBoolean( 'fullscreen' );
   if FConfiguration.FullscreenOverride >= 0 then
     iFullscreen := FConfiguration.FullscreenOverride = 1;
   iFlags := [SDLIO_OpenGL, SDLIO_Resizable];
-  iWidth := FConfiguration.GetInteger( 'screen_width' );
-  iHeight := FConfiguration.GetInteger( 'screen_height' );
-  if iFullscreen then
+  iSize := Point( FConfiguration.GetInteger( 'screen_width' ),
+    FConfiguration.GetInteger( 'screen_height' ) );
+  if (iSize = FRequestedSize) and (FWindowSize.X > 0) then iSize := FWindowSize;
+  iOldFlags := SDLIO.Flags;
+  if not SDLIO.RefreshWindowSize then
+    raise EIOException.Create( 'Could not read the current window size.' );
+  iOldSize := Point( SDLIO.Width, SDLIO.Height );
+  if iFullscreen then Include( iFlags, SDLIO_DesktopFullScreen );
+  if not SDLIO.ResetVideoMode( iSize.X, iSize.Y, SDLIO.BPP, iFlags ) or
+     not SDLIO.SynchronizeWindow then
   begin
-    Include( iFlags, SDLIO_DesktopFullScreen );
-    iWidth := 0;
-    iHeight := 0;
+    if not SDLIO.ResetVideoMode( iOldSize.X, iOldSize.Y, SDLIO.BPP, iOldFlags ) or
+       not SDLIO.SynchronizeWindow then
+      raise EIOException.Create( 'Display change and restoration both failed.' );
+    SDLIO.RefreshWindowSize;
+    FitDisplay;
+    raise EIOException.Create( 'Could not apply the display mode; previous mode restored.' );
   end;
-  if not SDLIO.ResetVideoMode( iWidth, iHeight, SDLIO.BPP, iFlags ) then
-    raise EIOException.Create( 'Could not apply the display mode.' );
+  FRequestedSize := Point( FConfiguration.GetInteger( 'screen_width' ),
+    FConfiguration.GetInteger( 'screen_height' ) );
+  SDLIO.RefreshWindowSize;
+  if iFullscreen then FWindowSize := iSize
+  else FWindowSize := Point( SDLIO.Width, SDLIO.Height );
+  FFontMultiplier := FConfiguration.GetInteger( 'font_multiplier' );
   FitDisplay;
+end;
+
+procedure TGameUI.SaveWindowGeometry;
+begin
+  if not FGraphicsMode or (FWindowSize.X <= 0) or (FWindowSize.Y <= 0) then Exit;
+  FConfiguration.AccessInteger( 'screen_width' )^ := FWindowSize.X;
+  FConfiguration.AccessInteger( 'screen_height' )^ := FWindowSize.Y;
+  FRequestedSize := FWindowSize;
 end;
 
 procedure TGameUI.Reconfigure;
 begin
-  FConfiguration.ApplyLiveSettings;
   ReconfigureDisplay;
+  FConfiguration.ApplyLiveSettings;
   FConfiguration.LoadBindings( GameBindings, UIBindings );
   SetSoundVolume( FConfiguration.GetInteger( 'sound_volume' ) );
   SetMusicVolume( FConfiguration.GetInteger( 'music_volume' ) );
@@ -544,8 +596,6 @@ begin
   if not FLayers.IsEmpty then
     if FLayers.Top is TGameSettingsView then
       if TGameSettingsView( FLayers.Top ).HandleCaptureEvent( aEvent ) then Exit( True );
-  if FGraphicsMode and (aEvent.EType = VEVENT_SYSTEM) and
-     (aEvent.System.Code = VIO_SYSEVENT_RESIZE) then FitDisplay;
   Result := inherited OnEvent( aEvent );
 end;
 
