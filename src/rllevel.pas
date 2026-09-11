@@ -160,7 +160,6 @@ end;
 constructor TLevel.Create(const aLevelID : AnsiString);
 begin
   inherited Create( aLevelID, MapSizeX, MapSizeY, 15 );
-  UI.Mute();
 
   Init;
   Log('Created.');
@@ -169,7 +168,6 @@ begin
   ClearAll(CELL_FLOOR);
 
   RunHook( Hook_OnCreate, [] );
-  UI.Unmute();
 
   Assert( efNoObstacles = EF_NOBLOCK );
   Assert( efNoMonsters  = EF_NOBEINGS );

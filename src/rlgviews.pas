@@ -126,7 +126,6 @@ type TCharWindow = class( TPanel )
   function IsModal : Boolean; override;
   function HandleEvent( const aEvent : TIOEvent ) : Boolean; override;
 protected
-  FShift     : TIOPoint;
   FKeyAction : Byte;
 end;
 
@@ -136,8 +135,6 @@ type TJournalWindow = class( TPanel )
   constructor Create( aOwner : TMainScreen );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
-protected
-  FShift    : TIOPoint;
 end;
 
 { TTalkWindow }
@@ -157,7 +154,6 @@ protected
   FIntro       : AnsiString;
   FOptions     : array of TTalkOption;
   FOptionCount : Integer;
-  FShift       : TIOPoint;
   class var FResult : Integer;
 public
   class property Result : Integer read FResult;
@@ -176,7 +172,6 @@ type TInventoryWindow = class( TPanel )
   function HandleEvent( const aEvent : TIOEvent ) : Boolean; override;
   destructor Destroy; override;
 protected
-  FShift     : TIOPoint;
   FMode      : ( InvMode, EqMode );
   FKeyAction : Byte;
 end;
@@ -187,8 +182,6 @@ type TSpellWindow = class( TPanel )
   constructor Create( aOwner : TMainScreen );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
-protected
-  FShift    : TIOPoint;
 end;
 
 { TSkillWindow }
@@ -588,15 +581,12 @@ end;
 { TPlotWindow }
 
 constructor TPlotWindow.Create( const aText : AnsiString );
-var iSize : TIOPoint;
 begin
   VTIG_EventClear;
   VTIG_ResetScroll( 'plot_scroll', 0 );
   FFinished  := False;
   FText      := aText;
   FStartTime := 0;
-  iSize := VTIG_GetIOState.Size;
-  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
 end;
 
 procedure TPlotWindow.Update( aDTime : Integer; aActive : Boolean );
@@ -640,7 +630,6 @@ end;
 
 constructor TItemInfo.Create( const aItem : TItem );
 var iStatus : String;
-    iSize   : TIOPoint;
 begin
   VTIG_EventClear;
   FFinished := False;
@@ -656,8 +645,6 @@ begin
       end;
     FLine3 := '{'+ColorCodes[Color]+' ' + GetStatusInfo2 + '}';
   end;
-  iSize := VTIG_GetIOState.Size;
-  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 10) div 2 );
 end;
 
 procedure TItemInfo.Update( aDTime : Integer; aActive : Boolean );
@@ -690,7 +677,6 @@ end;
 { TShopWindow }
 
 constructor TShopWindow.Create( const aTitle : AnsiString );
-var iSize : TIOPoint;
 begin
   inherited Create;
   FTitle      := aTitle;
@@ -699,8 +685,6 @@ begin
   FItemCount  := 0;
   FClosed     := False;
   FResult     := -1;
-  iSize := VTIG_GetIOState.Size;
-  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
 end;
 
 procedure TShopWindow.Add( aItem : TItem; aPriceType : TPriceType );
@@ -944,15 +928,12 @@ end;
 { TTalkWindow }
 
 constructor TTalkWindow.Create( aOwner : TMainScreen; const aIntro : AnsiString );
-var iSize : TIOPoint;
 begin
   inherited Create( aOwner );
   FIntro       := aIntro;
   FOptions     := nil;
   FOptionCount := 0;
   FResult      := -1;
-  iSize := VTIG_GetIOState.Size;
-  FShift.Init( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
 end;
 
 procedure TTalkWindow.Add( const aOption : AnsiString; aActive : Boolean );

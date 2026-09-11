@@ -133,11 +133,9 @@ uses vluasystem, vutil, vtig, vtigio, rlglobal, rlui, rlgame, math;
 { TMenuScreen }
 
 constructor TMenuScreen.Create;
-var iSize : TIOPoint;
 begin
+  inherited Create;
   VTIG_EventClear;
-  iSize  := VTIG_GetIOState.Size;
-  FShift := Point( (iSize.X - 80) div 2, (iSize.Y - 25) div 2 );
 end;
 
 procedure TMenuScreen.Update( aDTime : Integer; aActive : Boolean );

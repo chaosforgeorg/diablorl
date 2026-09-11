@@ -44,7 +44,6 @@ type
     procedure UpdateStatus(STarget: TThing);
     //reviews last messages
     procedure ShowRecent;
-    //shows game manual
     procedure ShowHOF;
     //Plot text window
     procedure PlotText( const Text: ansistring );
@@ -52,8 +51,6 @@ type
     procedure Update( aMSec : DWord ); override;
     procedure Reconfigure;
     procedure ShowSettings;
-    procedure ReconfigureDisplay;
-    procedure FitDisplay;
     procedure SaveWindowGeometry;
     procedure PostUpdate; override;
     procedure SetAudio( aAudio : TGameAudio );
@@ -63,14 +60,14 @@ type
     procedure PlaySound( const sID: ansistring; aSource : TCoord2D );
     procedure PlaySound( const sID: ansistring );
     procedure HaltSound();
-    procedure Mute();
-    procedure Unmute();
     procedure SetMusicVolume(Volume: byte);
     procedure SetSoundVolume(Volume: byte);
     function GetTravelDestination( out aWhere : TCoord2D ) : Boolean;
     function YesNoDialog( const aQuery : AnsiString ) : Boolean;
     class procedure RegisterLuaAPI(State: TLuaState);
   private
+    procedure ReconfigureDisplay;
+    procedure FitDisplay;
     function GetPlayer : TPlayer;
     function TranslateColor( aColor : Byte; aPosition : TCoord2D ) : Byte;
     function TranslateColorFull( aColor : Byte; aPosition : TCoord2D ) : TColor;
@@ -624,15 +621,6 @@ end;
 procedure TGameUI.HaltSound;
 begin
   if FAudio <> nil then FAudio.HaltSound;
-end;
-
-procedure TGameUI.Mute;
-begin
-  // Legacy no-op; generation never changed the backend volumes here.
-end;
-
-procedure TGameUI.Unmute;
-begin
 end;
 
 procedure TGameUI.SetMusicVolume( Volume : Byte );
