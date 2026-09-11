@@ -407,8 +407,7 @@ begin
       then FEnemy := 0
       else FEnemy := iEnemy.UID;
 
-    UI.FocusCursor(Target);
-    UI.ShowCursor;
+    UI.LookMode := TargetMode = TM_LOOK;
   repeat
     UI.FocusCursor(Target);
 
@@ -421,6 +420,7 @@ begin
     if Key in [COMMAND_ESCAPE, COMMAND_LOOK] then
     begin
       Target := ZeroCoord2D;
+      UI.LookMode := False;
       UI.HideCursor;
       UI.MarkClear;
       FreeAndNil( iAuto );
@@ -441,14 +441,14 @@ begin
       UI.Focus(Target);
   until Key in [FireCmd,COMMAND_OK];
   FreeAndNil( iAuto );
+  UI.LookMode := False;
+  UI.HideCursor;
 
   if Position = Target then
   begin
     UI.Msg('Suicide? Too easy for you...');
-    UI.HideCursor;
     exit(false);
   end;
-  UI.HideCursor;
   Exit(True);
 end;
 

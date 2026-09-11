@@ -5,7 +5,7 @@
   If you want to enable sound and music, edit your config.lua and add the 
 path to your DIABDAT.MPQ file. 
 
-  To run in raw console mode, either edit config.lua or run with -console
+  To run in raw console mode, use Settings -> Display or run with --console
 parameter.
 
 =============================================================================

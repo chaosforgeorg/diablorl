@@ -264,8 +264,16 @@ begin
   if HasOption( 'name' ) then Option_AlwaysName := GetOptionValue( 'name' );
   if HasOption( 'console' ) then Option_Graphics := False;
   if HasOption( 'graphics' ) then Option_Graphics := True;
-  if HasOption( 'fullscreen' ) then Option_FullScreen := True;
-  if HasOption( 'windowed' ) then Option_FullScreen := False;
+  if HasOption( 'fullscreen' ) then
+  begin
+    Option_FullScreen := True;
+    TGameConfiguration( Configuration ).FullscreenOverride := 1;
+  end;
+  if HasOption( 'windowed' ) then
+  begin
+    Option_FullScreen := False;
+    TGameConfiguration( Configuration ).FullscreenOverride := 0;
+  end;
 
   FPaths.Normalize;
   if FPaths.ScorePath = '' then FPaths.ScorePath := FPaths.WritePath;

@@ -39,7 +39,7 @@ makefile = {
 			MACOSX  = {  },
 		},
 		subdirs = {},
-		other = { "font10x18.png", "config.lua", "keybindings.lua", "manual.txt", "version.txt", "readme.txt", "diablorl.mpq" },
+		other = { "font10x18.png", "config.lua", "manual.txt", "version.txt", "readme.txt", "diablorl.mpq" },
 	},
 	commands = {
 		pkg = function()

@@ -50,7 +50,3 @@ godkey["F12"] = function()
 	player.flags[ nfInfravision ] = not player.flags[ nfInfravision ]
 	player.scount = player.scount - 10
 end
-
-for k,_ in pairs(godkey) do
-	Keybindings[k] = COMMAND_GODKEY
-end

@@ -6,6 +6,7 @@ uses vbindings, vioevent, vtigio, rlconfig;
 
 const GAME_BINDING_GROUP_MOVEMENT = 'keybindings_movement';
       GAME_BINDING_GROUP_ACTIONS = 'keybindings_actions';
+      GAME_BINDING_GROUP_PANELS = 'keybindings_panels';
       GAME_BINDING_GROUP_ITEMS = 'keybindings_items';
       UI_KEY_BINDING_GROUP = 'ui_bindings_keyboard';
 
@@ -20,21 +21,21 @@ const GameKeyBindingInfo : array[0..32] of TBindingInfo = (
   ( Action: COMMAND_WALKSW;     ID: 'input_walk_southwest'; Group: GAME_BINDING_GROUP_MOVEMENT; Default: VKEY_END;    Name: 'Walk southwest';       Description: 'Walk southwest.' ),
   ( Action: COMMAND_WAIT;       ID: 'input_wait';           Group: GAME_BINDING_GROUP_MOVEMENT; Default: VKEY_PERIOD; Name: 'Wait';                 Description: 'Wait.' ),
   ( Action: COMMAND_ESCAPE;     ID: 'input_escape';         Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_ESCAPE; Name: 'Game menu / cancel';   Description: 'Game menu / cancel.' ),
-  ( Action: COMMAND_CWIN;       ID: 'input_close_panels';   Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_BACK;   Name: 'Close panels';         Description: 'Close panels.' ),
   ( Action: COMMAND_SWITCHMODE; ID: 'input_switch_mode';    Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_TAB;    Name: 'Travel / next target'; Description: 'Travel / next target.' ),
   ( Action: COMMAND_MESSAGES;   ID: 'input_messages';       Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_M;      Name: 'Message history';      Description: 'Message history.' ),
   ( Action: COMMAND_PICKUP;     ID: 'input_pickup';         Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_G;      Name: 'Pick up';              Description: 'Pick up.' ),
-  ( Action: COMMAND_INVENTORY;  ID: 'input_inventory';      Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_I;      Name: 'Inventory';            Description: 'Inventory.' ),
-  ( Action: COMMAND_SPELLBOOK;  ID: 'input_spellbook';      Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_B;      Name: 'Spellbook';            Description: 'Spellbook.' ),
   ( Action: COMMAND_ACT;        ID: 'input_action';         Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_SPACE;  Name: 'Interact';             Description: 'Interact.' ),
   ( Action: COMMAND_LOOK;       ID: 'input_look';           Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_L;      Name: 'Look';                 Description: 'Look.' ),
   ( Action: COMMAND_FIRE;       ID: 'input_fire';           Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_F;      Name: 'Fire';                 Description: 'Fire.' ),
   ( Action: COMMAND_CAST;       ID: 'input_cast';           Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_Z;      Name: 'Cast';                 Description: 'Cast.' ),
-  ( Action: COMMAND_PLAYERINFO; ID: 'input_character';      Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_C;      Name: 'Character';            Description: 'Character.' ),
-  ( Action: COMMAND_JOURNAL;    ID: 'input_journal';        Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_J;      Name: 'Journal';              Description: 'Journal.' ),
   ( Action: COMMAND_OK;         ID: 'input_confirm';        Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_ENTER;  Name: 'Confirm';              Description: 'Confirm.' ),
   ( Action: COMMAND_QUICKSLOT;  ID: 'input_quick_items';    Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_Q;      Name: 'Quick items';          Description: 'Quick items.' ),
   ( Action: COMMAND_QUICKSKILL; ID: 'input_quick_spells';   Group: GAME_BINDING_GROUP_ACTIONS;  Default: VKEY_S;      Name: 'Quick spells';         Description: 'Quick spells.' ),
+  ( Action: COMMAND_INVENTORY;  ID: 'input_inventory';      Group: GAME_BINDING_GROUP_PANELS;  Default: VKEY_I;      Name: 'Inventory';            Description: 'Inventory.' ),
+  ( Action: COMMAND_SPELLBOOK;  ID: 'input_spellbook';      Group: GAME_BINDING_GROUP_PANELS;  Default: VKEY_B;      Name: 'Spellbook';            Description: 'Spellbook.' ),
+  ( Action: COMMAND_PLAYERINFO; ID: 'input_character';      Group: GAME_BINDING_GROUP_PANELS;  Default: VKEY_C;      Name: 'Character';            Description: 'Character.' ),
+  ( Action: COMMAND_JOURNAL;    ID: 'input_journal';        Group: GAME_BINDING_GROUP_PANELS;  Default: VKEY_J;      Name: 'Journal';              Description: 'Journal.' ),
+  ( Action: COMMAND_CWIN;       ID: 'input_close_panels';   Group: GAME_BINDING_GROUP_PANELS;  Default: VKEY_BACK;   Name: 'Close panels';         Description: 'Close panels.' ),
   ( Action: COMMAND_QUICKSLOT1; ID: 'input_item_1';         Group: GAME_BINDING_GROUP_ITEMS;    Default: VKEY_1;      Name: 'Quick item 1';         Description: 'Quick item 1.' ),
   ( Action: COMMAND_QUICKSLOT2; ID: 'input_item_2';         Group: GAME_BINDING_GROUP_ITEMS;    Default: VKEY_2;      Name: 'Quick item 2';         Description: 'Quick item 2.' ),
   ( Action: COMMAND_QUICKSLOT3; ID: 'input_item_3';         Group: GAME_BINDING_GROUP_ITEMS;    Default: VKEY_3;      Name: 'Quick item 3';         Description: 'Quick item 3.' ),

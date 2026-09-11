@@ -340,7 +340,7 @@ begin
   inherited Update( aDTime, aActive );
   iChild := 0;
   VTIG_PushStyle( @TIGNarrowFramedWindowStyle );
-  VTIG_Begin( 'main_menu', Point( 21, 9 ), Point( 29, 15 ) + FShift );
+  VTIG_Begin( 'main_menu', Point( 21, 10 ), Point( 29, 14 ) + FShift );
   VTIG_PopStyle;
 
   if VTIG_Selectable( '   New Game' ) then
@@ -357,6 +357,7 @@ begin
   end;
   if VTIG_Selectable( 'Show Highscores' ) then iChild := 1;
   if VTIG_Selectable( '  Show Manual' ) then iChild := 2;
+  if VTIG_Selectable( '   Settings' ) then iChild := 3;
   if VTIG_Selectable( '   Quit Game' ) then
   begin
     FResult^ := GMR_QUIT;
@@ -367,6 +368,7 @@ begin
   case iChild of
     1 : UI.PushLayer( THighscoreViewer.Create( FPersistence.ScoreList ) );
     2 : UI.PushLayer( TManualScreen.Create );
+    3 : UI.ShowSettings;
   end;
 end;
 
@@ -499,9 +501,12 @@ begin
 end;
 
 procedure TGameMenu.Update( aDTime : Integer; aActive : Boolean );
+var iSettings : Boolean;
 begin
+  if not aActive then Exit;
+  iSettings := False;
   VTIG_PushStyle( @TIGFramedWindowStyle );
-  VTIG_Begin( 'game_menu', Point( 22, 8 ) );
+  VTIG_Begin( 'game_menu', Point( 22, 9 ) );
   if VTIG_Selectable( 'Return to game' ) then
   begin
     FResult   := GAMEMENU_CONT;
@@ -512,6 +517,7 @@ begin
     FResult   := GAMEMENU_HELP;
     FFinished := True;
   end;
+  iSettings := VTIG_Selectable( '  Settings' );
   if VTIG_Selectable( 'Save and return' ) then
   begin
     FResult   := GAMEMENU_SAVE;
@@ -529,6 +535,7 @@ begin
     FResult   := GAMEMENU_CONT;
     FFinished := True;
   end;
+  if iSettings then UI.ShowSettings;
 end;
 
 function TGameMenu.IsModal : Boolean;

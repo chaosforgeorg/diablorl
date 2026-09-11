@@ -220,7 +220,7 @@ Walk           - Arrow keys (numlock off)
 Run            - Shift+Arrow keys (numlock off)
 Attack Lock    - Ctrl+Arrow keys (numlock off) (performs wait if no enemy)
 
-Wait           - Numpad 5
+Wait           - Numpad 5 or period
 Fast travel    - TAB
 Act            - SPACE
 Pickup         - g
@@ -233,10 +233,7 @@ Cast           - z
 Spellbook      - b
 Quickskill     - s
 Messages       - m
-Screenshot     - F10
-Screenshot(BB) - F9
 
-Quickskill     - F5..F8
 Quickslots     - 1..8
 Quickslot Menu - q
 
@@ -248,8 +245,7 @@ Increase Vit   - v
 
 Inventory Specific Commands:
 Drop       - d
-Quickslot  - `
-Quickslots - 1..8
+Quickslot  - q
 Switch mode - TAB
 Equip/Use  - ENTER
 
@@ -260,7 +256,9 @@ Drop              - d
 Targeting Specific Commands:
 Change target - TAB
 
-You can edit keybindings in keybindings.lua
+Change bindings in Settings -> Input. Apply saves them to settings.lua.
+Movement has separate Run (Shift) and attack-in-place (Ctrl) modifiers.
+Native terminal settings require restart. Inventory panel letter keys stay fixed.
 
 -----------------------------------------------------------------------------
 

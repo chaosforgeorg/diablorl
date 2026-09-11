@@ -13,18 +13,25 @@ type TGameConfiguration = class( TConfigurationManager )
   procedure ApplyLiveSettings;
   procedure LoadBindings( aGame, aUI : TBindingContext );
   procedure ResetValues;
+  procedure ResetGroup( const aGroupID : AnsiString );
+  function CatalogForEntry( const aID : AnsiString ) : TBindingCatalog;
+  function SnapshotValues : TConfigurationValueMap;
+  procedure RestoreValues( aValues : TConfigurationValueMap );
+  function ValuesValid : Boolean;
   function ReadSettings : Boolean;
   function WriteSettings : Boolean;
   destructor Destroy; override;
 private
   FLuaConfig         : TGameConfig;
   FNameOverridden    : Boolean;
+  FFullscreenOverride : Integer;
   FGameKeyBindings   : TGameBindingCatalog;
   FUIKeyBindings     : TGameBindingCatalog;
   FRunModifier       : TIntegerConfigurationEntry;
   FAttackModifier    : TIntegerConfigurationEntry;
   FSettingsPath      : AnsiString;
 public
+  property FullscreenOverride : Integer read FFullscreenOverride write FFullscreenOverride;
   property NameOverridden  : Boolean read FNameOverridden write FNameOverridden;
   property LuaConfig       : TGameConfig                 read FLuaConfig;
   property GameKeyBindings : TGameBindingCatalog        read FGameKeyBindings;
@@ -46,38 +53,56 @@ var iDisplayGroup  : TConfigurationGroup;
 begin
   inherited Create;
   FSettingsPath := aSettingsPath;
+  FFullscreenOverride := -1;
 
   iDisplayGroup := AddGroup( GAME_CONFIGURATION_GROUP_DISPLAY );
-  iDisplayGroup.AddToggle( 'graphics', True ).SetName( 'Graphical ASCII' );
-  iDisplayGroup.AddToggle( 'fullscreen', True ).SetName( 'Fullscreen' );
-  iDisplayGroup.AddInteger( 'console_x', 100 ).SetRange( 80, 240 ).SetName( 'Columns' );
-  iDisplayGroup.AddInteger( 'console_y', 33 ).SetRange( 25, 120 ).SetName( 'Rows' );
-  iDisplayGroup.AddInteger( 'screen_x', 1024 ).SetRange( 640, 16384 ).SetName( 'Window width' );
-  iDisplayGroup.AddInteger( 'screen_y', 768 ).SetRange( 480, 16384 ).SetName( 'Window height' );
+  iDisplayGroup.AddInteger( 'display_mode', 0 ).SetName( 'Resolution' )
+    .SetDescription( 'Native desktop size or a window resolution.' );
+  iDisplayGroup.AddInteger( 'screen_width', 0 );
+  iDisplayGroup.AddInteger( 'screen_height', 0 );
+  iDisplayGroup.AddToggle( 'fullscreen', True ).SetName( 'Fullscreen' )
+    .SetDescription( 'Use native desktop fullscreen. Launch flags override this setting.' );
+  iDisplayGroup.AddInteger( 'font_multiplier', 0 ).SetRange( 0, 255 ).SetName( 'Font size multiplier' )
+    .SetDescription( 'Automatic uses the largest font that fits at least 80x25 characters.' );
+  iDisplayGroup.AddToggle( 'ascii_mode', False ).SetName( 'ASCII mode' )
+    .SetDescription( 'Use the native text terminal. Requires restart.' );
+  iDisplayGroup.AddInteger( 'ascii_width', 100 ).SetRange( 80, 240 ).SetName( 'ASCII columns' )
+    .SetDescription( 'Native terminal columns. Requires restart.' );
+  iDisplayGroup.AddInteger( 'ascii_height', 30 ).SetRange( 25, 120 ).SetName( 'ASCII rows' )
+    .SetDescription( 'Native terminal rows. Requires restart.' );
 
   iGroup := AddGroup( GAME_CONFIGURATION_GROUP_GAMEPLAY );
-  iGroup.AddInteger( 'run_delay', 10 ).SetRange( 0, 1000, 10 ).SetName( 'Run delay (ms)' );
-  iGroup.AddToggle( 'reveal_town', False ).SetName( 'Reveal town' );
-  iGroup.AddString( 'always_name', '' ).SetName( 'Default player name' );
+  iGroup.AddInteger( 'run_delay', 10 ).SetRange( 0, 1000, 10 ).SetName( 'Run delay (ms)' )
+    .SetDescription( 'Delay between automatic movement steps.' );
+  iGroup.AddToggle( 'reveal_town', False ).SetName( 'Reveal town' )
+    .SetDescription( 'Reveal town when starting or loading a Session.' );
+  iGroup.AddString( 'always_name', '' ).SetName( 'Default player name' )
+    .SetDescription( 'Leave empty to ask for a name. Applies to the next character; --name overrides it.' );
 
   iGroup := AddGroup( GAME_CONFIGURATION_GROUP_AUDIO );
-  iGroup.AddToggle( 'walk_sound', True ).SetName( 'Walking sound' );
-  iGroup.AddInteger( 'sound_volume', 100 ).SetRange( 0, 100, 5 ).SetName( 'Sound volume' );
-  iGroup.AddInteger( 'music_volume', 100 ).SetRange( 0, 100, 5 ).SetName( 'Music volume' );
+  iGroup.AddToggle( 'walk_sound', True ).SetName( 'Walking sound' )
+    .SetDescription( 'Play footsteps while moving.' );
+  iGroup.AddInteger( 'sound_volume', 100 ).SetRange( 0, 100, 5 ).SetName( 'Sound volume' )
+    .SetDescription( 'Sound volume from 0 to 100.' );
+  iGroup.AddInteger( 'music_volume', 100 ).SetRange( 0, 100, 5 ).SetName( 'Music volume' )
+    .SetDescription( 'Music volume from 0 to 100.' );
 
   FGameKeyBindings := TGameBindingCatalog.Create( GameKeyBindingInfo );
   iMovementGroup := AddGroup( GAME_BINDING_GROUP_MOVEMENT );
 
   FRunModifier := iMovementGroup.AddInteger( 'input_run_modifier', Ord( GMM_SHIFT ) );
+  FRunModifier.SetRange( Ord(GMM_NONE), Ord(GMM_CTRL) ).SetNames( ['None', 'Shift', 'Alt', 'Ctrl'] );
   FRunModifier.SetName( 'Run modifier' );
   FRunModifier.SetDescription( 'Hold this modifier with a movement key to run.' );
 
   FAttackModifier := iMovementGroup.AddInteger( 'input_attack_modifier', Ord( GMM_CTRL ) );
+  FAttackModifier.SetRange( Ord(GMM_NONE), Ord(GMM_CTRL) ).SetNames( ['None', 'Shift', 'Alt', 'Ctrl'] );
   FAttackModifier.SetName( 'Attack modifier' );
   FAttackModifier.SetDescription( 'Hold this modifier with a movement key to attack in place.' );
 
   FGameKeyBindings.RegisterGroup( iMovementGroup, GAME_BINDING_GROUP_MOVEMENT );
   FGameKeyBindings.RegisterGroup( AddGroup( GAME_BINDING_GROUP_ACTIONS ), GAME_BINDING_GROUP_ACTIONS );
+  FGameKeyBindings.RegisterGroup( AddGroup( GAME_BINDING_GROUP_PANELS ), GAME_BINDING_GROUP_PANELS );
   FGameKeyBindings.RegisterGroup( AddGroup( GAME_BINDING_GROUP_ITEMS ), GAME_BINDING_GROUP_ITEMS );
   FGameKeyBindings.ValidateRegistration;
 
@@ -92,7 +117,7 @@ begin
     else if FSettingsPath <> ''
       then WriteSettings;
   ApplyLiveSettings;
-  Option_Graphics := GetBoolean( 'graphics' );
+  Option_Graphics := not GetBoolean( 'ascii_mode' );
   Option_FullScreen := GetBoolean( 'fullscreen' );
 end;
 
@@ -124,8 +149,7 @@ var iKey : TIOKeyCode;
     end;
 begin
   aGame.Clear;
-  if FLuaConfig.TableExists( 'Keybindings' ) then
-    FLuaConfig.LoadKeybindings( aGame, 'Keybindings' );
+  FLuaConfig.LoadKeybindings( aGame, 'Keybindings' );
   // Only function bindings belong to expert Lua configuration.
   for iKey := 1 to IOKeyCodeMax do
     if aGame.ResolveKey( iKey ) <> BINDING_FORWARD_LUA then
@@ -141,12 +165,65 @@ begin
   aUI.LoadKeys( FUIKeyBindings );
 end;
 
+function TGameConfiguration.CatalogForEntry( const aID : AnsiString ) : TBindingCatalog;
+begin
+  if FGameKeyBindings.ActionForID( aID ) <> BINDING_NONE then Exit( FGameKeyBindings );
+  if FUIKeyBindings.ActionForID( aID ) <> BINDING_NONE then Exit( FUIKeyBindings );
+  Result := nil;
+end;
+
 procedure TGameConfiguration.ResetValues;
 var iGroup : TConfigurationGroup;
     iEntry : TConfigurationEntry;
 begin
   for iGroup in Groups do
     for iEntry in iGroup.Entries do iEntry.Reset;
+end;
+
+procedure TGameConfiguration.ResetGroup( const aGroupID : AnsiString );
+var iGroup   : TConfigurationGroup;
+    iEntry   : TConfigurationEntry;
+    iCatalog : TBindingCatalog;
+begin
+  iGroup := Group[ aGroupID ];
+  for iEntry in iGroup.Entries do
+  begin
+    iCatalog := CatalogForEntry( iEntry.ID );
+    if iCatalog = nil then
+      iEntry.Reset
+    else
+      iCatalog.SetKey( iCatalog.ActionForID( iEntry.ID ),
+        TIntegerConfigurationEntry( iEntry ).Default );
+  end;
+end;
+
+function TGameConfiguration.SnapshotValues : TConfigurationValueMap;
+var iGroup : TConfigurationGroup;
+    iEntry : TConfigurationEntry;
+begin
+  Result := TConfigurationValueMap.Create;
+  for iGroup in Groups do
+    for iEntry in iGroup.Entries do
+      if iEntry is TIntegerConfigurationEntry then
+        Result[ iEntry.ID ] := TIntegerConfigurationEntry( iEntry ).Value
+      else if iEntry is TToggleConfigurationEntry then
+        Result[ iEntry.ID ] := TToggleConfigurationEntry( iEntry ).Value
+      else if iEntry is TStringConfigurationEntry then
+        Result[ iEntry.ID ] := TStringConfigurationEntry( iEntry ).Value;
+end;
+
+procedure TGameConfiguration.RestoreValues( aValues : TConfigurationValueMap );
+var iGroup : TConfigurationGroup;
+    iEntry : TConfigurationEntry;
+begin
+  for iGroup in Groups do
+    for iEntry in iGroup.Entries do
+      if iEntry is TIntegerConfigurationEntry then
+        TIntegerConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ]
+      else if iEntry is TToggleConfigurationEntry then
+        TToggleConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ]
+      else if iEntry is TStringConfigurationEntry then
+        TStringConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ];
 end;
 
 procedure TGameConfiguration.ApplyLiveSettings;
@@ -157,25 +234,28 @@ begin
   if not FNameOverridden then Option_AlwaysName := GetString( 'always_name' );
 end;
 
-function TGameConfiguration.ReadSettings : Boolean;
+function TGameConfiguration.ValuesValid : Boolean;
 var iGroup : TConfigurationGroup;
     iEntry : TConfigurationEntry;
 begin
-  ResetValues;
-  Result := inherited Read( FSettingsPath );
-  if Result then
-    Result := FGameKeyBindings.ValuesValid and FUIKeyBindings.ValuesValid( 255 ) and
-      ( FRunModifier.Value >= Ord( Low( TGameMovementModifier ) ) ) and
-      ( FRunModifier.Value <= Ord( High( TGameMovementModifier ) ) ) and
-      ( FAttackModifier.Value >= Ord( Low( TGameMovementModifier ) ) ) and
-      ( FAttackModifier.Value <= Ord( High( TGameMovementModifier ) ) ) and
-      ( ( FRunModifier.Value = Ord( GMM_NONE ) ) or
-        ( FRunModifier.Value <> FAttackModifier.Value ) );
+  Result := FGameKeyBindings.ValuesValid and FUIKeyBindings.ValuesValid( 255 ) and
+    (FRunModifier.Value in [Ord(Low(TGameMovementModifier))..Ord(High(TGameMovementModifier))]) and
+    (FAttackModifier.Value in [Ord(Low(TGameMovementModifier))..Ord(High(TGameMovementModifier))]) and
+    ((FRunModifier.Value = Ord(GMM_NONE)) or (FRunModifier.Value <> FAttackModifier.Value));
+  Result := Result and (GetInteger( 'display_mode' ) >= 0) and
+    (GetInteger( 'screen_width' ) >= 0) and (GetInteger( 'screen_width' ) <= High(Word)) and
+    (GetInteger( 'screen_height' ) >= 0) and (GetInteger( 'screen_height' ) <= High(Word));
   for iGroup in Groups do
     for iEntry in iGroup.Entries do
-      if ( iEntry is TIntegerConfigurationEntry ) and ( iEntry.Name <> '' ) then
-        with iEntry as TIntegerConfigurationEntry do
-          if Max > Min then Result := Result and ( Value >= Min ) and ( Value <= Max );
+      if iEntry is TIntegerConfigurationEntry then
+        with TIntegerConfigurationEntry( iEntry ) do
+          if Max > Min then Result := Result and (Value >= Min) and (Value <= Max);
+end;
+
+function TGameConfiguration.ReadSettings : Boolean;
+begin
+  ResetValues;
+  Result := inherited Read( FSettingsPath ) and ValuesValid;
   if not Result then
   begin
     ResetValues;

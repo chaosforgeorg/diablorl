@@ -51,6 +51,10 @@ type
     procedure ItemInfo( aItem : TItem );
     procedure Update( aMSec : DWord ); override;
     procedure Reconfigure;
+    procedure ShowSettings;
+    procedure ReconfigureDisplay;
+    procedure FitDisplay;
+    procedure PostUpdate; override;
     procedure SetAudio( aAudio : TGameAudio );
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
     //Sound procedures wrapping
@@ -76,6 +80,7 @@ type
     FMainScreen    : TMainScreen;
     FSizeX, FSizeY : Word;
     FGraphicsMode  : Boolean;
+    FLookMode      : Boolean;
     FAudio         : TGameAudio; // borrowed from Runtime
   public
     property MainScreen : TMainScreen read FMainScreen;
@@ -83,6 +88,7 @@ type
     property SizeY : Word read FSizeY;
     property Player : TPlayer read GetPlayer;
     property GraphicsMode : Boolean read FGraphicsMode;
+    property LookMode : Boolean read FLookMode write FLookMode;
   end;
 
 function CommandDirection(Command: byte): TDirection;
@@ -96,7 +102,7 @@ uses DateUtils, variants,
     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF}
     vluasystem, rlshop, rllua, rlgame, rlpersistence,
     vsdlio, vglconsole,
-    vlog, vdebug, vmath, rllevel;
+    vlog, vdebug, vmath, rllevel, rlsettingsview;
 
 function CommandDirection(Command: byte): TDirection;
 begin
@@ -119,14 +125,15 @@ end;
 
 constructor TGameUI.Create( aConfig : TGameConfiguration );
 var iFlags : TSDLIOFlags;
+    iWidth, iHeight : Word;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
   Log( LOGINFO, 'Loading configuration file "'+ConfigurationPath+'"...' );
 
   FConfiguration := aConfig;
-  FSizeX        := aConfig.GetInteger( 'console_x' );
-  FSizeY        := aConfig.GetInteger( 'console_y' );
+  FSizeX        := aConfig.GetInteger( 'ascii_width' );
+  FSizeY        := aConfig.GetInteger( 'ascii_height' );
   FGraphicsMode := Option_Graphics;
 
   if FGraphicsMode then
@@ -145,10 +152,16 @@ begin
 
     FGraphicsMode := True;
     iFlags := [ SDLIO_OpenGL, SDLIO_Resizable ];
+    iWidth := aConfig.GetInteger( 'screen_width' );
+    iHeight := aConfig.GetInteger( 'screen_height' );
     if Option_FullScreen then
-      Include( iFlags, SDLIO_Fullscreen );
+    begin
+      Include( iFlags, SDLIO_DesktopFullScreen );
+      iWidth := 0;
+      iHeight := 0;
+    end;
     Log( LOGINFO, 'Initializing driver...' );
-    FIODriver := TSDLIODriver.Create( aConfig.GetInteger( 'screen_x' ), aConfig.GetInteger( 'screen_y' ), 32, iFlags );
+    FIODriver := TSDLIODriver.Create( iWidth, iHeight, 32, iFlags );
     Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
     FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
   end
@@ -215,6 +228,7 @@ begin
   Log( LOGINFO, 'Configuring...' );
   Configure( aConfig.LuaConfig );
   Reconfigure;
+  HideCursor;
   Log( LOGINFO, 'GameIO ready.' );
   FAnimCount := 0;
   TItem.InitColors( FGraphicsMode );
@@ -374,6 +388,8 @@ procedure TGameUI.Update( aMSec : DWord );
 begin
   FAnimTime := Driver.GetMs;
   inherited Update( aMSec );
+  // Restore Look after VTIG releases the string-entry cursor.
+  if FLookMode and not IsModal then ShowCursor;
 end;
 
 procedure TGameUI.ShowMortem;
@@ -387,9 +403,58 @@ begin
   RunLayer( THighscoreViewer.Create( Game.Persistence.ScoreList ) );
 end;
 
+procedure TGameUI.ShowSettings;
+begin
+  PushLayer( TGameSettingsView.Create( FConfiguration, @Reconfigure ) );
+end;
+
+procedure TGameUI.PostUpdate;
+begin
+  inherited PostUpdate;
+  if not FLayers.IsEmpty then
+    if FLayers.Top is TGameSettingsView then
+      TGameSettingsView( FLayers.Top ).ApplyPending;
+end;
+
+procedure TGameUI.FitDisplay;
+begin
+  TGLConsoleRenderer( FConsole ).FitToDevice( Point( 80, 25 ),
+    FConfiguration.GetInteger( 'font_multiplier' ) );
+  // Resizing the renderer sets its cursor type and makes it visible.
+  HideCursor;
+  FSizeX := FConsole.SizeX;
+  FSizeY := FConsole.SizeY;
+  if FMessages <> nil then FMessages.Resize( 2, FSizeX - 2 );
+  if FMainScreen <> nil then FMainScreen.UpdateMap;
+end;
+
+procedure TGameUI.ReconfigureDisplay;
+var iFlags : TSDLIOFlags;
+    iWidth, iHeight : Word;
+    iFullscreen : Boolean;
+begin
+  if not FGraphicsMode then Exit;
+  iFullscreen := FConfiguration.GetBoolean( 'fullscreen' );
+  if FConfiguration.FullscreenOverride >= 0 then
+    iFullscreen := FConfiguration.FullscreenOverride = 1;
+  iFlags := [SDLIO_OpenGL, SDLIO_Resizable];
+  iWidth := FConfiguration.GetInteger( 'screen_width' );
+  iHeight := FConfiguration.GetInteger( 'screen_height' );
+  if iFullscreen then
+  begin
+    Include( iFlags, SDLIO_DesktopFullScreen );
+    iWidth := 0;
+    iHeight := 0;
+  end;
+  if not SDLIO.ResetVideoMode( iWidth, iHeight, SDLIO.BPP, iFlags ) then
+    raise EIOException.Create( 'Could not apply the display mode.' );
+  FitDisplay;
+end;
+
 procedure TGameUI.Reconfigure;
 begin
   FConfiguration.ApplyLiveSettings;
+  ReconfigureDisplay;
   FConfiguration.LoadBindings( GameBindings, UIBindings );
   SetSoundVolume( FConfiguration.GetInteger( 'sound_volume' ) );
   SetMusicVolume( FConfiguration.GetInteger( 'music_volume' ) );
@@ -476,6 +541,11 @@ begin
   if ( Game = nil ) and ( aEvent.EType = VEVENT_SYSTEM ) and
      ( aEvent.System.Code = VIO_SYSEVENT_QUIT ) then
     raise EGameProcessQuit.Create( 'System quit requested' );
+  if not FLayers.IsEmpty then
+    if FLayers.Top is TGameSettingsView then
+      if TGameSettingsView( FLayers.Top ).HandleCaptureEvent( aEvent ) then Exit( True );
+  if FGraphicsMode and (aEvent.EType = VEVENT_SYSTEM) and
+     (aEvent.System.Code = VIO_SYSEVENT_RESIZE) then FitDisplay;
   Result := inherited OnEvent( aEvent );
 end;
 
