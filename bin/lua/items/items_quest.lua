@@ -134,7 +134,7 @@ register_item "sky_rock"
 	OnPickUp = function()
 		if player.quest["sky_rock_quest"] == 1 then
 			player:play_sound('87')
-			ui.msg("@<\"This must be what Griswold wanted.\"@>")
+			ui.msg("{!\"This must be what Griswold wanted.\"}")
 			player.quest["sky_rock_quest"] = 2
 		end
 	end,
@@ -186,7 +186,7 @@ register_item ( "arkaines_valor_base", "harmor" )
 	OnPickUp = function()
 		if player.quest["valor"] == 4 then
 			player:play_sound('91')
-			ui.msg("@<\"May the spirit of Arkaine protect me.\"@>")
+			ui.msg("{!\"May the spirit of Arkaine protect me.\"}")
 			player.quest["valor"] = 5
 		end
 	end

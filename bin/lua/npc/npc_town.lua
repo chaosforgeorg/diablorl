@@ -285,10 +285,10 @@ register_npc( "wirt", "townperson" )
 			})
 		else
 			ui.talk( "wirt", {
-				{ "@dI have something to sale,", false },
-				{ "@dbut it will cost @y50 gold@d", false },
-				{ "@djust to have a look", false },
-				{ "@d", false },
+				{ "{dI have something to sale,}", false },
+				{ "{dbut it will cost {y50 gold}}", false },
+				{ "{djust to have a look}", false },
+				{ "", false },
 				{ "Talk to Wirt", function() ui.talk_topics("wirt") end },
 				{ "What have you got?", function() world.shop("wirt_shop") end },
 				{ "Say goodbye", false }
@@ -380,16 +380,16 @@ register_npc( "cow", "townperson" )
 		if self.talk_count == 4 then
 			ui.plot_talk("MOO!!!")
 		elseif self.talk_count == 8 then
-			ui.msg("@<\"Yes, that is a cow all right!\"@>")
+			ui.msg("{!\"Yes, that is a cow all right!\"}")
 			player:play_sound(52)
 		elseif self.talk_count == 12 then
-			ui.msg("@<\"I am not thirsty!\"@>")
+			ui.msg("{!\"I am not thirsty!\"}")
 			player:play_sound(49)
 		elseif self.talk_count == 16 then
-			ui.msg("@<\"I am no milkmaid!\"@>")
+			ui.msg("{!\"I am no milkmaid!\"}")
 			player:play_sound(50)
 		elseif self.talk_count >= 20 then
-			ui.msg("@<\"Got milk?\"@>")
+			ui.msg("{!\"Got milk?\"}")
 			player:play_sound(48)
 			self.talk_count = 4
 		else
@@ -410,10 +410,10 @@ register_npc( "dying", "townperson" )
 			self.name    = "slain townsman"
 			self.picture = string.byte( "%" )
 		elseif player.quest["butcher"] == 1 then
-			ui.msg("@<\"Your death will be avenged.\"@>")
+			ui.msg("{!\"Your death will be avenged.\"}")
 			player:play_sound('08')
 		elseif player.quest["butcher"] == 2 then
-			ui.msg("@<\"Rest in peace my friend.\"@>")
+			ui.msg("{!\"Rest in peace my friend.\"}")
 			player:play_sound('09')
 			player.quest["butcher"] = 3
 		end

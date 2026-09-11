@@ -314,7 +314,7 @@ const SlotNone       = 0;
 
 implementation
 uses math, sysutils, vuid, vluasystem, rllevel, rlgame, vdebug, rllua, variants,
-rlui, rlviews;
+rlui, rlviews, vtigio;
 
 var
       MemorialText : Text;
@@ -864,7 +864,7 @@ procedure TPlayer.Die(iAttacker: TNPC = nil);
 begin
   UI.MainScreen.ClearBoth;
   PlaySound('71');
-  UI.Msg('You die... Press <@<Enter@>>...');
+  UI.Msg( 'You die... Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>...' );
   UI.Draw;
   UI.PressEnter;
   if iAttacker <> nil then
@@ -952,7 +952,7 @@ begin
     UI.PlaySound('sfx/misc/levelup.wav');
     Inc( FStats[ STAT_LEVEL ] );
     if Level < 50 then Inc(FPoints,5);
-    UI.Msg('You advance to @<level '+IntToStr(Level)+'@>!');
+    UI.Msg('You advance to {!level '+IntToStr(Level)+'}!');
     FStats[ STAT_HP ] := getLife;
     FStats[ STAT_MP ] := getMana;
     FLevelUp := True;
@@ -1265,7 +1265,7 @@ procedure TPlayer.doTravel;
 begin
   if FVisibleEnemies > 0 then
   begin
-     UI.Msg('@<"I can''t do that while enemies are present!"@>');
+     UI.Msg('{!"I can''t do that while enemies are present!"}');
      Exit;
   end;
 
@@ -1273,14 +1273,14 @@ begin
   begin
     if Distance( FPosition, FTravelTarget ) = 1 then
     begin
-       UI.Msg('@<"I''m already here!"@>');
+       UI.Msg('{!"I''m already here!"}');
        Exit;
     end;
 
     if FPathfinder.Run( FPosition, FTravelTarget, 5000 ) then
       FTravelMode := True
     else
-      UI.Msg('@<"I don''t know how to get there!"@>');
+      UI.Msg('{!"I don''t know how to get there!"}');
   end;
 end;
 
@@ -1296,7 +1296,7 @@ procedure TPlayer.doFire;
 begin
   if TLevel(Parent).Flags[ lfTown ] then
   begin
-    UI.Msg('@<"That won''t work here"@>');
+    UI.Msg('{!"That won''t work here"}');
     PlaySound('41');
     Exit;
   end;
@@ -1396,7 +1396,7 @@ var TownSafe : boolean = false;
 begin
   if aSpell = 0 then
   begin
-    UI.Msg('@<"I don''t have a spell ready."@>');
+    UI.Msg('{!"I don''t have a spell ready."}');
     PlaySound('34');
     Exit(False);
   end;
@@ -1420,21 +1420,21 @@ begin
 
   if (TLevel(Parent).Flags[ lfTown ]) and (not TownSafe) then
   begin
-    UI.Msg('@<"I can''t cast that here."@>');
+    UI.Msg('{!"I can''t cast that here."}');
     PlaySound('27');
     Exit(False);
   end;
 
   if (ManaCost > FStats[ STAT_MP ]) then
   begin
-    UI.Msg('@<"Not enough mana."@>');
+    UI.Msg('{!"Not enough mana."}');
     PlaySound('35');
     Exit(False);
   end;
 
   if (ReqMag > getMag) then
   begin
-    UI.Msg('@<"I can''t cast that yet."@>');
+    UI.Msg('{!"I can''t cast that yet."}');
     PlaySound('28');
     Exit(False);
   end;
@@ -1466,7 +1466,7 @@ begin
                       exit;
                     end;
     SlotFailTown  : begin
-                      UI.Msg('@<"I can''t cast that here"@>');
+                      UI.Msg('{!"I can''t cast that here"}');
                       PlaySound('27');
                     end;
     else UI.Msg('What?');
@@ -1584,9 +1584,9 @@ begin
   255:  begin
           nSound := 14 + UI.VisualRNG.RLongInt(3);
           case nSound of
-          14: UI.Msg('@<"I can''t carry any more"@>');
-          15: UI.Msg('@<"I have no room!"@>');
-          16: UI.Msg('@<"Where would I put this?"@>');
+          14: UI.Msg('{!"I can''t carry any more"}');
+          15: UI.Msg('{!"I have no room!"}');
+          16: UI.Msg('{!"Where would I put this?"}');
           end;
           PlaySound(IntToStr(nSound));
         end;
@@ -1764,7 +1764,7 @@ begin
     COMMAND_QUICKSLOT1..COMMAND_QUICKSLOT8 : UseQuickSlot(iKey-COMMAND_QUICKSLOT1+1);
 {    COMMAND_QUICKSKILL1 ..
     COMMAND_QUICKSKILL4 : if QuickSkills[Key - COMMAND_QUICKSKILL1 + 1] > 0 then Spell:=QuickSkills[iKey - COMMAND_QUICKSKILL1 + 1];}
-    else UI.Msg( 'Unknown command. Press @<' + UI.CommandKey( COMMAND_ESCAPE ) + '@> for menu and help file!' );
+    else UI.Msg( 'Unknown command. Press {!' + UI.CommandKey( COMMAND_ESCAPE ) + '} for menu and help file!' );
   end;
   UI.WaitForAnimationCompletion( True );
 end;
@@ -2032,10 +2032,10 @@ begin
   Slot := ItemToSlot( aItem );
   case Slot of
     1..ITEMS_EQ    : Exit( True );
-    SlotFailReq    : Exit( Fail( '@<"I can''t use this yet"@>', [], '13' ) );
+    SlotFailReq    : Exit( Fail( '{!"I can''t use this yet"}', [], '13' ) );
     SlotFailHas2H  : Exit( Fail( 'Take off your two handed stuff first.', [] ) );
     SlotFailWear2H : Exit( Fail( 'You need two hands free for this.', [] ) );
-    SlotFailTown   : Exit( Fail( '@<"I can''t use this here"@>', [], '27' ) );
+    SlotFailTown   : Exit( Fail( '{!"I can''t use this here"}', [], '27' ) );
   else
     Exit( Fail( 'What?', [] ) );
   end;
@@ -2064,7 +2064,7 @@ begin
   if aItem <> nil then
   begin
     if not (aItem.IType in [TYPE_POTION, TYPE_SCROLL] ) then Exit( Fail( 'Not a quickslot item!',[] ) );
-    if not aItem.ReqsMet( False ) then Exit( Fail( '@<"I can''t use this yet"@>', [], '13' ) );
+    if not aItem.ReqsMet( False ) then Exit( Fail( '{!"I can''t use this yet"}', [], '13' ) );
   end;
 
   if FQuickSlots[aSlot] <> nil then
@@ -2100,10 +2100,10 @@ begin
   begin
     aSlot := ItemToSlot( aItem );
     case aSlot of
-      SlotFailReq   : Exit( Fail( '@<"I can''t use this yet"@>', [], '13' ) );
+      SlotFailReq   : Exit( Fail( '{!"I can''t use this yet"}', [], '13' ) );
       SlotFailHas2H : Exit( Fail( 'Take off your two handed stuff first.', [] ) );
       SlotFailWear2H: Exit( Fail( 'You need two hands free for this.', [] ) );
-      SlotFailTown  : Exit( Fail( '@<"I can''t use this here"@>', [], '27' ) );
+      SlotFailTown  : Exit( Fail( '{!"I can''t use this here"}', [], '27' ) );
       SlotPotion,
       SlotScroll,
       SlotBook      : Exit( UseItem( aItem ) );

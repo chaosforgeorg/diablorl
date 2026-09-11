@@ -147,7 +147,7 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 	OnCreate = function(self)
 		generator.tile_place_raw( self, self.__proto.map, self.__proto.map_key )
 
-		ui.msg('Welcome to DiabloRL '..VERSION..'. Press @<Escape@> for menu and help.')
+		ui.msg('Welcome to DiabloRL '..VERSION..'. Press {!Escape} for menu and help.')
 
 		-- Decide which quests to disable
 		local qset = {"leoric_quest","water"}

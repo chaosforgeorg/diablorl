@@ -1222,7 +1222,7 @@ register_npc ( "the_butcher", "npc" )
 
 	OnDie = function()
 		player:play_sound(80);
-		ui.msg_enter("@<\"The spirits of the dead are now avenged\"@>")
+		ui.msg_enter("{!\"The spirits of the dead are now avenged\"}")
 		player.quest["butcher"] = 2
 	end,
 }
@@ -1262,7 +1262,7 @@ register_npc ( "leoric", "npc" )
 
 	OnDie = function()
 		player:play_sound("82")
-		ui.msg_enter("@<\"Rest well Leoric. I'll find your son.\"@>")
+		ui.msg_enter("{!\"Rest well Leoric. I'll find your son.\"}")
 		player.quest["leoric_quest"] = 3
 	end,
 }
@@ -1353,7 +1353,7 @@ register_npc( "gharbad", "goat" )
 
 	OnDie = function()
 		player:play_sound(61);
-		ui.msg_enter("@<\"I'm not impressed.\"@>")
+		ui.msg_enter("{!\"I'm not impressed.\"}")
 		player.quest["gharbad_quest"] = 7
 	end,
 
@@ -1394,7 +1394,7 @@ register_npc( "zhar_the_mad", "mage" )
 
 	OnDie = function()
 		player:play_sound(62);
-		ui.msg_enter("@<\"I'm sorry, did I break your concentration?\"@>")
+		ui.msg_enter("{!\"I'm sorry, did I break your concentration?\"}")
 		player.quest["mad_mage"] = 2
 	end
 }

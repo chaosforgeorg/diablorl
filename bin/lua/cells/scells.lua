@@ -215,7 +215,7 @@ register_cell "locked_chest"
 			self:drop_item("tavern_sign",c)
 			self:set_cell(c,"open_chest")
 		else
-			ui.msg("@<\"I can't open this yet.\"@>")
+			ui.msg("{!\"I can't open this yet.\"}")
 			player:play_sound(24);
 		end
 	end,

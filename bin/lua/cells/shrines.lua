@@ -23,7 +23,7 @@ register_cell( "abandoned_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<The hands of men may be guided by fate.@>")
+		ui.msg("{!The hands of men may be guided by fate.}")
 		player.dex = math.min(player.dex + 2, klasses[player.klass].maxdex)
 		self:set_cell( c, "visited_shrine" )
 	end,
@@ -35,7 +35,7 @@ register_cell( "creepy_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Strength is bolstered by heavenly faith.@>")
+		ui.msg("{!Strength is bolstered by heavenly faith.}")
 		player.str = math.min(player.str + 2, klasses[player.klass].maxstr)
 		self:set_cell( c, "visited_shrine" )
 	end,
@@ -47,7 +47,7 @@ register_cell( "cryptic_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Arcane power brings destruction.@>")
+		ui.msg("{!Arcane power brings destruction.}")
 		player.mp = player.mpmax
 		--To do:
 		--cast Nova spell of level (dungeon_level div 4 + 2)
@@ -61,7 +61,7 @@ register_cell( "divine_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Drink and be refreshed.@>")
+		ui.msg("{!Drink and be refreshed.}")
 		player.hp = player.hpmax
 		player.mp = player.mpmax
 		if self.depth < 4 then
@@ -81,7 +81,7 @@ register_cell( "eerie_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Knowledge and wisdom at the cost of self.@>")
+		ui.msg("{!Knowledge and wisdom at the cost of self.}")
 		player.mag = math.min(player.mag + 2,klasses[player.klass].maxmag)
 		self:set_cell( c, "visited_shrine" )
 	end,
@@ -93,7 +93,7 @@ register_cell( "eldritch_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Crimson and Azure become as the sun.@>")
+		ui.msg("{!Crimson and Azure become as the sun.}")
 		for i,pot in pairs({ 'healing', 'mana' }) do
 			local pitem
 			repeat
@@ -121,7 +121,7 @@ register_cell( "enchanted_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Magic is not always what it seems to be.@>")
+		ui.msg("{!Magic is not always what it seems to be.}")
 		local _spells_ = {}
 
 		for i = 1, #spells do
@@ -150,7 +150,7 @@ register_cell( "fascinating_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Intensity comes at the cost of wisdom.@>")
+		ui.msg("{!Intensity comes at the cost of wisdom.}")
 		player.mpmod = player.mpmod - math.max(1,math.floor(player.mpmax / 10))
 		player.spells["firebolt"] = player.spells["firebolt"] + 2
 		self:set_cell( c, "visited_shrine" )
@@ -165,7 +165,7 @@ register_cell( "glimmering_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Mysteries are revealed in the light of reason.@>")
+		ui.msg("{!Mysteries are revealed in the light of reason.}")
 		for item in player:items() do
 			item:identify()
 		end
@@ -179,7 +179,7 @@ register_cell( "gloomy_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Those who defend seldom attack.@>")
+		ui.msg("{!Those who defend seldom attack.}")
 		for item in player:items() do
 			if item.itype == TYPE_WEAPON then
 				item.dmgmin = math.max(1,item.dmgmin-1)
@@ -198,7 +198,7 @@ register_cell( "hidden_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<New strength is forged through destruction.@>")
+		ui.msg("{!New strength is forged through destruction.}")
 		local _items_ = {}
 		for i = 1, ITEMS_EQ do
 			if player.eq[i] and player.eq[i].durmax > 0 then
@@ -227,7 +227,7 @@ register_cell( "holy_shrine", "shrine" )
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic1.wav')
 		ui.play_sound('sfx/misc/teleport.wav')
-		ui.msg("@<Wherever you go, there you are.@>")
+		ui.msg("{!Wherever you go, there you are.}")
 		player.mp = player.mpmax
 		player:phasing()
 		self:set_cell( c, "visited_shrine" )
@@ -241,7 +241,7 @@ register_cell( "magical_shrine", "shrine" )
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
 		ui.play_sound('sfx/misc/mshield.wav')
-		ui.msg("@<While the spirit is vigilant, the body thrives.@>")
+		ui.msg("{!While the spirit is vigilant, the body thrives.}")
 		player.mp = player.mpmax
 		spells['mana_shield'].script(2*math.ceil(self.depth / 4), player )
 		self:set_cell( c, "visited_shrine" )
@@ -254,7 +254,7 @@ register_cell( "mysterious_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Some are weakened as one grows strong.@>")
+		ui.msg("{!Some are weakened as one grows strong.}")
 		local gain = math.random(4)
 		for i,stat in pairs({'str','mag','dex','vit'}) do
 			if i == gain then
@@ -273,7 +273,7 @@ register_cell( "ornate_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Salvation comes at the cost of wisdom.@>")
+		ui.msg("{!Salvation comes at the cost of wisdom.}")
 		player.mpmod = player.mpmod - math.max(1,math.floor(player.mpmax / 10))
 		player.spells["holy_bolt"] = player.spells["holy_bolt"] + 2
 		self:set_cell( c, "visited_shrine" )
@@ -286,7 +286,7 @@ register_cell( "quiet_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<The essence of life flows from within.@>")
+		ui.msg("{!The essence of life flows from within.}")
 		player.vit = math.min(player.vit + 2, klasses[player.klass].maxvit)
 		self:set_cell( c, "visited_shrine" )
 	end,
@@ -298,7 +298,7 @@ register_cell( "religious_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Time cannot diminish the power of steel.@>")
+		ui.msg("{!Time cannot diminish the power of steel.}")
 		for item in player:items() do
 			item.dur = item.durmax
 		end
@@ -312,7 +312,7 @@ register_cell( "sacred_shrine", "shrine" )
 
 	OnAct = function(c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Energy comes at the cost of wisdom.@>")
+		ui.msg("{!Energy comes at the cost of wisdom.}")
 		player.mpmod = player.mpmod - math.max(1,math.floor(player.mpmax / 10))
 		--To do:
 		--player.spells["charged_bolt"] = player.spells["charged_bolt] + 2
@@ -326,7 +326,7 @@ register_cell( "secluded_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<The way is made clear when viewed from above.@>")
+		ui.msg("{!The way is made clear when viewed from above.}")
 		self:set_light_flag( vlfExplored, true )
 		self:set_cell( c, "visited_shrine" )
 	end,
@@ -338,7 +338,7 @@ register_cell( "spiritual_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<Riches abound when least expected.@>")
+		ui.msg("{!Riches abound when least expected.}")
 		local multiplier = math.ceil( self.depth / 4 )
 		local amount = MaxVolume-player.volume
 		if amount > 0 then
@@ -356,7 +356,7 @@ register_cell( "stone_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<The powers of mana refocused renews.@>")
+		ui.msg("{!The powers of mana refocused renews.}")
 		for item in player:items() do
 			item.charges = item.chargesmax
 		end
@@ -370,7 +370,7 @@ register_cell( "thaumaturgic_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<What once was opened now is closed.@>")
+		ui.msg("{!What once was opened now is closed.}")
 	--To do:
     --refills all chests on the current level
 		self:set_cell( c, "visited_shrine" )
@@ -383,7 +383,7 @@ register_cell( "weird_shrine", "shrine" )
 
 	OnAct = function(self,c)
 		ui.play_sound('sfx/items/magic.wav')
-		ui.msg("@<The sword of justice is swift and sharp.@>")
+		ui.msg("{!The sword of justice is swift and sharp.}")
 		for item in player:items() do
 			if item.itype == TYPE_WEAPON then
 				item.dmgmax = item.dmgmax + 1

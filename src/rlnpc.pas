@@ -806,9 +806,9 @@ function TNPC.GetResistancesString : AnsiString;
 
 begin
   GetResistancesString :=
-    '@R'+ResChar( STAT_RESFIRE )+
-    '@y'+ResChar( STAT_RESLIGHTNING )+
-    '@B'+ResChar( STAT_RESMAGIC );
+    '{R'+ResChar( STAT_RESFIRE )+'}'+
+    '{y'+ResChar( STAT_RESLIGHTNING )+'}'+
+    '{B'+ResChar( STAT_RESMAGIC )+'}';
 end;
 
 function TNPC.GetWallCount : byte;

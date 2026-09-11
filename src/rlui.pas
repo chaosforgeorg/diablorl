@@ -726,7 +726,7 @@ function lua_ui_msg_enter( L : Plua_State ) : Integer; cdecl;
 var iState : TGameLuaState;
 begin
   iState.Init( L );
-  UI.Msg( iState.ToString( 1 ) + ' Press <@<' + UI.UIKey( VTIG_IE_CONFIRM ) + '@>>...' );
+  UI.Msg( iState.ToString( 1 ) + ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>...' );
   UI.WaitForKey( [ UI.UIBindings.GetKey( VTIG_IE_CONFIRM ) ] );
   UI.MsgUpdate;
   Result := 0;

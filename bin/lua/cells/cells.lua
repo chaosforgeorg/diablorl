@@ -764,7 +764,7 @@ register_cell( "closed_door_catacombs", "solid" )
 			ui.msg("You open the door. Click.")
 			ui.play_sound('sfx/items/dooropen.wav',c)
 		else
-			ui.msg("@<\"Maybe it's locked from the inside.\"@>")
+			ui.msg("{!\"Maybe it's locked from the inside.\"}")
 		end
 	end,
 }

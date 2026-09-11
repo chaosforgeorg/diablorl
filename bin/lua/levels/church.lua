@@ -12,10 +12,10 @@ register_level "level1"
 	OnCreate = function(self)
 		generator.room_level( self, "church" )
 	    if (math.random(2)==1) then
-			ui.msg("@<\"The sanctity of this place has been fouled...\"@>")
+			ui.msg("{!\"The sanctity of this place has been fouled...\"}")
 			player:play_sound(97)
 		else
-			ui.msg("@<\"The smell of death surrounds me...\"@>")
+			ui.msg("{!\"The smell of death surrounds me...\"}")
 			player:play_sound(96)
 		end
 	end,

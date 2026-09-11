@@ -307,15 +307,18 @@ begin
   end;
   if iReq > Game.Player.getMag then
   begin
-    GetSpellName := '@r'+GetSpellName;
-    iColor := '@r';
+    GetSpellName := '{r'+GetSpellName+'}';
+    iColor := 'r';
   end
   else
   if Chargesmax > 0 then
   begin
-         if (Charges*100 div Chargesmax) <= 50 then iColor := '@y'
-    else if (Charges*100 div Chargesmax) <= 10 then iColor := '@r';
-    GetSpellName += ' {'+iColor+inttostr(Charges)+'@>'+'/'+iColor+inttostr(Chargesmax)+'@>}';
+         if (Charges*100 div Chargesmax) <= 50 then iColor := 'y'
+    else if (Charges*100 div Chargesmax) <= 10 then iColor := 'r';
+    if iColor = '' then
+      GetSpellName += ' ['+IntToStr(Charges)+'/'+IntToStr(Chargesmax)+']'
+    else
+      GetSpellName += ' [{'+iColor+IntToStr(Charges)+'/'+IntToStr(Chargesmax)+'}]';
   end;
 end;
 
@@ -414,25 +417,28 @@ begin
 
   if (StrReq<>0) or (DexReq<>0) or (iMagReq<>0) then
   begin
-    if not reqsmet(false) then
-      Result += '@r';
-    Result += ' Requires ';
+    if not reqsmet(false)
+      then Result += ' {rRequires} '
+      else Result += ' Requires ';
     if StrReq<>0 then
     begin
-      if StrReq>Game.Player.GetStr then Result += '@r';
+      if StrReq>Game.Player.GetStr then Result += '{r';
       Result += 'STR:'+inttostr(StrReq);
-      if (iMagReq<>0) or (DexReq<>0) then Result += '@> ';
+      if StrReq>Game.Player.GetStr then Result += '}';
+      if (iMagReq<>0) or (DexReq<>0) then Result += ' ';
     end;
     if iMagReq<>0 then
     begin
-      if iMagReq>Game.Player.GetMag then Result += '@r';
+      if iMagReq>Game.Player.GetMag then Result += '{r';
       Result += 'MAG:'+inttostr(iMagReq);
-      if (DexReq<>0) then Result += '@> ';
+      if iMagReq>Game.Player.GetMag then Result += '}';
+      if (DexReq<>0) then Result += ' ';
     end;
     if DexReq<>0 then
     begin
-      if DexReq>Game.Player.GetDex then Result += '@r';
-      Result += 'DEX:'+inttostr(DexReq)
+      if DexReq>Game.Player.GetDex then Result += '{r';
+      Result += 'DEX:'+inttostr(DexReq);
+      if DexReq>Game.Player.GetDex then Result += '}';
     end;
   end;
 end;
