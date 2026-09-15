@@ -165,7 +165,7 @@ begin
     Log( LOGINFO, 'Initializing driver...' );
     FIODriver := TSDLIODriver.Create( iWidth, iHeight, 32, iFlags );
     Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
-    FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
+    FConsole := TGLConsoleRenderer.Create( FIODriver, DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
   end
   else
   begin
@@ -387,12 +387,17 @@ begin
 end;
 
 procedure TGameUI.Update( aMSec : DWord );
+var iDriver : TSDLIODriver;
 begin
   FAnimTime := Driver.GetMs;
-  if FGraphicsMode and SDLIO.RefreshWindowSize then
+  if FGraphicsMode then
   begin
-    if FDisplaySize <> Point( SDLIO.Width, SDLIO.Height ) then FitDisplay;
-    if not SDLIO.FullScreen then FWindowSize := Point( SDLIO.Width, SDLIO.Height );
+    iDriver := TSDLIODriver( FIODriver );
+    if iDriver.RefreshWindowSize then
+    begin
+      if FDisplaySize <> Point( iDriver.Width, iDriver.Height ) then FitDisplay;
+      if not iDriver.FullScreen then FWindowSize := Point( iDriver.Width, iDriver.Height );
+    end;
   end;
   inherited Update( aMSec );
   // Restore Look after VTIG releases the string-entry cursor.
@@ -425,12 +430,14 @@ end;
 
 procedure TGameUI.FitDisplay;
 var iMinimum : TIOPoint;
+    iDriver : TSDLIODriver;
 begin
+  iDriver := TSDLIODriver( FIODriver );
   with TGLConsoleRenderer( FConsole ).Font.GylphSize do
     iMinimum := Point( X, Y );
-  if (SDLIO.Width < DWord( iMinimum.X * 80 )) or
-     (SDLIO.Height < DWord( iMinimum.Y * 25 )) then Exit;
-  FDisplaySize := Point( SDLIO.Width, SDLIO.Height );
+  if (iDriver.Width < DWord( iMinimum.X * 80 )) or
+     (iDriver.Height < DWord( iMinimum.Y * 25 )) then Exit;
+  FDisplaySize := Point( iDriver.Width, iDriver.Height );
   TGLConsoleRenderer( FConsole ).FitToDevice( Point( 80, 25 ),
     FFontMultiplier );
   // Resizing the renderer sets its cursor type and makes it visible.
@@ -452,14 +459,16 @@ begin
 end;
 
 procedure TGameUI.ReconfigureDisplay;
-var iFlags, iOldFlags : TSDLIOFlags;
+var iDriver : TSDLIODriver;
+    iFlags, iOldFlags : TSDLIOFlags;
     iSize, iOldSize, iMinimum : TIOPoint;
     iFullscreen : Boolean;
 begin
   if not FGraphicsMode then Exit;
+  iDriver := TSDLIODriver( FIODriver );
   with TGLConsoleRenderer( FConsole ).Font.GylphSize do
     iMinimum := Point( X, Y );
-  if not SDLIO.SetMinimumSize( Point( iMinimum.X * 80, iMinimum.Y * 25 ) ) then
+  if not iDriver.SetMinimumSize( Point( iMinimum.X * 80, iMinimum.Y * 25 ) ) then
     raise EIOException.Create( 'Could not set the minimum window size.' );
   iFullscreen := FConfiguration.GetBoolean( 'fullscreen' );
   if FConfiguration.FullscreenOverride >= 0 then
@@ -468,26 +477,26 @@ begin
   iSize := Point( FConfiguration.GetInteger( 'screen_width' ),
     FConfiguration.GetInteger( 'screen_height' ) );
   if (iSize = FRequestedSize) and (FWindowSize.X > 0) then iSize := FWindowSize;
-  iOldFlags := SDLIO.Flags;
-  if not SDLIO.RefreshWindowSize then
+  iOldFlags := iDriver.Flags;
+  if not iDriver.RefreshWindowSize then
     raise EIOException.Create( 'Could not read the current window size.' );
-  iOldSize := Point( SDLIO.Width, SDLIO.Height );
+  iOldSize := Point( iDriver.Width, iDriver.Height );
   if iFullscreen then Include( iFlags, SDLIO_DesktopFullScreen );
-  if not SDLIO.ResetVideoMode( iSize.X, iSize.Y, SDLIO.BPP, iFlags ) or
-     not SDLIO.SynchronizeWindow then
+  if not iDriver.ResetVideoMode( iSize.X, iSize.Y, iDriver.BPP, iFlags ) or
+     not iDriver.SynchronizeWindow then
   begin
-    if not SDLIO.ResetVideoMode( iOldSize.X, iOldSize.Y, SDLIO.BPP, iOldFlags ) or
-       not SDLIO.SynchronizeWindow then
+    if not iDriver.ResetVideoMode( iOldSize.X, iOldSize.Y, iDriver.BPP, iOldFlags ) or
+       not iDriver.SynchronizeWindow then
       raise EIOException.Create( 'Display change and restoration both failed.' );
-    SDLIO.RefreshWindowSize;
+    iDriver.RefreshWindowSize;
     FitDisplay;
     raise EIOException.Create( 'Could not apply the display mode; previous mode restored.' );
   end;
   FRequestedSize := Point( FConfiguration.GetInteger( 'screen_width' ),
     FConfiguration.GetInteger( 'screen_height' ) );
-  SDLIO.RefreshWindowSize;
+  iDriver.RefreshWindowSize;
   if iFullscreen then FWindowSize := iSize
-  else FWindowSize := Point( SDLIO.Width, SDLIO.Height );
+  else FWindowSize := Point( iDriver.Width, iDriver.Height );
   FFontMultiplier := FConfiguration.GetInteger( 'font_multiplier' );
   FitDisplay;
 end;
