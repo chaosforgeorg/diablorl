@@ -69,7 +69,7 @@ TThing = class(TLuaEntityNode)
 end;
 
 implementation
-uses SysUtils, vluasystem, rllua;
+uses SysUtils, vluasystem, rllua, rlgame;
 
 function TThing.GetStatistics ( aIndex : DWord ) : LongInt;
 begin
@@ -85,7 +85,7 @@ constructor TThing.Create( const aThingID : AnsiString );
 var iCount : DWord;
 begin
   // With TNode descendants ALWAYS call inherited Init and Done.
-  inherited Create( aThingID );
+  inherited Create( aThingID, Game.Context );
   // To be on the safe side we set x,y to 1, 'cause (0,0) is not
   // a valid map coordinate in this game.
   FPosition.Create( 1, 1 );
@@ -127,7 +127,7 @@ end;
 
 constructor TThing.CreateFromStream(ISt: TStream);
 begin
-  inherited CreateFromStream(ISt);
+  inherited CreateFromStream( ISt, Game.Context );
   ISt.Read( FStats, SizeOf(FStats) );
 end;
 

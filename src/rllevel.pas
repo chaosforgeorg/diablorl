@@ -159,7 +159,7 @@ end;
 
 constructor TLevel.Create(const aLevelID : AnsiString);
 begin
-  inherited Create( aLevelID, MapSizeX, MapSizeY, 15 );
+  inherited Create( aLevelID, MapSizeX, MapSizeY, 15, Game.Context );
 
   Init;
   Log('Created.');
@@ -376,7 +376,7 @@ end;
 
 constructor TLevel.CreateFromStream( aStream : TStream);
 begin
-  inherited CreateFromStream( aStream );
+  inherited CreateFromStream( aStream, Game.Context );
   Init;
   FTravelPoints := TTravelPoints.CreateFromStream( aStream );
 end;

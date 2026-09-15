@@ -45,14 +45,14 @@ end;
 implementation
 
 // Remove
-uses vluasystem, rllua;
+uses vluasystem, rllua, rlgame;
 
 { TShop }
 
 constructor TShop.Create(const thingID: string);
 var Count : DWord;
 begin
-  inherited Create(thingID,True);
+  inherited Create( thingID, Game.Context );
   for Count := 1 to ITEMS_SHOP do FItems[Count] := nil;
   FLevel := 0;
 end;
@@ -67,7 +67,7 @@ end;
 constructor TShop.CreateFromStream(ISt: TStream);
 var Count, Size : DWord;
 begin
-  inherited CreateFromStream(ISt);
+  inherited CreateFromStream( ISt, Game.Context );
   for Count := 1 to ITEMS_SHOP do FItems[Count] := nil;
   FLevel := ISt.ReadWord;
   Size := ISt.ReadDWord;

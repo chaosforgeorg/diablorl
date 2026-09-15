@@ -67,7 +67,7 @@ uses zstream, vutil, vrltools, vluasystem, rlui, rlviews;
 
 constructor TGameSession.Create( aRuntime : TRLRuntime; aPersistence : TPersistence );
 begin
-  inherited Create;
+  inherited Create( TNodeContext.Create( aRuntime.Lua, nil ) );
   FRuntime := aRuntime;
   FPersistence := aPersistence;
   FNextLevelID := 'town';
@@ -105,6 +105,7 @@ begin
   else
   begin
     FUIDStore := TUIDStore.Create;
+    FContext.BindUIDs( FUIDStore );
     vuid.UIDs := FUIDStore;
     FUID := FUIDStore.Register( Self );
     if FileExists( FRuntime.Paths.WritePath + 'save' ) then
@@ -246,6 +247,7 @@ begin
   inherited Destroy;
   FLevel := nil;
   FreeAndNil( FUIDStore );
+  FreeAndNil( FContext );
   Game := nil;
 end;
 
@@ -263,6 +265,7 @@ begin
       iVersion := iStream.ReadAnsiString;
       if iVersion <> VERSION then raise Exception.Create( 'Wrong save file version!' );
       FUIDStore := TUIDStore.CreateFromStream( iStream );
+      FContext.BindUIDs( FUIDStore );
       vuid.UIDs := FUIDStore;
       iUID := iStream.ReadQWord;
       if ( iUID = 0 ) or ( iUID >= FUIDStore.Size ) then
