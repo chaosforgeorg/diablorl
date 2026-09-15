@@ -8,7 +8,7 @@
 
 unit rlthing;
 interface
-uses classes, vluaentitynode, rlglobal, vluasystem;
+uses classes, vluaentitynode, vlua, rlglobal;
 
 // Generic Thing class -- ancestor to both TItem and TNPC.
 type
@@ -37,7 +37,7 @@ TThing = class(TLuaEntityNode)
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // register lua functions
-       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+       class procedure RegisterLuaAPI( aLua : TLua );
      protected
        function GetStatistics ( aIndex : DWord ) : LongInt;
        procedure SetStatistics ( aIndex : DWord ; aValue : LongInt ) ;
@@ -69,7 +69,7 @@ TThing = class(TLuaEntityNode)
 end;
 
 implementation
-uses SysUtils, rllua, rlgame;
+uses sysutils, rllua, rlgame;
 
 function TThing.GetStatistics ( aIndex : DWord ) : LongInt;
 begin
@@ -138,7 +138,7 @@ begin
 end;
 
 function lua_thing_get_name(L: Plua_State) : Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     th    : TThing;
 begin
   State.Init(L);
@@ -151,7 +151,7 @@ begin
 end;
 
 function lua_thing_get_stat(L: Plua_State) : Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     th    : TThing;
 begin
   State.Init(L);
@@ -166,9 +166,9 @@ const lua_thing_lib : array[0..2] of luaL_Reg = (
   ( name : nil;           func : nil; )
 );
 
-class procedure TThing.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TThing.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register('thing', lua_thing_lib );
+  aLua.Register('thing', lua_thing_lib );
 end;
 
 end.

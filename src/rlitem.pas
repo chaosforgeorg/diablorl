@@ -5,7 +5,7 @@
 
 unit rlitem;
 interface
-uses classes, vnode, vutil, rlthing, rlglobal, viotypes, vluasystem;
+uses classes, vnode, vutil, viotypes, vlua, rlthing, rlglobal;
 
 type TItemColors = ( COLOR_NORMAL, COLOR_MAGIC, COLOR_UNIQUE, COLOR_RED );
 
@@ -58,7 +58,7 @@ TItem = class(TThing)
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // register lua functions
-       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+       class procedure RegisterLuaAPI( aLua : TLua );
        // Checks if requirements met / also checks for ifUnknown and for the special Req = bonus case
        function ReqsMet( isWorn : Boolean ) : Boolean;
        // Init colors
@@ -120,7 +120,7 @@ type TItemList = specialize TGNodeList< TItem >;
 
 implementation
 
-uses sysutils, vmath, vluaentitynode, rllua, rlgame, variants;
+uses sysutils, variants, vmath, vluaentitynode, rllua, rlgame;
 
 procedure TItem.Init;
 begin
@@ -559,7 +559,7 @@ end;
 
 
 function lua_item_new(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
 begin
   State.Init(L);
   State.Push( TItem.Create( State.ToString(1), State.ToInteger(2,0) ) );
@@ -567,7 +567,7 @@ begin
 end;
 
 function lua_item_identify(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     it      : TItem;
 begin
   State.Init(L);
@@ -577,7 +577,7 @@ begin
 end;
 
 function lua_item_get_price(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     it      : TItem;
 begin
   State.Init(L);
@@ -587,7 +587,7 @@ begin
 end;
 
 function lua_item_reqs_met(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     it      : TItem;
 begin
   State.Init(L);
@@ -598,7 +598,7 @@ end;
 
 
 function lua_item_repair(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     it      : TItem;
 begin
   State.Init(L);
@@ -611,7 +611,7 @@ begin
 end;
 
 function lua_item_recharge(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     it      : TItem;
 begin
   State.Init(L);
@@ -633,9 +633,9 @@ const lua_item_lib : array[0..6] of luaL_Reg = (
   ( name : nil;           func : nil; )
 );
 
-class procedure TItem.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TItem.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register( 'item', lua_item_lib );
+  aLua.Register( 'item', lua_item_lib );
 end;
 
 end.

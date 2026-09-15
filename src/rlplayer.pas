@@ -5,7 +5,7 @@
 
 unit rlplayer;
 interface
-uses classes, vutil, vnode, rlglobal, rlnpc, rlconfig, rlitem, vrltools, vgenerics, vluasystem;
+uses classes, vutil, vnode, vrltools, vgenerics, vlua, rlglobal, rlnpc, rlconfig, rlitem;
 
 type TQuests = array[1..MaxQuests] of byte;
 type TSpells = array[1..MaxSpells] of byte;
@@ -223,7 +223,7 @@ TPlayer = class(TNPC)
        function passableCoord( const Coord : TCoord2D ) : boolean; override;
 
        // register lua functions
-       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+       class procedure RegisterLuaAPI( aLua : TLua );
 
        // Return a list of inventory items
        function GetInvList : TItemList;
@@ -313,8 +313,7 @@ const SlotNone       = 0;
       SlotFailTown   = 106;
 
 implementation
-uses math, sysutils, vuid, rllevel, rlgame, vdebug, rllua, variants,
-rlui, rlviews, vtigio;
+uses math, sysutils, variants, vuid, vdebug, vtigio, rllevel, rlgame, rllua, rlui, rlviews;
 
 var
       MemorialText : Text;
@@ -2239,7 +2238,7 @@ begin
 end;
 
 function lua_player_spell_get(L: Plua_State): Integer; cdecl;
-var iState  : TGameLuaState;
+var iState  : TGameLuaStack;
     iPlayer : TPlayer;
 begin
   iState.Init(L);
@@ -2249,7 +2248,7 @@ begin
 end;
 
 function lua_player_spell_set(L: Plua_State): Integer; cdecl;
-var iState   : TGameLuaState;
+var iState   : TGameLuaStack;
     iPlayer  : TPlayer;
     iSpellID : DWord;
 begin
@@ -2264,7 +2263,7 @@ begin
 end;
 
 function lua_player_add_gold(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     player : TPlayer;
 begin
   State.Init(L);
@@ -2274,7 +2273,7 @@ begin
 end;
 
 function lua_player_add_exp(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     player : TPlayer;
 begin
   State.Init(L);
@@ -2285,7 +2284,7 @@ end;
 
 
 function lua_player_remove_gold(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     player : TPlayer;
 begin
   State.Init(L);
@@ -2295,7 +2294,7 @@ begin
 end;
 
 function lua_player_quest_set(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     player : TPlayer;
 begin
   State.Init(L);
@@ -2305,7 +2304,7 @@ begin
 end;
 
 function lua_player_quest_get(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     player : TPlayer;
 begin
   State.Init(L);
@@ -2315,7 +2314,7 @@ begin
 end;
 
 function lua_player_summon_portal (L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     player : TPlayer;
 begin
   State.Init(L);
@@ -2325,7 +2324,7 @@ begin
 end;
 
 function lua_player_play_sound(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     player : TPlayer;
 begin
   State.Init(L);
@@ -2335,7 +2334,7 @@ begin
 end;
 
 function lua_player_add_item(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
     Item   : TItem;
 begin
@@ -2350,7 +2349,7 @@ begin
 end;
 
 function lua_player_get_item(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
     iItem  : TItem;
 begin
@@ -2362,7 +2361,7 @@ begin
 end;
 
 function lua_player_eq_get(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -2372,7 +2371,7 @@ begin
 end;
 
 function lua_player_eq_set(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
     Item   : TItem;
     Slot   : Word;
@@ -2393,7 +2392,7 @@ begin
 end;
 
 function lua_player_qs_get(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -2403,7 +2402,7 @@ begin
 end;
 
 function lua_player_qs_set(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
     Item   : TItem;
     Slot   : Word;
@@ -2424,7 +2423,7 @@ begin
 end;
 
 function lua_player_exit( L : PLua_State ): Integer; cdecl;
-var iState  : TGameLuaState;
+var iState  : TGameLuaStack;
     iPlayer : TPlayer;
 begin
   iState.Init(L);
@@ -2439,7 +2438,7 @@ begin
 end;
 
 function lua_player_memorial_print(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
 begin
   State.Init(L);
   if not WritingMemorial then
@@ -2449,7 +2448,7 @@ begin
 end;
 
 function lua_player_memorial_dumpmsg(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Count  : DWord;
 begin
   State.Init(L);
@@ -2461,7 +2460,7 @@ begin
 end;
 
 function lua_player_slot_name(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -2471,7 +2470,7 @@ begin
 end;
 
 function lua_player_is_backpack(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
     Item   : TItem;
 begin
@@ -2483,7 +2482,7 @@ begin
 end;
 
 function lua_player_get_kills(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -2518,9 +2517,9 @@ const lua_player_lib : array[0..21] of luaL_Reg = (
 );
 
 
-class procedure TPlayer.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TPlayer.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register( 'player', lua_player_lib );
+  aLua.Register( 'player', lua_player_lib );
 end;
 
 end.

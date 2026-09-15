@@ -5,10 +5,9 @@
 unit rlgviews;
 interface
 
-uses Classes, SysUtils,
-     viotypes, vioevent, 
-     vtig, vtigio, vtigstyle, vtextmap, vmessages, 
-     rlglobal, rlthing, rlitem, vrltools;
+uses classes, sysutils,
+     viotypes, vioevent, vtig, vtigio, vtigstyle, vtextmap, vmessages, vrltools,
+     rlglobal, rlthing, rlitem;
 
 type TMainScreen = class;
 
@@ -231,8 +230,7 @@ end;
 
 implementation
 
-uses math, vutil, vluasystem,
-     rlgame, rlconfig, rllevel, rlui, rlnpc, rlplayer;
+uses math, vutil, vlua, rlgame, rlconfig, rllevel, rlui, rlnpc, rlplayer;
 
 { TPanel }
 

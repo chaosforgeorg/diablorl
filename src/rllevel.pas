@@ -7,10 +7,7 @@
 
 unit rllevel;
 interface
-uses classes,
-     vnode, vgenerics, vcolor, vutil, vrltools,
-     vluaentitynode, vluamapnode,
-     rlglobal, rlnpc, rlitem, vluasystem;
+uses classes, vnode, vgenerics, vcolor, vutil, vrltools, vluaentitynode, vluamapnode, vlua, rlglobal, rlnpc, rlitem;
 
 type TTravelPoint = class( TVObject )
   constructor Create( aWhere : TCoord2D; aWhat : AnsiString );
@@ -75,7 +72,7 @@ type TLevel = class(TLuaMapNode)
        // Do stuff when a monster dies
        procedure OnMonsterDie(c : TCoord2D);
        // register lua functions
-       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+       class procedure RegisterLuaAPI( aLua : TLua );
        // Call a cellhook if present. Returns true if hook was present, false otherwise
        function CellHook( Hook : Byte; c : TCoord2D; const Params : array of Const ) : Boolean;
        // Override of remove - automatic map clear
@@ -115,9 +112,7 @@ type TLevel = class(TLuaMapNode)
 
 implementation
 
-uses sysutils,
-     vluatools, vluadungen,
-     rllua, rlui, rlgame;
+uses sysutils, vluatools, vluadungen, rllua, rlui, rlgame;
 
 { TTravelPoint }
 
@@ -396,7 +391,7 @@ begin
 end;
 
 function lua_level_drop_npc(L: Plua_State): Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     Level : TLevel;
     NPC   : TNPC;
     tid   : AnsiString;
@@ -425,7 +420,7 @@ begin
 end;
 
 function lua_level_drop_item(L: Plua_State): Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     Level : TLevel;
     Item  : TItem;
     Coord : TCoord2D;
@@ -452,7 +447,7 @@ begin
 end;
 
 function lua_level_explosion (L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Level  : TLevel;
 begin
   State.Init(L);
@@ -469,7 +464,7 @@ begin
 end;
 
 function lua_level_broadcast_event (L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Level : TLevel;
 begin
   State.Init(L);
@@ -479,7 +474,7 @@ begin
 end;
 
 function lua_level_has_travel_point (L: Plua_State): Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     Level : TLevel;
 begin
   State.Init(L);
@@ -489,7 +484,7 @@ begin
 end;
 
 function lua_level_remove_travel_point (L: Plua_State): Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     Level : TLevel;
 begin
   State.Init(L);
@@ -499,7 +494,7 @@ begin
 end;
 
 function lua_level_add_travel_point (L: Plua_State): Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     Level : TLevel;
 begin
   State.Init(L);
@@ -510,7 +505,7 @@ end;
 
 
 function lua_level_find(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Level : TLevel;
 begin
   State.Init(L);
@@ -520,7 +515,7 @@ begin
 end;
 
 function lua_level_random_near_coord(L: Plua_State): Integer; cdecl;
-var iState : TGameLuaState;
+var iState : TGameLuaStack;
     iLevel : TLevel;
     iCoord : TCoord2D;
 begin
@@ -550,10 +545,10 @@ const lua_level_lib : array[0..9] of luaL_Reg = (
       ( name : nil;                  func : nil; )
 );
 
-class procedure TLevel.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TLevel.RegisterLuaAPI( aLua : TLua );
 begin
-  TLuaMapNode.RegisterLuaAPI( aLuaSystem, 'level' );
-  aLuaSystem.Register( 'level', lua_level_lib );
+  TLuaMapNode.RegisterLuaAPI( aLua, 'level' );
+  aLua.Register( 'level', lua_level_lib );
 end;
 
 function TLevel.CellHook ( Hook : Byte; c : TCoord2D; const Params : array of const ) : Boolean;

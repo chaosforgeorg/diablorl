@@ -5,7 +5,7 @@
 
 unit rlnpc;
 interface
-uses classes, sysutils, vmath, vpath, vrltools, rlthing, rlglobal, vluasystem;
+uses classes, sysutils, vmath, vpath, vrltools, vlua, rlthing, rlglobal;
 
 type
 
@@ -92,7 +92,7 @@ TNPC = class(TThing, IPathQuery)
        // Destructor
        destructor Destroy; override;
        // register lua functions
-       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+       class procedure RegisterLuaAPI( aLua : TLua );
      published
        property sound : AnsiString read FSound;
        property scount : LongInt read FSpeedCount write FSpeedCount;
@@ -109,9 +109,7 @@ TNPC = class(TThing, IPathQuery)
      end;
 
 implementation
-uses vvision, vluaentitynode, vutil,
-     rllua, rlgame, rllevel, rlplayer,
-     rlui;
+uses vvision, vluaentitynode, vutil, rllua, rlgame, rllevel, rlplayer, rlui;
 
 constructor TNPC.Create(const thingID :string);
 var iTable  : AnsiString;
@@ -857,7 +855,7 @@ begin
 end;
 
 function lua_npc_is_active(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -867,7 +865,7 @@ begin
 end;
 
 function lua_npc_die(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -877,7 +875,7 @@ begin
 end;
 
 function lua_npc_can_charge(L: Plua_State): Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -887,7 +885,7 @@ begin
 end;
 
 function lua_npc_get_target(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -898,7 +896,7 @@ end;
 
 
 function lua_npc_target_closest(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
     Target  : TNPC;
 begin
@@ -914,7 +912,7 @@ begin
 end;
 
 function lua_npc_attack(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
     c       : TCoord2D;
 begin
@@ -927,7 +925,7 @@ begin
 end;
 
 function lua_npc_seek(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -937,7 +935,7 @@ begin
 end;
 
 function lua_npc_send_missile(L: Plua_State) : Integer; cdecl;
-var State : TGameLuaState;
+var State : TGameLuaStack;
     npc   : TNPC;
 begin
   State.Init(L);
@@ -948,7 +946,7 @@ begin
 end;
 
 function lua_npc_cast_spell( L : PLua_State ) : Integer; cdecl;
-var iState   : TGameLuaState;
+var iState   : TGameLuaStack;
     iNPC     : TNPC;
     iSpellID : Integer;
     iSpellLevel: Integer;
@@ -969,7 +967,7 @@ begin
 end;
 
 function lua_npc_phasing(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
     Count: byte;
     aoe : TArea;
@@ -995,7 +993,7 @@ begin
 end;
 
 function lua_npc_knockback(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
+var State   : TGameLuaStack;
     npc     : TNPC;
 begin
   State.Init(L);
@@ -1020,9 +1018,9 @@ const lua_npc_lib : array[0..11] of luaL_Reg = (
 );
 
 
-class procedure TNPC.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TNPC.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register( 'npc', lua_npc_lib );
+  aLua.Register( 'npc', lua_npc_lib );
 end;
 
 end.

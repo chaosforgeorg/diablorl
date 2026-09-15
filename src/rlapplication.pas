@@ -2,7 +2,7 @@
 unit rlapplication;
 interface
 
-uses SysUtils, vapp, vrlapp, viorl, vluasystem, rlgame, rlpersistence, rlaudio, rlviews;
+uses sysutils, vapp, vrlapp, viorl, vlua, rlgame, rlpersistence, rlaudio, rlviews;
 
 // Owns reusable services and one content generation, with one active Session.
 type TGameRuntime = class( TRLRuntime )
@@ -13,7 +13,7 @@ type TGameRuntime = class( TRLRuntime )
     procedure LoadCells;
   protected
     function CreateIO : TIORL; override;
-    function CreateLua : TLuaSystem; override;
+    function CreateLua : TLua; override;
     procedure PrepareGameData; override;
     procedure InitializeGameData; override;
     function RunGame : TVRunResult; override;
@@ -57,7 +57,7 @@ begin
   GameRNG.Randomize;
 end;
 
-function TGameRuntime.CreateLua : TLuaSystem;
+function TGameRuntime.CreateLua : TLua;
 begin
   Result := TGameLua.Create( TGameConfiguration( Configuration ).LuaConfig );
 end;

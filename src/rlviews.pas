@@ -7,8 +7,7 @@
 unit rlviews;
 interface
 
-uses Classes, SysUtils,
-     viotypes, vtigstyle, vmessages, rlpersistence;
+uses classes, sysutils, viotypes, vtigstyle, vmessages, rlpersistence;
 
 const GAMEMENU_CONT = 0;
       GAMEMENU_HELP = 2;
@@ -128,7 +127,7 @@ end;
 
 implementation
 
-uses vluasystem, vutil, vtig, vtigio, rlglobal, rlui, rlgame, math;
+uses math, vlua, vutil, vtig, vtigio, rlglobal, rlui, rlgame;
 
 { TMenuScreen }
 

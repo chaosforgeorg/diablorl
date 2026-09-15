@@ -7,7 +7,7 @@
 unit rlshop;
 interface
 
-uses sysutils, classes, vnode, rlglobal, rlitem, vluasystem;
+uses sysutils, classes, vnode, vlua, rlglobal, rlitem;
 
 type
 
@@ -30,7 +30,7 @@ TShop = class( TNode )
   procedure Resort;
 
   // register lua functions
-  class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+  class procedure RegisterLuaAPI( aLua : TLua );
 public
   // Items
   FItems : array[1..ITEMS_SHOP] of TItem;
@@ -119,7 +119,7 @@ begin
 end;
 
 function lua_shop_item_get(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Shop   : TShop;
     Slot   : Word;
 begin
@@ -134,7 +134,7 @@ begin
 end;
 
 function lua_shop_item_set(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Slot   : Word;
     Shop   : TShop;
 begin
@@ -148,7 +148,7 @@ begin
 end;
 
 function lua_shop_nil_item(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Shop   : TShop;
     Item   : TItem;
     Count   : Word;
@@ -174,7 +174,7 @@ begin
 end;
 
 function lua_shop_sort(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     Shop   : TShop;
 begin
   State.Init(L);
@@ -191,9 +191,9 @@ const lua_shop_lib : array[0..4] of luaL_Reg = (
   ( name : nil;          func : nil; )
 );
 
-class procedure TShop.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TShop.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register( 'shop', lua_shop_lib );
+  aLua.Register( 'shop', lua_shop_lib );
 end;
 
 end.

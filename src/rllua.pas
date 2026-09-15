@@ -5,7 +5,7 @@
 unit rllua;
 interface
 
-uses SysUtils, vrltools, vluasystem, vluagamestate, rlnpc, rlitem, rlthing, rllevel, vdf, rlconfig;
+uses sysutils, vrltools, vlua, vluagamestack, vdf, rlnpc, rlitem, rlthing, rllevel, rlconfig;
 
 var LuaPlayerX : Byte = 2;
     LuaPlayerY : Byte = 2;
@@ -14,7 +14,7 @@ type
 
 { TGameLua }
 
-TGameLua = class(TLuaSystem)
+TGameLua = class(TLua)
        constructor Create( aConfig : TGameConfig );
        procedure Initialize( const aDataPath : AnsiString );
        destructor Destroy; override;
@@ -27,9 +27,9 @@ TGameLua = class(TLuaSystem)
        procedure ReadData( const DataFile : AnsiString );
      end;
 
-{ TGameLuaState }
+{ TGameLuaStack }
 
-TGameLuaState = object(TLuaGameState)
+TGameLuaStack = object(TLuaGameStack)
   function ToNewNPC( Index : Integer ) : TNPC;
   function ToNewItem( Index : Integer ) : TItem;
   function ToItemList( Index : Integer; MaxSize : DWord = 0 ) : TItemList;
@@ -38,26 +38,26 @@ end;
 
 implementation
 
-uses vnode, vlualibrary, vluaentitynode, vluatools, vdebug, rlglobal, viotypes, rlgame,
-     vutil, vluadungen, rlplayer, rlui, rlshop;
+uses vnode, vlualibrary, vluaentitynode, vluatools, vdebug, viotypes, vutil, vluadungen,
+     rlglobal, rlgame, rlplayer, rlui, rlshop;
 
-{ TGameLuaState }
+{ TGameLuaStack }
 
-function TGameLuaState.ToNewNPC ( Index : Integer ) : TNPC;
+function TGameLuaStack.ToNewNPC ( Index : Integer ) : TNPC;
 begin
   if IsString( Index ) then Exit( TNPC.Create( ToString( Index ) ) );
   if IsObject( Index ) then Exit( ToObject( Index ) as TNPC );
   Error('NPC/id expected!');
 end;
 
-function TGameLuaState.ToNewItem ( Index : Integer ) : TItem;
+function TGameLuaStack.ToNewItem ( Index : Integer ) : TItem;
 begin
   if IsString( Index ) then Exit( TItem.Create( ToString( Index ) ) );
   if IsObject( Index ) then Exit( ToObject( Index ) as TItem );
   Error('Item/id expected!');
 end;
 
-function TGameLuaState.ToItemList ( Index : Integer; MaxSize : DWord = 0 ) : TItemList;
+function TGameLuaStack.ToItemList ( Index : Integer; MaxSize : DWord = 0 ) : TItemList;
 begin
   Index := lua_absindex( FState, Index );
   if not IsTable( Index ) then Exit( nil );
@@ -112,7 +112,7 @@ end;
 
 // temp?
 function lua_world_get_shop(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     ID     : AnsiString;
     Shop   : TShop;
 begin
@@ -127,7 +127,7 @@ end;
 
 // temp?
 function lua_world_get_level(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
     ID     : AnsiString;
     Level  : TLevel;
 begin
@@ -141,7 +141,7 @@ begin
 end;
 
 function lua_world_get_turn_count(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
+var State  : TGameLuaStack;
 begin
   State.Init(L);
   State.Push( LongInt( Game.TurnCount ) );
@@ -195,7 +195,7 @@ begin
 //  AddVar('VERSION',Version);
   Register( 'world', lua_world_lib );
 
-  TGameUI.RegisterLuaAPI( State );
+  TGameUI.RegisterLuaAPI( FStack );
   TNode.RegisterLuaAPI( Self, 'game_object');
   TThing.RegisterLuaAPI( Self );
   TLuaEntityNode.RegisterLuaAPI( Self, 'thing');
@@ -230,6 +230,6 @@ begin
   inherited Destroy;
 end;
 
-{ TGameLuaState }
+{ TGameLuaStack }
 
 end.

@@ -4,8 +4,7 @@
 unit rlgame;
 interface
 
-uses Classes, SysUtils, vnode, vuid, vrandom, vrlapp,
-     rllevel, rlglobal, rlplayer, rlnpc, rllua, rlshop, rlpersistence;
+uses classes, sysutils, vnode, vuid, vrandom, vrlapp, rllevel, rlglobal, rlplayer, rlnpc, rllua, rlshop, rlpersistence;
 
 type
   EGameProcessQuit = class( Exception );
@@ -63,7 +62,7 @@ var Game : TGameSession = nil;
 
 implementation
 
-uses zstream, vutil, vrltools, vluasystem, rlui, rlviews;
+uses zstream, vutil, vrltools, vlua, rlui, rlviews;
 
 constructor TGameSession.Create( aRuntime : TRLRuntime; aPersistence : TPersistence );
 begin

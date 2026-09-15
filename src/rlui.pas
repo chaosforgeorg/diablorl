@@ -5,11 +5,9 @@
 unit rlui;
 
 interface
-uses {$IFDEF WINDOWS}Windows,{$ENDIF} Classes, SysUtils,
-  vioevent, vcolor, viotypes, vioconsole, vluastate,
-  viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, 
-  vutil, vbindings, vtigio, rlconfiguration,
-  rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio;
+uses {$IFDEF WINDOWS}windows,{$ENDIF} classes, sysutils,
+     vioevent, vcolor, viotypes, vioconsole, vluastack, viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, vutil, vbindings, vtigio,
+     rlconfiguration, rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio;
 
 var TIGFramedWindowStyle       : TTIGStyle;
     TIGNarrowFramedWindowStyle : TTIGStyle;
@@ -64,7 +62,7 @@ type
     procedure SetSoundVolume(Volume: byte);
     function GetTravelDestination( out aWhere : TCoord2D ) : Boolean;
     function YesNoDialog( const aQuery : AnsiString ) : Boolean;
-    class procedure RegisterLuaAPI(State: TLuaState);
+    class procedure RegisterLuaAPI(State: TLuaStack);
   private
     procedure ReconfigureDisplay;
     procedure FitDisplay;
@@ -100,11 +98,9 @@ var
 
 implementation
 
-uses DateUtils, variants, 
-    {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF}
-    vluasystem, rlshop, rllua, rlgame, rlpersistence,
-    vsdlio, vglconsole,
-    vlog, vdebug, vmath, rllevel, rlsettingsview;
+uses dateutils, variants,
+     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF} vlua, vsdlio, vglconsole, vlog, vdebug, vmath,
+     rlshop, rllua, rlgame, rlpersistence, rllevel, rlsettingsview;
 
 function CommandDirection(Command: byte): TDirection;
 begin
@@ -692,7 +688,7 @@ end;}
 
 function lua_ui_get_key(L: Plua_State): integer; cdecl;
 var
-  State: TGameLuaState;
+  State: TGameLuaStack;
   KeyFilter: TKeySet = [];
   Count: byte;
 begin
@@ -709,7 +705,7 @@ end;
 
 function lua_ui_msg(L: Plua_State): integer; cdecl;
 var
-  State: TGameLuaState;
+  State: TGameLuaStack;
 begin
   State.Init(L);
   if State.StackSize = 0 then
@@ -720,7 +716,7 @@ begin
 end;
 
 function lua_ui_msg_enter( L : Plua_State ) : Integer; cdecl;
-var iState : TGameLuaState;
+var iState : TGameLuaStack;
 begin
   iState.Init( L );
   UI.Msg( iState.ToString( 1 ) + ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>...' );
@@ -731,7 +727,7 @@ end;
 
 function lua_ui_delay(L: Plua_State): integer; cdecl;
 var
-  State: TGameLuaState;
+  State: TGameLuaStack;
 begin
   State.Init(L);
   UI.Delay(State.ToInteger(1));
@@ -740,7 +736,7 @@ end;
 
 function lua_ui_plot_talk(L: Plua_State): integer; cdecl;
 var
-  State: TGameLuaState;
+  State: TGameLuaStack;
 begin
   State.Init(L);
   UI.PlotText(State.ToString(1));
@@ -749,7 +745,7 @@ end;
 
 function lua_ui_item_info(L: Plua_State): integer; cdecl;
 var
-  State: TGameLuaState;
+  State: TGameLuaStack;
 begin
   State.Init(L);
   UI.ItemInfo(State.ToObject(1) as TItem);
@@ -760,7 +756,7 @@ end;
 
 function lua_ui_talk_run(L: Plua_State): integer; cdecl;
 var
-  State       : TGameLuaState;
+  State       : TGameLuaStack;
   iCount      : Word;
   iChoice     : Word;
   iValue      : AnsiString;
@@ -786,7 +782,7 @@ begin
 end;
 
 function lua_ui_shop_run(L: Plua_State): integer; cdecl;
-var State       : TGameLuaState;
+var State       : TGameLuaStack;
     iCount      : byte;
     iChoice     : Integer;
     iSource     : AnsiString;
@@ -849,7 +845,7 @@ end;
 
 function lua_ui_play_music(L: Plua_State): integer; cdecl;
 var
-  State: TGameLuaState;
+  State: TGameLuaStack;
 begin
   State.Init(L);
   if State.StackSize = 1 then
@@ -859,7 +855,7 @@ end;
 
 function lua_ui_play_sound(L: Plua_State): integer; cdecl;
 var
-  State : TGameLuaState;
+  State : TGameLuaStack;
   nargs: integer;
 begin
   State.Init(L);
@@ -873,7 +869,7 @@ end;
 
 
 
-class procedure TGameUI.RegisterLuaAPI(State: TLuaState);
+class procedure TGameUI.RegisterLuaAPI(State: TLuaStack);
 begin
   TIORL.RegisterLuaAPI( State, 'ui' );
   State.Register( 'ui', 'msg_enter', @lua_ui_msg_enter );
