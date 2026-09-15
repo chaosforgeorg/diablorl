@@ -10,7 +10,7 @@ interface
 uses classes,
      vnode, vgenerics, vcolor, vutil, vrltools,
      vluaentitynode, vluamapnode,
-     rlglobal, rlnpc, rlitem;
+     rlglobal, rlnpc, rlitem, vluasystem;
 
 type TTravelPoint = class( TVObject )
   constructor Create( aWhere : TCoord2D; aWhat : AnsiString );
@@ -75,7 +75,7 @@ type TLevel = class(TLuaMapNode)
        // Do stuff when a monster dies
        procedure OnMonsterDie(c : TCoord2D);
        // register lua functions
-       class procedure RegisterLuaAPI;
+       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
        // Call a cellhook if present. Returns true if hook was present, false otherwise
        function CellHook( Hook : Byte; c : TCoord2D; const Params : array of Const ) : Boolean;
        // Override of remove - automatic map clear
@@ -116,7 +116,7 @@ type TLevel = class(TLuaMapNode)
 implementation
 
 uses sysutils,
-     vluasystem, vluatools, vluadungen,
+     vluatools, vluadungen,
      rllua, rlui, rlgame;
 
 { TTravelPoint }
@@ -143,7 +143,7 @@ end;
 
 procedure TLevel.Init;
 begin
-  with LuaSystem.GetTable( [ 'levels', id ] ) do
+  with FContext.Lua.GetTable( [ 'levels', id ] ) do
   try
     FMusic          := GetString('music','');
     FDepth          := GetInteger('depth');
@@ -550,10 +550,10 @@ const lua_level_lib : array[0..9] of luaL_Reg = (
       ( name : nil;                  func : nil; )
 );
 
-class procedure TLevel.RegisterLuaAPI;
+class procedure TLevel.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  TLuaMapNode.RegisterLuaAPI( 'level' );
-  LuaSystem.Register( 'level', lua_level_lib );
+  TLuaMapNode.RegisterLuaAPI( aLuaSystem, 'level' );
+  aLuaSystem.Register( 'level', lua_level_lib );
 end;
 
 function TLevel.CellHook ( Hook : Byte; c : TCoord2D; const Params : array of const ) : Boolean;
@@ -561,7 +561,7 @@ var iCell : Byte;
 begin
   iCell := Cell[c];
   if not (Hook in CellData[iCell].hooks) then Exit( false );
-  LuaSystem.ProtectedCall([ 'cells',CellData[iCell].id,CellHookNames[ Hook ] ],ConcatConstArray([Self,LuaCoord(c)],Params) );
+  FContext.Lua.ProtectedCall([ 'cells',CellData[iCell].id,CellHookNames[ Hook ] ],ConcatConstArray([Self,LuaCoord(c)],Params) );
   Exit( True );
 end;
 

@@ -5,7 +5,7 @@
 
 unit rlnpc;
 interface
-uses classes, sysutils, vmath, vpath, vrltools, rlthing, rlglobal;
+uses classes, sysutils, vmath, vpath, vrltools, rlthing, rlglobal, vluasystem;
 
 type
 
@@ -92,7 +92,7 @@ TNPC = class(TThing, IPathQuery)
        // Destructor
        destructor Destroy; override;
        // register lua functions
-       class procedure RegisterLuaAPI;
+       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
      published
        property sound : AnsiString read FSound;
        property scount : LongInt read FSpeedCount write FSpeedCount;
@@ -109,7 +109,7 @@ TNPC = class(TThing, IPathQuery)
      end;
 
 implementation
-uses vvision, vluaentitynode, vluasystem, vutil,
+uses vvision, vluaentitynode, vutil,
      rllua, rlgame, rllevel, rlplayer,
      rlui;
 
@@ -123,16 +123,16 @@ begin
   FEntityID := ENTITY_BEING;
   fid := ThingID;
 
-  if LuaSystem.Defined(['klasses',id]) then
+  if FContext.Lua.Defined(['klasses',id]) then
     iTable := 'klasses'
-  else if not LuaSystem.Defined(['npcs',id]) then
+  else if not FContext.Lua.Defined(['npcs',id]) then
     Game.Lua.OnError('NPC "'+id+'" not found!')
   else
     iTable := 'npcs';
 
   ReadStatistics( iTable );
 
-  with LuaSystem.GetTable( [ iTable, id ] ) do
+  with FContext.Lua.GetTable( [ iTable, id ] ) do
   try
     FName        := GetString('name');
     FGylph.ASCII := GetChar('pic');
@@ -140,7 +140,7 @@ begin
 
     FCorpse  := 0;
     iCorpse  := GetString('corpse');
-    if iCorpse <> '' then  FCorpse := LuaSystem.Defines[iCorpse];
+    if iCorpse <> '' then  FCorpse := FContext.Lua.Defines[iCorpse];
     FAI      := GetInteger('ai');
     FStats[ STAT_HPMAX ] := RandRange( Game.RNG,
       GetInteger( 'hpmin' ), GetInteger( 'hpmax' ) );
@@ -258,7 +258,7 @@ begin
   DmgType := DAMAGE_GENERAL;
   if spellID > 0 then
   begin
-    DmgType:=LuaSystem.Get(['spells',SpellID,'type']);
+    DmgType:=FContext.Lua.Get(['spells',SpellID,'type']);
   end;
 
   if NPC.isPlayer then
@@ -570,7 +570,7 @@ begin
       end;
     mt_Spell :
       begin
-        with LuaSystem.GetTable(['spells',mid]) do
+        with FContext.Lua.GetTable(['spells',mid]) do
         try
           DrawDelay := 20;
           Pict      := getString('picture')[1];
@@ -662,7 +662,7 @@ var Effect      : DWord;
     SpellTarget : TThing;
 begin
   Result := true;
-  with LuaSystem.GetTable( ['spells',SpellID] ) do
+  with FContext.Lua.GetTable( ['spells',SpellID] ) do
   try
     if ( isPlayer ) then
 		UI.Msg('You cast '+getString('name')+'.')
@@ -690,7 +690,7 @@ begin
     SPELL_BOLT  : SendMissile( Target, mt_Spell, SpellID ); // spell level is not passed -- will need a fix for cases like wands
     SPELL_BALL  : SendMissile( Target, mt_Spell, SpellID, 1);
     SPELL_BLAST : begin
-                    with LuaSystem.GetTable( [ 'spells',SpellID ] ) do
+                    with FContext.Lua.GetTable( [ 'spells',SpellID ] ) do
                     try
                       Col  := GetInteger('color');
                       if isPlayer then
@@ -765,18 +765,18 @@ begin
   FRecovery  := ISt.ReadWord;
   FRegenTick := ISt.ReadWord;
 
-  if LuaSystem.Defined(['klasses',id]) then
+  if FContext.Lua.Defined(['klasses',id]) then
     iTable := 'klasses'
-  else if not LuaSystem.Defined(['npcs',id]) then
+  else if not FContext.Lua.Defined(['npcs',id]) then
     Game.Lua.OnError('NPC "'+id+'" not found!')
   else
     iTable := 'npcs';
 
-  with LuaSystem.GetTable( [iTable, id] ) do
+  with FContext.Lua.GetTable( [iTable, id] ) do
   try
     FCorpse  := 0;
     iCorpse  := GetString('corpse','');
-    if iCorpse <> '' then  FCorpse := LuaSystem.Defines[iCorpse];
+    if iCorpse <> '' then  FCorpse := FContext.Lua.Defines[iCorpse];
     FSound   := GetString('sound','');
   finally
     Free;
@@ -947,23 +947,23 @@ begin
   Result := 0;
 end;
 
-function lua_npc_cast_spell(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaState;
-    npc     : TNPC;
-    spellID : Integer;
-    spellLvl: Integer;
+function lua_npc_cast_spell( L : PLua_State ) : Integer; cdecl;
+var iState   : TGameLuaState;
+    iNPC     : TNPC;
+    iSpellID : Integer;
+    iSpellLevel: Integer;
 begin
-  State.Init(L);
-  npc := State.ToObject(1) as TNPC;
-  if State.IsString( 2 ) then
-    spellID := LuaSystem.Get( [ 'spells',State.ToString( 2 ), 'nid' ] )
+  iState.Init(L);
+  iNPC := iState.ToObject(1) as TNPC;
+  if iState.IsString( 2 ) then
+    iSpellID := iNPC.Context.Lua.Get( [ 'spells',iState.ToString( 2 ), 'nid' ] )
   else
-    spellID := State.ToInteger( 2 );
-  if ( State.StackSize < 3 ) then
-    spellLvl := 0
+    iSpellID := iState.ToInteger( 2 );
+  if ( iState.StackSize < 3 ) then
+    iSpellLevel := 0
   else
-    spellLvl := State.ToInteger( 3 );
-  npc.doSpell( spellID , spellLvl );
+    iSpellLevel := iState.ToInteger( 3 );
+  iNPC.doSpell( iSpellID , iSpellLevel );
 
   Result := 0;
 end;
@@ -1020,9 +1020,9 @@ const lua_npc_lib : array[0..11] of luaL_Reg = (
 );
 
 
-class procedure TNPC.RegisterLuaAPI;
+class procedure TNPC.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register( 'npc', lua_npc_lib );
+  aLuaSystem.Register( 'npc', lua_npc_lib );
 end;
 
 end.

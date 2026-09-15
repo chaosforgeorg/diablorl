@@ -5,7 +5,7 @@
 
 unit rlitem;
 interface
-uses classes, vnode, vutil, rlthing, rlglobal, viotypes;
+uses classes, vnode, vutil, rlthing, rlglobal, viotypes, vluasystem;
 
 type TItemColors = ( COLOR_NORMAL, COLOR_MAGIC, COLOR_UNIQUE, COLOR_RED );
 
@@ -58,7 +58,7 @@ TItem = class(TThing)
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // register lua functions
-       class procedure RegisterLuaAPI;
+       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
        // Checks if requirements met / also checks for ifUnknown and for the special Req = bonus case
        function ReqsMet( isWorn : Boolean ) : Boolean;
        // Init colors
@@ -120,19 +120,19 @@ type TItemList = specialize TGNodeList< TItem >;
 
 implementation
 
-uses sysutils, vmath, vluaentitynode, vluasystem, rllua, rlgame, variants;
+uses sysutils, vmath, vluaentitynode, rllua, rlgame, variants;
 
 procedure TItem.Init;
 begin
   FSpell  := 0;
   FSound2 := '';
   FSound1 := '';
-  with LuaSystem.GetTable( ['items', id] ) do
+  with FContext.Lua.GetTable( ['items', id] ) do
   try
     FVolume := GetInteger('volume');
     FIType  := GetInteger('type');
 
-    if IsNumber('spell')        then FSpell := LuaSystem.Get([ 'spells', getString('spell'), 'nid' ]);
+    if IsNumber('spell')        then FSpell := FContext.Lua.Get([ 'spells', getString('spell'), 'nid' ]);
 
 
     if IsString('sound1') then FSound1 := GetString('sound1');
@@ -152,7 +152,7 @@ begin
   Init;
   FAmount := 1;
 
-  if not LuaSystem.Defined(['items',thingID]) then raise Exception.Create('Item "'+thingID+'" not found!');
+  if not FContext.Lua.Defined(['items',thingID]) then raise Exception.Create('Item "'+thingID+'" not found!');
 
   ReadStatistics( 'items' );
 
@@ -160,14 +160,14 @@ begin
   FStats[ STAT_DUR ]    := RandRange( Game.RNG,
     1 + ( FStats[ STAT_DURMAX ] div 4 ), ( 3 * FStats[ STAT_DURMAX ] div 4 ) );
 
-  with LuaSystem.GetTable( ['items', thingID] ) do
+  with FContext.Lua.GetTable( ['items', thingID] ) do
   try
     FName        := GetString('name');
     FGylph.ASCII := GetChar('pic');
     FGylph.Color := GetInteger('color');
 
     if isString('spell') then
-      FSpell := LuaSystem.Get(['spells', GetString('spell'), 'nid']);
+      FSpell := FContext.Lua.Get(['spells', GetString('spell'), 'nid']);
 
     FStats[ STAT_AC ] := RandRange( Game.RNG,
       GetInteger( 'acmin', 0 ), GetInteger( 'acmax', 0 ) );
@@ -227,16 +227,16 @@ var iChargeCost : LongInt;
 begin
   if PriceType = COST_IDENTIFY then Exit( 100 );
   if ifUnknown in FFlags then
-     getPrice := LuaSystem.Get([ 'items', id, 'price' ])
+     getPrice := FContext.Lua.Get([ 'items', id, 'price' ])
   else
     getPrice := Price;
 
   if (FSpell > 0) and ((ChargesMax div ChargesMod)> 0) then
   begin
-    iChargeCost := LuaSystem.Get(['spells',FSpell,'staff','charge_cost'], 0);
+    iChargeCost := FContext.Lua.Get(['spells',FSpell,'staff','charge_cost'], 0);
     if PriceType = COST_RECHARGE then
     begin
-      getPrice:=LuaSystem.Get(['items',id,'price']);
+      getPrice:=FContext.Lua.Get(['items',id,'price']);
       if ifSpellBound in FFlags
         then getPrice += iChargeCost*5
         else getPrice += iChargeCost*(5+(ChargesMax div ChargesMod))
@@ -285,7 +285,7 @@ begin
   if RLevel > 0 then
   repeat
     FStats[ STAT_CHARGES ] += Game.RNG.RLongInt(
-      RLevel div LuaSystem.Get( ['spells', FSpell, 'book', 'level'], 0 ) ) + 1;
+      RLevel div FContext.Lua.Get( ['spells', FSpell, 'book', 'level'], 0 ) ) + 1;
     dec(FStats[ STAT_CHARGESMAX ] );
   until FStats[ STAT_CHARGES ] >= FStats[ STAT_CHARGESMAX ];
   FStats[ STAT_CHARGES ] := FStats[ STAT_CHARGESMAX ];
@@ -296,7 +296,7 @@ var iColor : AnsiString = '';
     iReq   : word;
 begin
   if FSpell = 0 then Exit('');
-  with LuaSystem.GetTable( ['spells',FSpell] ) do
+  with FContext.Lua.GetTable( ['spells',FSpell] ) do
   try
     GetSpellName := getString('name');
     if ifUnique in Fflags
@@ -446,7 +446,7 @@ end;
 function TItem.GetName(outputType : TNameOutputType) : string;
 begin
   if ifUnknown in Fflags then
-    Result := LuaSystem.Get([ 'items', id, 'name' ])
+    Result := FContext.Lua.Get([ 'items', id, 'name' ])
   else
     Result := name;
 
@@ -633,9 +633,9 @@ const lua_item_lib : array[0..6] of luaL_Reg = (
   ( name : nil;           func : nil; )
 );
 
-class procedure TItem.RegisterLuaAPI;
+class procedure TItem.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register( 'item', lua_item_lib );
+  aLuaSystem.Register( 'item', lua_item_lib );
 end;
 
 end.

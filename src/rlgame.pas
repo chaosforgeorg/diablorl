@@ -106,7 +106,7 @@ begin
   begin
     FUIDStore := TUIDStore.Create;
     FContext.BindUIDs( FUIDStore );
-    vuid.UIDs := FUIDStore;
+    FContext.Lua.Context.BindUIDs( FUIDStore );
     FUID := FUIDStore.Register( Self );
     if FileExists( FRuntime.Paths.WritePath + 'save' ) then
       DeleteFile( FRuntime.Paths.WritePath + 'save' );
@@ -240,12 +240,13 @@ end;
 
 destructor TGameSession.Destroy;
 begin
-  // Runtime has retired all views before releasing its Session. Lua and vuid.UIDs
+  // Runtime has retired all views before releasing its Session. Lua and its UID store
   // remain alive until every owned entity (parented or detached) is gone.
   FreeAndNil( FTravellingGolem );
   FreeAndNil( FPlayer );
   inherited Destroy;
   FLevel := nil;
+  FContext.Lua.Context.BindUIDs( nil );
   FreeAndNil( FUIDStore );
   FreeAndNil( FContext );
   Game := nil;
@@ -266,7 +267,7 @@ begin
       if iVersion <> VERSION then raise Exception.Create( 'Wrong save file version!' );
       FUIDStore := TUIDStore.CreateFromStream( iStream );
       FContext.BindUIDs( FUIDStore );
-      vuid.UIDs := FUIDStore;
+      FContext.Lua.Context.BindUIDs( FUIDStore );
       iUID := iStream.ReadQWord;
       if ( iUID = 0 ) or ( iUID >= FUIDStore.Size ) then
         raise Exception.Create( 'Invalid Session UID in save file!' );

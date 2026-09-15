@@ -8,7 +8,7 @@
 
 unit rlthing;
 interface
-uses classes, vluaentitynode, rlglobal;
+uses classes, vluaentitynode, rlglobal, vluasystem;
 
 // Generic Thing class -- ancestor to both TItem and TNPC.
 type
@@ -37,7 +37,7 @@ TThing = class(TLuaEntityNode)
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // register lua functions
-       class procedure RegisterLuaAPI;
+       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
      protected
        function GetStatistics ( aIndex : DWord ) : LongInt;
        procedure SetStatistics ( aIndex : DWord ; aValue : LongInt ) ;
@@ -69,7 +69,7 @@ TThing = class(TLuaEntityNode)
 end;
 
 implementation
-uses SysUtils, vluasystem, rllua, rlgame;
+uses SysUtils, rllua, rlgame;
 
 function TThing.GetStatistics ( aIndex : DWord ) : LongInt;
 begin
@@ -96,7 +96,7 @@ end;
 procedure TThing.ReadStatistics ( const aTableID : AnsiString ) ;
 var iCount : DWord;
 begin
-  with LuaSystem.GetTable( [ aTableID, id ] ) do
+  with FContext.Lua.GetTable( [ aTableID, id ] ) do
   try
     for iCount := 0 to STAT_MAX do
       FStats[ iCount ] := GetInteger( StatisticsIDs[iCount], 0 );
@@ -166,9 +166,9 @@ const lua_thing_lib : array[0..2] of luaL_Reg = (
   ( name : nil;           func : nil; )
 );
 
-class procedure TThing.RegisterLuaAPI;
+class procedure TThing.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register('thing', lua_thing_lib );
+  aLuaSystem.Register('thing', lua_thing_lib );
 end;
 
 end.

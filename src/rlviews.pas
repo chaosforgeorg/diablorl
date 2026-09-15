@@ -379,10 +379,10 @@ constructor TKlassScreen.Create;
 var i : Integer;
 begin
   inherited Create;
-  FCount := LuaSystem.GetTableSize('klasses');
+  FCount := Game.Context.Lua.GetTableSize('klasses');
   SetLength( FKlasses, FCount );
   for i := 0 to FCount - 1 do
-    with LuaSystem.GetTable(['klasses', i + 1 ]) do
+    with Game.Context.Lua.GetTable(['klasses', i + 1 ]) do
     try
       FKlasses[i].Name  := GetString('name');
       FKlasses[i].Desc  := GetString('desc');

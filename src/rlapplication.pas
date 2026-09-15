@@ -72,7 +72,7 @@ end;
 
 procedure TGameRuntime.InitializeGameData;
 begin
-  TGameLua( Lua ).Initialize( Paths.DataPath );
+  TGameLua( FLua ).Initialize( Paths.DataPath );
   LoadCells;
   if GodMode then RegisterDebugConsole( VKEY_F1 );
 end;
@@ -156,10 +156,10 @@ var CellCount : Word;
 begin
   for Count := 1 to 255 do CellData[Count].id := '';
 
-  CellCount := Lua.Get(['cells','__counter']);
+  CellCount := FLua.Get(['cells','__counter']);
 
   for Count := 1 to CellCount do
-  with Lua.GetTable( ['cells', Count] ) do
+  with FLua.GetTable( ['cells', Count] ) do
   try
     with CellData[Count] do
     begin
@@ -181,10 +181,10 @@ begin
     Free;
   end;
 
-  CELL_FLOOR         := Lua.Defines['floor'];
-  CELL_STAIR_UP      := Lua.Defines['stairs_up'];
+  CELL_FLOOR         := FLua.Defines['floor'];
+  CELL_STAIR_UP      := FLua.Defines['stairs_up'];
 
-  CELL_TOWN_PORTAL   := Lua.Defines['shimmering_portal'];
+  CELL_TOWN_PORTAL   := FLua.Defines['shimmering_portal'];
 end;
 
 procedure TGameApplication.DefineOptions;

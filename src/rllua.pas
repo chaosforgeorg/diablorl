@@ -196,15 +196,15 @@ begin
   Register( 'world', lua_world_lib );
 
   TGameUI.RegisterLuaAPI( State );
-  TNode.RegisterLuaAPI('game_object');
-  TThing.RegisterLuaAPI();
-  TLuaEntityNode.RegisterLuaAPI('thing');
+  TNode.RegisterLuaAPI( Self, 'game_object');
+  TThing.RegisterLuaAPI( Self );
+  TLuaEntityNode.RegisterLuaAPI( Self, 'thing');
 
-  TItem.RegisterLuaAPI();
-  TNPC.RegisterLuaAPI;
-  TShop.RegisterLuaAPI;
-  TLevel.RegisterLuaAPI;
-  TPlayer.RegisterLuaAPI;
+  TItem.RegisterLuaAPI( Self );
+  TNPC.RegisterLuaAPI( Self );
+  TShop.RegisterLuaAPI( Self );
+  TLevel.RegisterLuaAPI( Self );
+  TPlayer.RegisterLuaAPI( Self );
 
   RegisterDunGenClass( Raw, 'generator' );
 

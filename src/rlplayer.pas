@@ -5,7 +5,7 @@
 
 unit rlplayer;
 interface
-uses classes, vutil, vnode, rlglobal, rlnpc, rlconfig, rlitem, vrltools, vgenerics;
+uses classes, vutil, vnode, rlglobal, rlnpc, rlconfig, rlitem, vrltools, vgenerics, vluasystem;
 
 type TQuests = array[1..MaxQuests] of byte;
 type TSpells = array[1..MaxSpells] of byte;
@@ -223,7 +223,7 @@ TPlayer = class(TNPC)
        function passableCoord( const Coord : TCoord2D ) : boolean; override;
 
        // register lua functions
-       class procedure RegisterLuaAPI;
+       class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
 
        // Return a list of inventory items
        function GetInvList : TItemList;
@@ -313,7 +313,7 @@ const SlotNone       = 0;
       SlotFailTown   = 106;
 
 implementation
-uses math, sysutils, vuid, vluasystem, rllevel, rlgame, vdebug, rllua, variants,
+uses math, sysutils, vuid, rllevel, rlgame, vdebug, rllua, variants,
 rlui, rlviews, vtigio;
 
 var
@@ -348,7 +348,7 @@ end;
 
 procedure TQuickSkill.Init(aPlayer: TPlayer; aSpell: byte; isSkill: boolean = false);
 begin
-  Name := LuaSystem.Get(['spells', aSpell, 'name']);
+  Name := aPlayer.Context.Lua.Get(['spells', aSpell, 'name']);
   if isSkill then
     Source := CAST_SKILL
   else
@@ -466,7 +466,7 @@ end;
 function TPlayer.ChooseSpellTarget(aSpell: byte): boolean;
 var TargetType : Integer;
 begin
-  TargetType := LuaSystem.Get( ['spells',aSpell,'target'] );
+  TargetType := FContext.Lua.Get( ['spells',aSpell,'target'] );
   case TargetType of
     SPELL_DIRECTION : if not ChooseDirection then Exit(False);
     SPELL_TARGET    : if not ChooseTarget( TM_FIRE, COMMAND_CAST ) then Exit(False);
@@ -890,7 +890,7 @@ begin
 
     TYPE_BOOK   :
     begin
-      with LuaSystem.GetTable( ['spells', Item.Spell] ) do
+      with FContext.Lua.GetTable( ['spells', Item.Spell] ) do
       try
         if FSpells[Item.Spell] < MaxSpellLvl then
         begin
@@ -1015,7 +1015,7 @@ begin
   end
   else // spell
   begin
-    with LuaSystem.GetTable( ['spells',SpellID] ) do
+    with FContext.Lua.GetTable( ['spells',SpellID] ) do
     try
       DmgType:=getInteger('type');
       if isFunction('dmin')
@@ -1179,13 +1179,13 @@ end;
 
 procedure TPlayer.Init;
 begin
-  with LuaSystem.GetTable( [ 'klasses', id ] ) do
+  with FContext.Lua.GetTable( [ 'klasses', id ] ) do
   try
     FKlass := GetInteger('klassid');
     FStats[ STAT_SPDBLOCK ] := GetInteger('spdblk');
     FStats[ STAT_SPDMAGIC ] := GetInteger('spdmag');
     if IsNumber('spellcost') then FSpellCost:=GetInteger('spellcost') else FSpellCost:=100;
-    if IsString('skill') then FSkill:=LuaSystem.Get(['spells',getString('skill'),'nid']) else FSkill := 0;
+    if IsString('skill') then FSkill:=FContext.Lua.Get(['spells',getString('skill'),'nid']) else FSkill := 0;
   finally
     Free;
   end;
@@ -1226,7 +1226,7 @@ begin
   for Count := 1 to MaxQuests  do FQuests[Count] := 0;
   for Count := 1 to MaxQuickSkills do FQuickSkills[Count] := 0;
 
-  with LuaSystem.GetTable( [ 'klasses', id ] ) do
+  with FContext.Lua.GetTable( [ 'klasses', id ] ) do
   try
     FName := GetString('dname');
   finally
@@ -1356,7 +1356,7 @@ begin
 
   if not CanCast(SpellID, slvl, Spell.Source) then Exit(False);
 
-  with LuaSystem.GetTable( ['spells',SpellID] ) do
+  with FContext.Lua.GetTable( ['spells',SpellID] ) do
   try
     if FromStaff then
       if Item.flags[ ifUnique ] then
@@ -1401,7 +1401,7 @@ begin
     Exit(False);
   end;
 
-  with LuaSystem.GetTable( ['spells',aSpell] ) do
+  with FContext.Lua.GetTable( ['spells',aSpell] ) do
   try
     case aSource of
       // skill requires nothing
@@ -1779,14 +1779,14 @@ begin
   WritingMemorial := true;
   iEnemy := nil;
   if FEnemy <> 0 then iEnemy := Game.UIDs.Get( FEnemy ) as TNPC;
-  iScore := LuaSystem.ProtectedCall([ 'player', 'write_memorial' ], [ Self, iEnemy ]);
+  iScore := FContext.Lua.ProtectedCall([ 'player', 'write_memorial' ], [ Self, iEnemy ]);
   WritingMemorial := false;
   Close( MemorialText );
 
   iResult := 'died in '+Game.Level.Name;
   if iEnemy <> nil         then iResult := 'killed by '+iEnemy.GetName(AName);
   if Game.Level.Depth > 12 then iResult := 'reached Hell';
-  Game.Persistence.Add( iScore, FName, Game.Player.Level, Game.Level.Name, LuaSystem.Get( ['klasses',FKlass,'name'] ), iResult );
+  Game.Persistence.Add( iScore, FName, Game.Player.Level, Game.Level.Name, FContext.Lua.Get( ['klasses',FKlass,'name'] ), iResult );
 
   UI.ShowHOF;
 end;
@@ -1837,7 +1837,7 @@ begin
   ISt.Read( FQuickSkills, SizeOf( FQuickSkills ) );
 
   ISt.Read(tsob, sizeof(tsob));
-  for Count := 1 to LuaSystem.Get(['quests','__counter'])  do
+  for Count := 1 to FContext.Lua.Get(['quests','__counter'])  do
     begin
       if Count in tsob then
         Game.Lua.SetValue( ['world', 'quests', Count, 'enabled'], true )
@@ -1889,11 +1889,11 @@ begin
   OSt.Write( FQuickSkills, SizeOf( FQuickSkills ) );
 
   tsob := [];
-  for Count := 1 to LuaSystem.Get(['quests','__counter']) do
-    if LuaSystem.Get(['world', 'quests', Count, 'enabled']) then
+  for Count := 1 to FContext.Lua.Get(['quests','__counter']) do
+    if FContext.Lua.Get(['world', 'quests', Count, 'enabled']) then
       include(tsob, Count);
   OSt.Write(tsob, sizeof(tsob));
-  for Count := 1 to LuaSystem.Get(['quests','__counter']) do
+  for Count := 1 to FContext.Lua.Get(['quests','__counter']) do
       OSt.WriteByte(FQuests[Count]);
 
   for iCount := 1 to ITEMS_EQ do WriteItem( FEq[ iCount ] );
@@ -1973,7 +1973,7 @@ begin
         begin
           iCell := iLevel.Cell[ iCoord ];
           if CellHook_OnTravelName in CellData[ iCell ].Hooks
-            then iLevel.AddTravelPoint( iCoord, LuaSystem.ProtectedCall([ 'cells',CellData[iCell].id,CellHookNames[ CellHook_OnTravelName ] ], [iLevel] ) )
+            then iLevel.AddTravelPoint( iCoord, FContext.Lua.ProtectedCall([ 'cells',CellData[iCell].id,CellHookNames[ CellHook_OnTravelName ] ], [iLevel] ) )
             else iLevel.AddTravelPoint( iCoord, CellData[ iCell ].Name );
         end;
     end;
@@ -2423,18 +2423,18 @@ begin
   Result := 0;
 end;
 
-function lua_player_exit(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaState;
-    Player : TPlayer;
+function lua_player_exit( L : PLua_State ): Integer; cdecl;
+var iState  : TGameLuaState;
+    iPlayer : TPlayer;
 begin
-  State.Init(L);
-  Player := State.ToObject(1) as TPlayer;
+  iState.Init(L);
+  iPlayer := iState.ToObject(1) as TPlayer;
   Game.LevelChange := True;
-  Game.NextLevelID := State.ToString(2);
-  Game.StairNumber := State.ToID(3);
+  Game.NextLevelID := iState.ToString(2);
+  Game.StairNumber := iState.ToID( iPlayer.Context.Lua, 3 );
     if Game.StairNumber = 0 then raise EException.Create( 'Cell 0! at exit');
 
-  Dec(Player.FSpeedCount,50);
+  Dec(iPlayer.FSpeedCount,50);
   Result := 0;
 end;
 
@@ -2518,9 +2518,9 @@ const lua_player_lib : array[0..21] of luaL_Reg = (
 );
 
 
-class procedure TPlayer.RegisterLuaAPI;
+class procedure TPlayer.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register( 'player', lua_player_lib );
+  aLuaSystem.Register( 'player', lua_player_lib );
 end;
 
 end.

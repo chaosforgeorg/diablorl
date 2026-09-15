@@ -285,7 +285,7 @@ begin
         begin
           FLine2.Init(CellData[Cell[c]].Name);
           if CellHook_OnTravelName in CellData[Cell[c]].hooks then
-            FLine2.Init(LuaSystem.ProtectedCall([ 'cells',CellData[Cell[c]].id,CellHookNames[ CellHook_OnTravelName ] ], [Game.Level] ));
+            FLine2.Init(Game.Context.Lua.ProtectedCall([ 'cells',CellData[Cell[c]].id,CellHookNames[ CellHook_OnTravelName ] ], [Game.Level] ));
         end;
   end;
 end;
@@ -311,8 +311,8 @@ begin
       if iCount > 15 then FLine3.Text += '   ('+GetResistancesString+')' ;
       if iCount > 30 then
         FLine3.Text += '   HP: ' +
-          IntToStr(LuaSystem.Get(['npcs', id, 'hpmin'])) + '-' +
-          IntToStr(LuaSystem.Get(['npcs', id, 'hpmax']));
+          IntToStr(aThing.Context.Lua.Get(['npcs', id, 'hpmin'])) + '-' +
+          IntToStr(aThing.Context.Lua.Get(['npcs', id, 'hpmax']));
     end
     else
       FLine2.Init( Name );
@@ -814,7 +814,7 @@ begin
   begin
     LevelUp := False;
 
-    DrawStat( 1, 1, 'Name', Name );               DrawStat( 1, 2, 'Class', UpCase(AnsiString(LuaSystem.Get(['klasses',Klass,'name']))) );
+    DrawStat( 1, 1, 'Name', Name );               DrawStat( 1, 2, 'Class', UpCase(AnsiString(UI.Player.Context.Lua.Get(['klasses',Klass,'name']))) );
     DrawStat( 2, 1, 'Level', IntToStr(Level) );    DrawStat( 2, 2, 'Exp', IntToStr(Exp) );
     if Level < 50 then                             DrawStat( 3, 2, 'NextLev', IntToStr(ExpTable[Level + 1]) )
                   else                             DrawStat( 3, 2, 'NextLev', 'MAX' );
@@ -896,9 +896,9 @@ begin
 
   iQuestID := 0;
   with UI.Player do
-  for iCount := 1 to LuaSystem.Get(['quests', '__counter']) do
-    if ( Quests[ iCount ] > 0 ) and ( Quests[iCount] < LuaSystem.Get(['quests',iCount,'completed']) ) then
-      if VTIG_Selectable( AnsiString(LuaSystem.Get(['quests', iCount, 'name'])) ) then
+  for iCount := 1 to UI.Player.Context.Lua.Get(['quests', '__counter']) do
+    if ( Quests[ iCount ] > 0 ) and ( Quests[iCount] < UI.Player.Context.Lua.Get(['quests',iCount,'completed']) ) then
+      if VTIG_Selectable( AnsiString(UI.Player.Context.Lua.Get(['quests', iCount, 'name'])) ) then
         iQuestID := iCount;
 
   if VTIG_Selectable( 'Close' ) then
@@ -914,7 +914,7 @@ begin
   VTIG_FreeLabel( ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}> to view, <{!' + UI.UIKey( VTIG_IE_CANCEL ) + '}> to exit...', Point( 0, 0 ), DarkGray );
 
   if iQuestID > 0 then
-    LuaSystem.ProtectedCall(['quests', iQuestID, 'OnJournal'], [] );
+    UI.Player.Context.Lua.ProtectedCall(['quests', iQuestID, 'OnJournal'], [] );
 
   if VTIG_EventCancel then
     Finish;
@@ -1216,8 +1216,8 @@ begin
   iSpellPicked := 0;
 
   for iCount := 1 to MaxSpells do
-    if LuaSystem.Defined(['spells', iCount]) then
-      with LuaSystem.GetTable(['spells', iCount]) do
+    if UI.Player.Context.Lua.Defined(['spells', iCount]) then
+      with UI.Player.Context.Lua.GetTable(['spells', iCount]) do
         try
           Slvl := UI.Player.Spells[iCount];
           if getInteger('page') <> 0 then
@@ -1225,8 +1225,8 @@ begin
             if slvl <> 0 then
             begin
               Name := getString('name');
-              Cost := max(Integer(LuaSystem.ProtectedCall(['spells', iCount, 'cost'], [20, UI.Player])),
-                (LuaSystem.ProtectedCall(['spells', iCount, 'cost'], [slvl, UI.Player]) * UI.Player.SpellCost) div 100);
+              Cost := max(Integer(UI.Player.Context.Lua.ProtectedCall(['spells', iCount, 'cost'], [20, UI.Player])),
+                (UI.Player.Context.Lua.ProtectedCall(['spells', iCount, 'cost'], [slvl, UI.Player]) * UI.Player.SpellCost) div 100);
 
               if isFunction('dmin')
                 then DMin := ProtectedCall('dmin',[slvl, UI.Player])
@@ -1304,7 +1304,7 @@ begin
   if UI.Player.Skill > 0 then
   begin
     SetLength( FEntries, FCount + 1 );
-    FEntries[FCount].Name  := Padded('@ ' + AnsiString(LuaSystem.Get(['spells', UI.Player.Skill, 'name'])), 20) + getQuick(UI.Player.Skill);
+    FEntries[FCount].Name  := Padded('@ ' + AnsiString(UI.Player.Context.Lua.Get(['spells', UI.Player.Skill, 'name'])), 20) + getQuick(UI.Player.Skill);
     FEntries[FCount].Data  := UI.Player.Skill + ord(CAST_SKILL) shl 8;
     FEntries[FCount].Valid := True;
     Inc( FCount );
@@ -1314,10 +1314,10 @@ begin
   // Spells
   for iCount := 1 to MaxSpells do
     if UI.Player.Spells[iCount] <> 0 then
-      if LuaSystem.Defined(['spells', iCount]) then
+      if UI.Player.Context.Lua.Defined(['spells', iCount]) then
       begin
         SetLength( FEntries, FCount + 1 );
-        FEntries[FCount].Name  := Padded('@ ' + AnsiString(LuaSystem.Get(['spells', iCount, 'name'])) +
+        FEntries[FCount].Name  := Padded('@ ' + AnsiString(UI.Player.Context.Lua.Get(['spells', iCount, 'name'])) +
                                   ' lvl ' + IntToStr(UI.Player.Spells[iCount] + iBonus), 20) + getQuick(iCount);
         FEntries[FCount].Data  := iCount + ord(CAST_SPELL) shl 8;
         FEntries[FCount].Valid := True;
@@ -1327,10 +1327,10 @@ begin
   // Scrolls
   for iCount := 1 to MaxSpells do
     if UI.Player.FindScroll(iCount) <> nil then
-      if LuaSystem.Defined(['spells', iCount]) then
+      if UI.Player.Context.Lua.Defined(['spells', iCount]) then
       begin
         SetLength( FEntries, FCount + 1 );
-        FEntries[FCount].Name  := Padded('? ' + AnsiString(LuaSystem.Get(['spells', iCount, 'name'])), 20) + getQuick(iCount);
+        FEntries[FCount].Name  := Padded('? ' + AnsiString(UI.Player.Context.Lua.Get(['spells', iCount, 'name'])), 20) + getQuick(iCount);
         FEntries[FCount].Data  := iCount + ord(CAST_SCROLL) shl 8;
         FEntries[FCount].Valid := True;
         Inc( FCount );

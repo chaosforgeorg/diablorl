@@ -7,7 +7,7 @@
 unit rlshop;
 interface
 
-uses sysutils, classes, vnode, rlglobal, rlitem;
+uses sysutils, classes, vnode, rlglobal, rlitem, vluasystem;
 
 type
 
@@ -30,7 +30,7 @@ TShop = class( TNode )
   procedure Resort;
 
   // register lua functions
-  class procedure RegisterLuaAPI;
+  class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
 public
   // Items
   FItems : array[1..ITEMS_SHOP] of TItem;
@@ -45,7 +45,7 @@ end;
 implementation
 
 // Remove
-uses vluasystem, rllua, rlgame;
+uses rllua, rlgame;
 
 { TShop }
 
@@ -191,9 +191,9 @@ const lua_shop_lib : array[0..4] of luaL_Reg = (
   ( name : nil;          func : nil; )
 );
 
-class procedure TShop.RegisterLuaAPI;
+class procedure TShop.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register( 'shop', lua_shop_lib );
+  aLuaSystem.Register( 'shop', lua_shop_lib );
 end;
 
 end.
