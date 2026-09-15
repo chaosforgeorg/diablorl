@@ -42,6 +42,7 @@ type TGameSession = class( TNode )
     function Load : Boolean;
     procedure Save;
     function CanSave : Boolean;
+    property UIDs : TUIDStore read FUIDStore;
     property Player : TPlayer read FPlayer;
     property Level : TLevel read FLevel;
     property RNG : TRNG read GetRNG;
@@ -104,7 +105,7 @@ begin
   else
   begin
     FUIDStore := TUIDStore.Create;
-    UIDs := FUIDStore;
+    vuid.UIDs := FUIDStore;
     FUID := FUIDStore.Register( Self );
     if FileExists( FRuntime.Paths.WritePath + 'save' ) then
       DeleteFile( FRuntime.Paths.WritePath + 'save' );
@@ -238,7 +239,7 @@ end;
 
 destructor TGameSession.Destroy;
 begin
-  // Runtime has retired all views before releasing its Session. Lua and UIDs
+  // Runtime has retired all views before releasing its Session. Lua and vuid.UIDs
   // remain alive until every owned entity (parented or detached) is gone.
   FreeAndNil( FTravellingGolem );
   FreeAndNil( FPlayer );
@@ -262,7 +263,7 @@ begin
       iVersion := iStream.ReadAnsiString;
       if iVersion <> VERSION then raise Exception.Create( 'Wrong save file version!' );
       FUIDStore := TUIDStore.CreateFromStream( iStream );
-      UIDs := FUIDStore;
+      vuid.UIDs := FUIDStore;
       iUID := iStream.ReadQWord;
       if ( iUID = 0 ) or ( iUID >= FUIDStore.Size ) then
         raise Exception.Create( 'Invalid Session UID in save file!' );

@@ -1,7 +1,7 @@
 // @abstract(Lua bindings for DiabloRL)
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
 
-{$include rl.inc}
+{$INCLUDE rl.inc}
 unit rllua;
 interface
 

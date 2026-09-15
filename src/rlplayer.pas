@@ -394,7 +394,7 @@ begin
     FTarget := Position;
     iEnemy := nil;
     iAuto  := nil;
-    if FEnemy <> 0 then iEnemy := UIDs.Get(FEnemy) as TNPC;
+    if FEnemy <> 0 then iEnemy := Game.UIDs.Get(FEnemy) as TNPC;
 
     if TargetMode <> TM_LOOK then
     begin
@@ -1659,7 +1659,7 @@ begin
   end;
 
   iEnemy := nil;
-  if FEnemy <> 0 then iEnemy := UIDs.Get(FEnemy) as TNPC;
+  if FEnemy <> 0 then iEnemy := Game.UIDs.Get(FEnemy) as TNPC;
 
   if (iEnemy <> nil) and ((not iEnemy.Visible) or iEnemy.Flags[ nfInvisible ]) then
   begin
@@ -1778,7 +1778,7 @@ begin
   Rewrite( MemorialText );
   WritingMemorial := true;
   iEnemy := nil;
-  if FEnemy <> 0 then iEnemy := UIDs.Get( FEnemy ) as TNPC;
+  if FEnemy <> 0 then iEnemy := Game.UIDs.Get( FEnemy ) as TNPC;
   iScore := LuaSystem.ProtectedCall([ 'player', 'write_memorial' ], [ Self, iEnemy ]);
   WritingMemorial := false;
   Close( MemorialText );

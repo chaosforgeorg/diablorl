@@ -74,7 +74,7 @@ procedure TGameRuntime.InitializeGameData;
 begin
   TGameLua( Lua ).Initialize( Paths.DataPath );
   LoadCells;
-  if GodMode then IO.RegisterDebugConsole( VKEY_F1 );
+  if GodMode then RegisterDebugConsole( VKEY_F1 );
 end;
 
 function TGameRuntime.RunGame : TVRunResult;
