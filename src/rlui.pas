@@ -6,7 +6,7 @@ unit rlui;
 
 interface
 uses {$IFDEF WINDOWS}windows,{$ENDIF} classes, sysutils,
-     vioevent, vcolor, viotypes, vioconsole, vluastack, viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, vutil, vbindings, vtigio,
+     vioevent, vcolor, viotypes, vioconsole, vlua, vluastack, viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, vutil, vbindings, vtigio,
      rlconfiguration, rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio;
 
 var TIGFramedWindowStyle       : TTIGStyle;
@@ -62,7 +62,7 @@ type
     procedure SetSoundVolume(Volume: byte);
     function GetTravelDestination( out aWhere : TCoord2D ) : Boolean;
     function YesNoDialog( const aQuery : AnsiString ) : Boolean;
-    class procedure RegisterLuaAPI(State: TLuaStack);
+    class procedure RegisterLuaAPI( aLua : TLua );
   private
     procedure ReconfigureDisplay;
     procedure FitDisplay;
@@ -99,7 +99,7 @@ var
 implementation
 
 uses dateutils, variants,
-     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF} vlua, vsdlio, vglconsole, vlog, vdebug, vmath,
+     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF} vsdlio, vglconsole, vlog, vdebug, vmath,
      rlshop, rllua, rlgame, rlpersistence, rllevel, rlsettingsview;
 
 function CommandDirection(Command: byte): TDirection;
@@ -703,15 +703,12 @@ begin
   Result := 1;
 end;
 
-function lua_ui_msg(L: Plua_State): integer; cdecl;
-var
-  State: TGameLuaStack;
+function lua_ui_msg( L : PLua_State ) : Integer; cdecl;
+var iState : TGameLuaStack;
 begin
-  State.Init(L);
-  if State.StackSize = 0 then
-    Exit(0);
-  UI.Msg(State.ToString(1));
-  UI.Draw;
+  iState.Init( L );
+  if iState.StackSize = 0 then Exit( 0 );
+  UI.Msg( Capitalized( iState.ToString( 1 ) ) );
   Result := 0;
 end;
 
@@ -722,15 +719,6 @@ begin
   UI.Msg( iState.ToString( 1 ) + ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>...' );
   UI.WaitForKey( [ UI.UIBindings.GetKey( VTIG_IE_CONFIRM ) ] );
   UI.MsgUpdate;
-  Result := 0;
-end;
-
-function lua_ui_delay(L: Plua_State): integer; cdecl;
-var
-  State: TGameLuaStack;
-begin
-  State.Init(L);
-  UI.Delay(State.ToInteger(1));
   Result := 0;
 end;
 
@@ -869,18 +857,22 @@ end;
 
 
 
-class procedure TGameUI.RegisterLuaAPI(State: TLuaStack);
-begin
-  TIORL.RegisterLuaAPI( State, 'ui' );
-  State.Register( 'ui', 'msg_enter', @lua_ui_msg_enter );
-  State.Register('ui', 'get_key', @lua_ui_get_key);
-  State.Register('ui', 'talk_run', @lua_ui_talk_run);
-  State.Register('ui', 'shop_run', @lua_ui_shop_run);
-  State.Register('ui', 'plot_talk', @lua_ui_plot_talk);
-  State.Register('ui', 'item_info', @lua_ui_item_info);
+const lua_ui_lib : array[0..9] of luaL_Reg = (
+  ( name : 'msg';         func : @lua_ui_msg ),
+  ( name : 'msg_enter';   func : @lua_ui_msg_enter ),
+  ( name : 'get_key';     func : @lua_ui_get_key ),
+  ( name : 'talk_run';    func : @lua_ui_talk_run ),
+  ( name : 'shop_run';    func : @lua_ui_shop_run ),
+  ( name : 'plot_talk';   func : @lua_ui_plot_talk ),
+  ( name : 'item_info';   func : @lua_ui_item_info ),
+  ( name : 'play_music';  func : @lua_ui_play_music ),
+  ( name : 'play_sound';  func : @lua_ui_play_sound ),
+  ( name : nil;           func : nil; )
+);
 
-  State.Register('ui', 'play_music', @lua_ui_play_music);
-  State.Register('ui', 'play_sound', @lua_ui_play_sound);
+class procedure TGameUI.RegisterLuaAPI( aLua : TLua );
+begin
+  aLua.Register( 'ui', lua_ui_lib );
 end;
 
 end.

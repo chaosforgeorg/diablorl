@@ -195,7 +195,7 @@ begin
 //  AddVar('VERSION',Version);
   Register( 'world', lua_world_lib );
 
-  TGameUI.RegisterLuaAPI( FStack );
+  TGameUI.RegisterLuaAPI( Self );
   TNode.RegisterLuaAPI( Self, 'game_object');
   TThing.RegisterLuaAPI( Self );
   TLuaEntityNode.RegisterLuaAPI( Self, 'thing');
