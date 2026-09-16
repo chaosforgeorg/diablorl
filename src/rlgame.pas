@@ -198,12 +198,12 @@ begin
 
       // Now we can properly displace the player :D
       // GenX and GenY are taken from the generator
-      FLevel.Drop( RNG, FPlayer, iStartPos );
+      FLevel.Drop( FPlayer, iStartPos );
 
       //drop player's golem here
       if FTravellingGolem <> nil then
       begin
-        FLevel.Drop( RNG, FTravellingGolem, iStartPos );
+        FLevel.Drop( FTravellingGolem, iStartPos );
         FTravellingGolem := nil;
       end;
 

@@ -154,7 +154,7 @@ end;
 
 constructor TLevel.Create(const aLevelID : AnsiString);
 begin
-  inherited Create( aLevelID, MapSizeX, MapSizeY, 15, Game.Context );
+  inherited Create( aLevelID, MapSizeX, MapSizeY, 15, Game.Context, Game.RNG );
 
   Init;
   Log('Created.');
@@ -246,7 +246,7 @@ var iCoord : TCoord2D;
 begin
   RemovePortals( aPortalID );
   try
-    iCoord := DropCoord( Game.RNG, aWhere,
+    iCoord := DropCoord( aWhere,
       [efNoMonsters,efNoObstacles,efNoItems,efNoChangeRes] );
     Cell[iCoord] := aPortalID;
     if isVisible(iCoord) then UI.Msg('A portal appears!');
@@ -371,7 +371,7 @@ end;
 
 constructor TLevel.CreateFromStream( aStream : TStream);
 begin
-  inherited CreateFromStream( aStream, Game.Context );
+  inherited CreateFromStream( aStream, Game.Context, Game.RNG );
   Init;
   FTravelPoints := TTravelPoints.CreateFromStream( aStream );
 end;
@@ -413,7 +413,7 @@ begin
   else
   begin
     NPC := TNPC.Create(tid);
-    Level.Drop( Game.RNG, NPC, c );
+    Level.Drop( NPC, c );
   end;
   State.Push( NPC );
   Result := 1;
@@ -441,7 +441,7 @@ begin
     Item := TItem.Create(tid,State.ToInteger(4))
   else
     Item :=TItem.Create(tid);
-  Level.Drop( Game.RNG, Item, Coord );
+  Level.Drop( Item, Coord );
   State.Push(Item);
   Result := 1;
 end;

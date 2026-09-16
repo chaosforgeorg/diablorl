@@ -2089,7 +2089,7 @@ begin
   else
     NilItem( aItem );
 
-  TLevel(Parent).Drop( Game.RNG, aItem, FPosition );
+  TLevel(Parent).Drop( aItem, FPosition );
   Exit( Success( 'You drop %s.', [ aItem.GetName(TheName) ], SpdMov ) );
 end;
 
