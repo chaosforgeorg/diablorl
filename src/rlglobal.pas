@@ -111,7 +111,7 @@ const STAT_LEVEL        = 0;
 
       STAT_MAX          = 57;
 
-type TStatistics = array[0..STAT_MAX] of LongInt;
+type TThingStats = array[0..STAT_MAX] of LongInt;
 const StatisticsIDs : array[0..STAT_MAX] of AnsiString = (
       'level', 'hp','hpmax','hpmod','mp','mpmax','mpmod', 'expvalue', 'spdatk', 'spdmov', 'spdhit', 'spdblk', 'spdmag',
       'dmgmin', 'dmgmax', 'dmgmod', 'dmgmodprc',

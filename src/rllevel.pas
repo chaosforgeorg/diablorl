@@ -7,7 +7,7 @@
 
 unit rllevel;
 interface
-uses classes, vnode, vgenerics, vcolor, vutil, vrltools, vluaentitynode, vluamapnode, vlua, rlglobal, rlnpc, rlitem;
+uses classes, vnode, vgenerics, vcolor, vutil, vrandom, vrltools, vluaentitynode, vluamapnode, vlua, rlglobal, rlnpc, rlitem;
 
 type TTravelPoint = class( TVObject )
   constructor Create( aWhere : TCoord2D; aWhat : AnsiString );
@@ -88,7 +88,7 @@ type TLevel = class(TLuaMapNode)
        //Initialization before construction
        procedure Init;
        // Stream constructor
-       constructor CreateFromStream( aStream : TStream ); override;
+       constructor CreateFromStream( aStream : TStream; aContext : TNodeContext; aGameRNG : TRNG ); override;
        procedure WriteToStream( aStream : TStream ); override;
        // Abstract function for child creation from stream
        // NPC = 1, Item = 2
@@ -369,9 +369,9 @@ begin
   inherited Destroy;
 end;
 
-constructor TLevel.CreateFromStream( aStream : TStream);
+constructor TLevel.CreateFromStream( aStream : TStream; aContext : TNodeContext; aGameRNG : TRNG );
 begin
-  inherited CreateFromStream( aStream, Game.Context, Game.RNG );
+  inherited CreateFromStream( aStream, aContext, aGameRNG );
   Init;
   FTravelPoints := TTravelPoints.CreateFromStream( aStream );
 end;
@@ -385,8 +385,8 @@ end;
 function TLevel.EntityFromStream ( aStream : TStream; aEntityID : Byte ) : TLuaEntityNode;
 begin
   case aEntityID of
-    ENTITY_BEING : Exit( TNPC.CreateFromStream(aStream) );
-    ENTITY_ITEM  : Exit( TItem.CreateFromStream(aStream) );
+    ENTITY_BEING : Exit( TNPC.CreateFromStream( aStream, FContext ) );
+    ENTITY_ITEM  : Exit( TItem.CreateFromStream( aStream, FContext ) );
   end;
 end;
 
@@ -407,14 +407,11 @@ begin
   if tid = '' then
   begin
     NPC := Level.GetBeing(c);
-    FreeAndNil( NPC );
-    Level.SetBeing(c,nil);
+    if NPC <> nil then NPC.Discard;
+    NPC := nil;
   end
   else
-  begin
-    NPC := TNPC.Create(tid);
-    Level.Drop( NPC, c );
-  end;
+    NPC := Level.Drop( TNPC.Create(tid), c ) as TNPC;
   State.Push( NPC );
   Result := 1;
 end;
@@ -433,15 +430,14 @@ begin
   if tid = '' then
   begin
     Item := Level.GetItem( Coord );
-    FreeAndNil( Item );
-    Level.SetItem( Coord ,nil);
+    if Item <> nil then Item.Discard;
     exit(0);
   end;
   if State.StackSize = 4 then
     Item := TItem.Create(tid,State.ToInteger(4))
   else
     Item :=TItem.Create(tid);
-  Level.Drop( Item, Coord );
+  Item := Level.Drop( Item, Coord ) as TItem;
   State.Push(Item);
   Result := 1;
 end;

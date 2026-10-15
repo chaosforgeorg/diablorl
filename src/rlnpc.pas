@@ -5,7 +5,7 @@
 
 unit rlnpc;
 interface
-uses classes, sysutils, vmath, vpath, vrltools, vlua, rlthing, rlglobal;
+uses classes, sysutils, vmath, vpath, vrltools, vnode, vlua, rlthing, rlglobal;
 
 type
 
@@ -76,7 +76,7 @@ TNPC = class(TThing, IPathQuery)
        // Check charge availability
        function CanCharge( c: TCoord2D ) : boolean;
        // Stream constructor
-       constructor CreateFromStream( ISt : TStream ); override;
+       constructor CreateFromStream( ISt : TStream; aContext : TNodeContext ); override;
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // Returns three letter (coded) string representing resistances
@@ -445,7 +445,7 @@ begin
     if not (cfBlockChange in CellData[TLevel(Parent).Cell[Position]].Flags) then
       TLevel(Parent).Cell[Position] := FCorpse;
   RunHook( Hook_OnDie, [Attacker] );
-  Move(Game.Graveyard);
+  Discard;
   if FAI in AIMonster then
     Game.Level.OnMonsterDie(Position);
 
@@ -752,11 +752,11 @@ begin
      UI.PlaySound(FSound + sID + IntToStr(UI.VisualRNG.RLongInt(2) + 1) + '.wav',Position);
 end;
 
-constructor TNPC.CreateFromStream(ISt: TStream);
+constructor TNPC.CreateFromStream( ISt : TStream; aContext : TNodeContext );
 var iTable  : AnsiString;
     iCorpse : AnsiString;
 begin
-  inherited CreateFromStream(ISt);
+  inherited CreateFromStream( ISt, aContext );
   FPathfinder := TPathfinder.Create( Self );
   ISt.Read(FTarget,SizeOf(TCoord2D));
   FAI        := ISt.ReadByte;

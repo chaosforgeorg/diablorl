@@ -54,7 +54,7 @@ TItem = class(TThing)
        //Initialize before creation
        procedure Init;
        // Stream constructor
-       constructor CreateFromStream( ISt : TStream ); override;
+       constructor CreateFromStream( ISt : TStream; aContext : TNodeContext ); override;
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // register lua functions
@@ -528,9 +528,9 @@ begin
 end;
 
 
-constructor TItem.CreateFromStream(ISt: TStream);
+constructor TItem.CreateFromStream( ISt : TStream; aContext : TNodeContext );
 begin
-  inherited CreateFromStream(ISt);
+  inherited CreateFromStream( ISt, aContext );
   Init;
   FIType     := ISt.ReadByte;
   if FIType = TYPE_GOLD then

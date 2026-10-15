@@ -8,7 +8,7 @@
 
 unit rlthing;
 interface
-uses classes, vluaentitynode, vlua, rlglobal;
+uses classes, vnode, vluaentitynode, vlua, rlglobal;
 
 // Generic Thing class -- ancestor to both TItem and TNPC.
 type
@@ -17,7 +17,7 @@ type
 
 TThing = class(TLuaEntityNode)
      protected
-       FStats : TStatistics;
+       FStats : TThingStats;
      public
        // Overriden constructor -- sets x,y to (1,1).
        constructor Create( const aThingID : AnsiString );
@@ -33,7 +33,7 @@ TThing = class(TLuaEntityNode)
        function GetName(outputType : TNameOutputType) : string; virtual;
 
        // Stream constructor
-       constructor CreateFromStream( ISt : TStream ); override;
+       constructor CreateFromStream( ISt : TStream; aContext : TNodeContext ); override;
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // register lua functions
@@ -125,9 +125,9 @@ begin
   end;
 end;
 
-constructor TThing.CreateFromStream(ISt: TStream);
+constructor TThing.CreateFromStream( ISt : TStream; aContext : TNodeContext );
 begin
-  inherited CreateFromStream( ISt, Game.Context );
+  inherited CreateFromStream( ISt, aContext );
   ISt.Read( FStats, SizeOf(FStats) );
 end;
 

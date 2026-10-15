@@ -20,7 +20,6 @@ type TGameSession = class( TNode )
     FPlayer          : TPlayer;
     FLevel           : TLevel;
     FTravellingGolem : TNPC;
-    FGraveYard       : TNode;
     FNextLevelID     : AnsiString;
     FStairNumber     : Byte;
     FTurnCount       : DWord;
@@ -47,7 +46,6 @@ type TGameSession = class( TNode )
     property RNG : TRNG read GetRNG;
     property Lua : TGameLua read GetLua;
     property Persistence : TPersistence read FPersistence;
-    property GraveYard : TNode read FGraveYard;
     property NextLevelID : AnsiString read FNextLevelID write FNextLevelID;
     property StairNumber : Byte read FStairNumber write FStairNumber;
     property TurnCount : DWord read FTurnCount;
@@ -70,8 +68,6 @@ begin
   FRuntime := aRuntime;
   FPersistence := aPersistence;
   FNextLevelID := 'town';
-  FGraveYard := TNode.Create;
-  Add( FGraveYard );
 end;
 
 function TGameSession.GetRNG : TRNG;
@@ -217,7 +213,7 @@ begin
       repeat
         FLevel.TimeFlow(10);
         Inc(FTurnCount);
-        FGraveYard.DestroyChildren;
+        FContext.FlushDestroyed;
       until FEnded or FLevelChange;
       FTravellingGolem := nil;
       if FPlayer.Parent <> nil then
@@ -272,15 +268,15 @@ begin
         raise Exception.Create( 'Invalid Session UID in save file!' );
       FUID := iUID;
       FUIDStore.Register( Self, FUID );
-      FPlayer := TPlayer.CreateFromStream( iStream );
+      FPlayer := TPlayer.CreateFromStream( iStream, FContext );
       Lua.RegisterPlayer( FPlayer );
       FNextLevelID := iStream.ReadAnsiString;
       FTurnCount := iStream.ReadDWord;
       repeat
         iType := iStream.ReadByte;
         case iType of
-          1 : Add( TLevel.CreateFromStream( iStream ) );
-          2 : Add( TShop.CreateFromStream( iStream ) );
+          1 : Add( TLevel.CreateFromStream( iStream, FContext, RNG ) );
+          2 : Add( TShop.CreateFromStream( iStream, FContext ) );
         end;
       until iType = 0;
     except

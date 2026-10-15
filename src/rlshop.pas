@@ -19,7 +19,7 @@ TShop = class( TNode )
   // Destructor
   destructor Destroy; override;
   // Stream constructor
-  constructor CreateFromStream( ISt : TStream ); override;
+  constructor CreateFromStream( ISt : TStream; aContext : TNodeContext ); override;
   // Stream writer
   procedure WriteToStream( OSt : TStream ); override;
   // Add item
@@ -64,15 +64,15 @@ begin
   inherited Destroy;
 end;
 
-constructor TShop.CreateFromStream(ISt: TStream);
+constructor TShop.CreateFromStream( ISt : TStream; aContext : TNodeContext );
 var Count, Size : DWord;
 begin
-  inherited CreateFromStream( ISt, Game.Context );
+  inherited CreateFromStream( ISt, aContext );
   for Count := 1 to ITEMS_SHOP do FItems[Count] := nil;
   FLevel := ISt.ReadWord;
   Size := ISt.ReadDWord;
   for Count := 1 to Size do
-    AddItem(TItem.CreateFromStream(ISt));
+    AddItem(TItem.CreateFromStream( ISt, aContext ));
 end;
 
 procedure TShop.WriteToStream(OSt: TStream);

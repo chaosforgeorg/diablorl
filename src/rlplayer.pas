@@ -216,7 +216,7 @@ TPlayer = class(TNPC)
        //Initialize before construction
        procedure Init;
        // Stream constructor
-       constructor CreateFromStream( ISt : TStream ); override;
+       constructor CreateFromStream( ISt : TStream; aContext : TNodeContext ); override;
        // Stream writer
        procedure WriteToStream( OSt : TStream ); override;
        // Pathfinder function
@@ -1811,18 +1811,18 @@ begin
   inherited Displace(new);
 end;
 
-constructor TPlayer.CreateFromStream(ISt: TStream);
+constructor TPlayer.CreateFromStream( ISt : TStream; aContext : TNodeContext );
 var Count : byte;
     iCount : DWord;
     tsob : set of byte; //temporary set of byte
   function ReadItem : TItem;
   begin
     if ISt.ReadByte = 0 then Exit( nil );
-    ReadItem := TItem.CreateFromStream( ISt );
+    ReadItem := TItem.CreateFromStream( ISt, aContext );
     Add( ReadItem );
   end;
 begin
-  inherited CreateFromStream(ISt);
+  inherited CreateFromStream( ISt, aContext );
 
   FEq := TItemList.Create( ITEMS_EQ );
   FQuickSlots := TItemList.Create( ITEMS_QS );
