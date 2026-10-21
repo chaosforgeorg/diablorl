@@ -2,7 +2,7 @@
 unit rlsettingsview;
 interface
 
-uses viotypes, vioevent, vbindings, vconfiguration, rlconfiguration;
+uses vio, viotypes, vioevent, vbindings, vconfiguration, rlconfiguration;
 
 type TGameSettingsApply = procedure of object;
      TGameSettingsState = ( GSS_GENERAL, GSS_DISPLAY, GSS_GAME, GSS_AUDIO, GSS_INPUT, GSS_UI,

@@ -14,7 +14,7 @@ type TGameRuntime = class( TRLRuntime )
   protected
     function CreateIO : TIORL; override;
     function CreateLua : TLua; override;
-    procedure PrepareGameData; override;
+    function PrepareGameData : Boolean; override;
     procedure InitializeGameData; override;
     function RunGame : TVRunResult; override;
     procedure ShutdownGameData; override;
@@ -62,8 +62,9 @@ begin
   Result := TGameLua.Create( TGameConfiguration( Configuration ).LuaConfig );
 end;
 
-procedure TGameRuntime.PrepareGameData;
+function TGameRuntime.PrepareGameData : Boolean;
 begin
+  Result := True;
   FPersistence := TPersistence.Create( Paths.ScorePath );
   if TGameConfiguration( Configuration ).LuaConfig.Configure( 'sound', 'NONE' ) <> 'NONE' then
     FAudio := TGameAudio.Create( TGameConfiguration( Configuration ).LuaConfig, IO.VisualRNG, SoundPath );

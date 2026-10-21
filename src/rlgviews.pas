@@ -6,7 +6,7 @@ unit rlgviews;
 interface
 
 uses classes, sysutils,
-     viotypes, vioevent, vtig, vtigio, vtigstyle, vtextmap, vmessages, vrltools,
+     vio, viotypes, vioevent, vtig, vtigio, vtigstyle, vtextmap, vmessages, vrltools,
      rlglobal, rlthing, rlitem;
 
 type TMainScreen = class;

@@ -7,7 +7,7 @@
 unit rlviews;
 interface
 
-uses classes, sysutils, viotypes, vtigstyle, vmessages, rlpersistence;
+uses classes, sysutils, vio, viotypes, vtigstyle, vmessages, rlpersistence;
 
 const GAMEMENU_CONT = 0;
       GAMEMENU_HELP = 2;
