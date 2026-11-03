@@ -86,9 +86,9 @@ register_cell "shimmering_portal"
 	OnAct = function(self)
 		ui.msg_enter("You feel yanked in a direction that never existed!")
 		if self.flags[lfTown] then
-			player:exit( player.portallevel, "shimmering_portal" )
+			world.exit( player.portallevel, "shimmering_portal" )
 		else
-			player:exit( "town", "shimmering_portal" )
+			world.exit( "town", "shimmering_portal" )
 		end
 	end,
 }
@@ -404,9 +404,9 @@ register_cell( "stairs_up", "stairs" )
 		stats.inc("stairs_up")
 		local target = levels[self.id].up
 		if levels[self.id].is_special then
-			player:exit( target, "stairs_down_special")
+			world.exit( target, "stairs_down_special")
 		else
-			player:exit( target, "stairs_down")
+			world.exit( target, "stairs_down")
 		end
 	end
 }
@@ -425,9 +425,9 @@ register_cell( "stairs_down", "stairs" )
 		stats.inc("stairs_down")
 		local target = levels[self.id].down
 		if levels[self.id].is_special then
-			player:exit( target, "stairs_up_special")
+			world.exit( target, "stairs_up_special")
 		else
-			player:exit( target, "stairs_up")
+			world.exit( target, "stairs_up")
 		end
 	end
 }
@@ -445,7 +445,7 @@ register_cell( "stairs_up_special", "stairs" )
 
 	OnAct = function(self,c)
 		stats.inc("stairs_up")
-		player:exit( levels[self.id].special, "stairs_down")
+		world.exit( levels[self.id].special, "stairs_down")
 	end
 }
 
@@ -462,7 +462,7 @@ register_cell( "stairs_down_special", "stairs" )
 
 	OnAct = function(self,c)
 		stats.inc("stairs_down")
-		player:exit( levels[self.id].special, "stairs_up")
+		world.exit( levels[self.id].special, "stairs_up")
 	end
 }
 
@@ -479,7 +479,7 @@ register_cell( "stairs_up_catacombs", "stairs" )
 
 	OnAct = function(self,c)
 		stats.inc("stairs_up")
-		player:exit( "town", "stairs_down_catacombs")
+		world.exit( "town", "stairs_down_catacombs")
 	end
 }
 
@@ -495,7 +495,7 @@ register_cell( "stairs_down_catacombs", "stairs" )
 
 	OnAct = function(self,c)
 		stats.inc("stairs_down")
-		player:exit( "level5", "stairs_up_catacombs")
+		world.exit( "level5", "stairs_up_catacombs")
 	end
 }
 
@@ -516,7 +516,7 @@ register_cell( "stairs_up_caves", "stairs" )
 		if c then
 			town:set_cell( c, "floor" )
 		end
-		player:exit( "town", "stairs_down_caves")
+		world.exit( "town", "stairs_down_caves")
 	end
 }
 
@@ -532,7 +532,7 @@ register_cell( "stairs_down_caves", "stairs" )
 
 	OnAct = function(self,c)
 		stats.inc("stairs_down")
-		player:exit( "level9", "stairs_up_caves")
+		world.exit( "level9", "stairs_up_caves")
 	end
 }
 
@@ -553,7 +553,7 @@ register_cell( "stairs_up_hell", "stairs" )
 		if c then
 			town:set_cell( c, "stairs_down_hell" )
 		end
-		player:exit( "town", "stairs_down_hell")
+		world.exit( "town", "stairs_down_hell")
 	end
 }
 
@@ -569,7 +569,7 @@ register_cell( "stairs_down_hell", "stairs" )
 
 	OnAct = function(self,c)
 		stats.inc("stairs_down")
-		player:exit( "level13", "stairs_up_hell")
+		world.exit( "level13", "stairs_up_hell")
 	end
 }
 

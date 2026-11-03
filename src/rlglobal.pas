@@ -10,25 +10,6 @@ unit rlglobal;
 interface
 uses sysutils, vrandom, vrltools, vutil, vnode;
 
-const
-      // All the below paths can be set from the command line (see berserk.pas),
-      // all except config can be set from the configuration file.
-
-      // This is the full path to the configuration file ("config.lua" by default)
-      ConfigurationPath : AnsiString = 'config.lua';
-      // This is the directory path to the read only data folder ("" by default, 
-      // needs slash at end)
-      DataPath          : AnsiString = '';
-      // This is the directory path for writing (save, log, crash) ("" by default, 
-      // needs slash at end)
-      WritePath         : AnsiString = '';
-      // This is the directory path for score table (by default it will be the
-      // same as WritePath, change for multi-user systems
-      ScorePath         : AnsiString = '';
-      // This is the directory path to the read only sound folder ("sound/" by default, 
-      // needs slash at end)
-      SoundPath         : AnsiString = 'sound' + PathDelim;
-
 type TNameOutputType = (TheName,AName,PlainName);
 type TPriceType  = (COST_NONE, COST_BUY, COST_SELL, COST_REPAIR, COST_RECHARGE, COST_IDENTIFY );
 
@@ -164,9 +145,6 @@ const EquipableType = [TYPE_HELM,TYPE_ARMOR,TYPE_SHIELD,TYPE_STAFF,TYPE_BOW,TYPE
 const MapSizeX  = 100;
       MapSizeY  = 100;
 
-      MapPosX   : byte = 1;
-      MapPosY   = 2;
-
       MaxSpells = 40;
       MaxQuests = 64;
       MaxSpellLvl = 20;
@@ -174,12 +152,6 @@ const MapSizeX  = 100;
       MaxQuickSkills = 4;
 
       GodMode           : Boolean = False;
-      Option_WalkSound  : Boolean = True;
-      Option_RunDelay   : DWord = 10;
-      Option_TownReveal : Boolean = False;
-      Option_AlwaysName : AnsiString = '';
-      Option_Graphics   : Boolean = True;
-      Option_FullScreen : Boolean = True;
 
 const ExpTable : array[1..50] of DWord = (
       0,          2000,       4620,       8040,       12489,
@@ -211,14 +183,13 @@ type TCellData = record
        cost    : Single;
      end;
 
-
-var CellData : array[1..255] of TCellData;
-
-var
-CELL_FLOOR         : Byte;
-CELL_STAIR_UP      : Byte;
-
-CELL_TOWN_PORTAL   : Byte;
+// Cell definitions of one Lua generation, owned by TGameLua and read by levels.
+type TCellTable = class
+       Data       : array[1..255] of TCellData;
+       Floor      : Byte;
+       StairsUp   : Byte;
+       TownPortal : Byte;
+     end;
 
 
 function RandRange( aRNG : TRNG; RangeMin,RangeMax : LongInt ) : LongInt;

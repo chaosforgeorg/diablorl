@@ -8,10 +8,28 @@
 
 unit rlthing;
 interface
-uses classes, vnode, vluaentitynode, vlua, rlglobal;
+uses classes, vnode, vrandom, vrltools, viotypes, vluaentitynode, vlua, rlglobal;
+
+type TThing = class;
+
+// What levels and entities present, implemented by the game UI.
+IGamePresentation = interface( IRLPresentation )
+  procedure PlaySound( const aID : AnsiString ); overload;
+  procedure PlaySound( const aID : AnsiString; aSource : TCoord2D ); overload;
+  // Plays the walking sound when the setting enables it.
+  procedure PlayFootstep;
+  procedure Explosion( aWhere : TCoord2D; aColor : Byte; aRange : Byte; aDrawDelay : Word; aDelay : Word );
+  procedure AddMarkAnimation( aCoord : TCoord2D; aSign : Char; aColor : TIOColor; aDuration : DWord; aDelay : DWord = 0 );
+  procedure AddBulletAnimation( aFrom, aTo : TCoord2D; aSign : Char; aColor : TIOColor; aDuration : DWord; aDelay : DWord = 0 );
+  procedure UpdateStatus( aThing : TThing );
+  procedure Draw;
+  // Prompts reached from item and spell use. They act on the prepared player.
+  function ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : Boolean;
+  function ChooseDirection( out aDirection : TDirection ) : Boolean;
+  procedure MsgDump( var aTextFile : Text; aLastCount : Integer );
+end;
 
 // Generic Thing class -- ancestor to both TItem and TNPC.
-type
 
 { TThing }
 
@@ -20,7 +38,7 @@ TThing = class(TLuaEntityNode)
        FStats : TThingStats;
      public
        // Overriden constructor -- sets x,y to (1,1).
-       constructor Create( const aThingID : AnsiString );
+       constructor Create( aContext : TNodeContext; const aThingID : AnsiString );
        // Reads statistics from passed table
        procedure ReadStatistics( const aTableID : AnsiString );
        // Overriden destructor, does nothing (yet)
@@ -39,6 +57,8 @@ TThing = class(TLuaEntityNode)
        // register lua functions
        class procedure RegisterLuaAPI( aLua : TLua );
      protected
+       // The gameplay RNG, also reachable before the thing has a level.
+       function GameRNG : TRNG;
        function GetStatistics ( aIndex : DWord ) : LongInt;
        procedure SetStatistics ( aIndex : DWord ; aValue : LongInt ) ;
      public
@@ -69,7 +89,7 @@ TThing = class(TLuaEntityNode)
 end;
 
 implementation
-uses sysutils, rllua, rlgame;
+uses sysutils, rllua;
 
 function TThing.GetStatistics ( aIndex : DWord ) : LongInt;
 begin
@@ -81,11 +101,16 @@ begin
   FStats[ aIndex ] := aValue;
 end;
 
-constructor TThing.Create( const aThingID : AnsiString );
+function TThing.GameRNG : TRNG;
+begin
+  Exit( FContext.Lua.Context.RNG );
+end;
+
+constructor TThing.Create( aContext : TNodeContext; const aThingID : AnsiString );
 var iCount : DWord;
 begin
   // With TNode descendants ALWAYS call inherited Init and Done.
-  inherited Create( aThingID, Game.Context );
+  inherited Create( aThingID, aContext );
   // To be on the safe side we set x,y to 1, 'cause (0,0) is not
   // a valid map coordinate in this game.
   FPosition.Create( 1, 1 );

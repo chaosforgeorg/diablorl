@@ -5,7 +5,7 @@
 unit rlconfig;
 interface
 
-uses Classes, SysUtils, vluaconfig;
+uses Classes, SysUtils, vrltools, vluaconfig;
 
 const
   COMMAND_WALKNORTH = 2;
@@ -88,16 +88,35 @@ const
 type
 
 TGameConfig = class(TLuaConfig)
-  constructor Create( const aFilename : AnsiString );
+  constructor Create( const aFilename, aGodModeFile : AnsiString );
   function RunBinding( aKeyCode : Word ) : Variant;
   function RunGodKey( aKeyCode : Word ) : Variant;
 end;
+
+function CommandDirection( aCommand : Byte ) : TDirection;
 
 implementation
 
 uses vioevent, vlualibrary, rlglobal;
 
-constructor TGameConfig.Create( const aFilename : AnsiString );
+function CommandDirection( aCommand : Byte ) : TDirection;
+begin
+  case aCommand of
+    COMMAND_WALKWEST, COMMAND_RUNWEST, COMMAND_ATKWEST : CommandDirection{%H-}.Create(4);
+    COMMAND_WALKEAST, COMMAND_RUNEAST, COMMAND_ATKEAST : CommandDirection.Create(6);
+    COMMAND_WALKNORTH,COMMAND_RUNNORTH,COMMAND_ATKNORTH: CommandDirection.Create(8);
+    COMMAND_WALKSOUTH,COMMAND_RUNSOUTH,COMMAND_ATKSOUTH: CommandDirection.Create(2);
+    COMMAND_WALKNW,   COMMAND_RUNNW,   COMMAND_ATKNW   : CommandDirection.Create(7);
+    COMMAND_WALKNE,   COMMAND_RUNNE,   COMMAND_ATKNE   : CommandDirection.Create(9);
+    COMMAND_WALKSW,   COMMAND_RUNSW,   COMMAND_ATKSW   : CommandDirection.Create(1);
+    COMMAND_WALKSE,   COMMAND_RUNSE,   COMMAND_ATKSE   : CommandDirection.Create(3);
+    COMMAND_WAIT: CommandDirection.Create(5);
+    else
+      CommandDirection.Create(0);
+  end;
+end;
+
+constructor TGameConfig.Create( const aFilename, aGodModeFile : AnsiString );
 begin
   inherited Create();
   lua_newtable( Raw );
@@ -105,7 +124,7 @@ begin
 
   LoadMain( aFileName );
   if GodMode then
-    Load( DataPath+'godmode.lua' );
+    Load( aGodModeFile );
 
   SetConstant('VERSION', Version);
 end;

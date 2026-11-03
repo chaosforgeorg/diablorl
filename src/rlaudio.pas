@@ -51,12 +51,10 @@ begin
     FSound := TFMODSound.Create
   else
     FSound := TSDLSound.Create( aVisualRNG );
-  vsound.Sound := FSound;
 end;
 
 destructor TGameAudio.Destroy;
 begin
-  vsound.Sound := nil;
   if FSound <> nil then
   begin
     FSound.StopSound;

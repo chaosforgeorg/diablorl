@@ -994,9 +994,9 @@ end
 
 function ui.shop( id, desc, mode )
 	if mode ~= nil then
-		return ui.shop_run( id, desc, mode )
+		return ui.shop_run( world.get_shop( id ), desc, mode )
 	else
-		return ui.shop_run( id, desc )
+		return ui.shop_run( world.get_shop( id ), desc )
 	end
 end
 

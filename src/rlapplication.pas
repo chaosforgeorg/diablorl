@@ -10,7 +10,6 @@ type TGameRuntime = class( TRLRuntime )
     FSession     : TGameSession;
     FPersistence : TPersistence;
     FAudio       : TGameAudio;
-    procedure LoadCells;
   protected
     function CreateIO : TIORL; override;
     function CreateLua : TLua; override;
@@ -44,10 +43,9 @@ uses vos, vioevent, vdebug, rlconfiguration, rlconfig, rlglobal, rlui, rllua;
 
 function TGameRuntime.CreateIO : TIORL;
 begin
-  // Configuration is already transferred; launch globals were resolved by
-  // ApplyOptions before the inherited Runtime constructor calls this factory.
-  UI := TGameUI.Create( TGameConfiguration( Configuration ) );
-  Result := UI;
+  // Configuration and Paths are already transferred, and ApplyOptions has
+  // resolved the launch choices before the inherited constructor calls this.
+  Result := TGameUI.Create( TGameConfiguration( Configuration ), Paths.DataPath );
 end;
 
 constructor TGameRuntime.Create( const aPaths : TGamePaths; var aConfiguration : TObject );
@@ -59,57 +57,65 @@ end;
 
 function TGameRuntime.CreateLua : TLua;
 begin
-  Result := TGameLua.Create( TGameConfiguration( Configuration ).LuaConfig );
+  Result := TGameLua.Create( TGameConfiguration( Configuration ).LuaConfig, TGameUI( IO ) );
 end;
 
 function TGameRuntime.PrepareGameData : Boolean;
+var iConfiguration : TGameConfiguration;
 begin
   Result := True;
+  iConfiguration := TGameConfiguration( Configuration );
   FPersistence := TPersistence.Create( Paths.ScorePath );
-  if TGameConfiguration( Configuration ).LuaConfig.Configure( 'sound', 'NONE' ) <> 'NONE' then
-    FAudio := TGameAudio.Create( TGameConfiguration( Configuration ).LuaConfig, IO.VisualRNG, SoundPath );
+  if iConfiguration.LuaConfig.Configure( 'sound', 'NONE' ) <> 'NONE' then
+    FAudio := TGameAudio.Create( iConfiguration.LuaConfig, IO.VisualRNG, iConfiguration.SoundPath );
   TGameUI( IO ).SetAudio( FAudio );
 end;
 
 procedure TGameRuntime.InitializeGameData;
 begin
-  TGameLua( FLua ).Initialize( Paths.DataPath );
-  LoadCells;
+  TGameLua( FLua ).Initialize;
+  // Runtime outlives Lua; the natives resolve the Session active at each call.
+  // Natives register before scripts run: core.lua guards globals.
+  TGameSession.RegisterLuaAPI( FLua, @FSession );
+  TGameLua( FLua ).LoadData( Paths.DataPath );
+  TGameLua( FLua ).LoadCells( TGameUI( IO ).GraphicsMode );
   if GodMode then RegisterDebugConsole( VKEY_F1 );
 end;
 
 function TGameRuntime.RunGame : TVRunResult;
 var iChoice : TGameMenuResult;
+    iUI     : TGameUI;
 begin
   Result := VRR_QUIT;
+  iUI := TGameUI( IO );
   try
-    IO.HideCursor;
-    UI.PlayMusic( 'music/dintro.wav' );
-    IO.RunLayer( TIntroScreen.Create );
+    iUI.HideCursor;
+    iUI.PlayMusic( 'music/dintro.wav' );
+    iUI.RunLayer( TIntroScreen.Create );
     repeat
-      IO.RunLayer( TMainMenuScreen.Create( FPersistence, iChoice ) );
+      iUI.RunLayer( TMainMenuScreen.Create( FPersistence,
+        FileExists( Paths.WritePath + 'save' ), iChoice ) );
       if iChoice = GMR_QUIT then
       begin
-        IO.RunLayer( TOutroScreen.Create );
+        iUI.RunLayer( TOutroScreen.Create );
         Break;
       end;
       FSession := TGameSession.Create( Self, FPersistence );
-      Game := FSession;
       if FSession.Execute( iChoice = GMR_LOAD ) = GSR_LOAD_FAILED then
         Log( 'Load failed; returning to main menu.' );
       // Exceptional Sessions stay alive for the outer crash-save handler.
-      UI.UnPrepare;
-      IO.Clear;
+      iUI.UnPrepare;
+      iUI.Clear;
       FreeAndNil( FSession );
-      UI.HaltSound;
-      UI.PlayMusic( 'music/dintro.wav' );
+      iUI.HaltSound;
+      iUI.PlayMusic( 'music/dintro.wav' );
     until False;
   except
     on E : EGameProcessQuit do Result := VRR_QUIT;
   end;
-  UI.UnPrepare;
-  IO.Clear;
-  UI.SaveWindowGeometry;
+  iUI.UnPrepare;
+  iUI.Clear;
+  iUI.SaveWindowGeometry;
   if not TGameConfiguration( Configuration ).WriteSettings then
     Log( 'Could not save settings on shutdown.' );
 end;
@@ -127,7 +133,6 @@ begin
 end;
 
 procedure TGameRuntime.ShutdownGameData;
-var iCell : Integer;
 begin
   if IO <> nil then
   begin
@@ -138,54 +143,12 @@ begin
   if IO <> nil then TGameUI( IO ).SetAudio( nil );
   FreeAndNil( FAudio );
   FreeAndNil( FPersistence );
-  for iCell := Low( CellData ) to High( CellData ) do
-    CellData[ iCell ] := Default( TCellData );
-  CELL_FLOOR := 0;
-  CELL_STAIR_UP := 0;
-  CELL_TOWN_PORTAL := 0;
 end;
 
 destructor TGameRuntime.Destroy;
 begin
   ShutdownGameData;
   inherited Destroy;
-end;
-
-procedure TGameRuntime.LoadCells;
-var CellCount : Word;
-    Count,C   : Word;
-begin
-  for Count := 1 to 255 do CellData[Count].id := '';
-
-  CellCount := FLua.Get(['cells','__counter']);
-
-  for Count := 1 to CellCount do
-  with FLua.GetTable( ['cells', Count] ) do
-  try
-    with CellData[Count] do
-    begin
-      id      := GetString('id');
-
-      flags   := GetFlags('flags');
-      color   := GetInteger('color');
-      pic     := GetString('pic')[1];
-      if not Option_Graphics then
-        pic     := GetString('piclow')[1];
-      name    := GetString('name');
-      cost    := GetFloat('cost',1.0);
-      Hooks := [];
-      for C := Low( CellHookNames ) to High( CellHookNames ) do
-        if isFunction( CellHookNames[C] ) then
-          Include( Hooks, C );
-    end;
-  finally
-    Free;
-  end;
-
-  CELL_FLOOR         := FLua.Defines['floor'];
-  CELL_STAIR_UP      := FLua.Defines['stairs_up'];
-
-  CELL_TOWN_PORTAL   := FLua.Defines['shimmering_portal'];
 end;
 
 procedure TGameApplication.DefineOptions;
@@ -231,28 +194,27 @@ begin
   aPaths.DataPath := aPaths.ResourcePath;
   aPaths.WritePath := aPaths.ResourcePath;
   aPaths.ScorePath := '';
-  SoundPath := aPaths.ResourcePath + 'sound' + PathDelim;
 end;
 
 procedure TGameApplication.BeforeConfiguration( var aPaths : TGamePaths );
 begin
   GodMode := HasOption( 'god' );
-  ConfigurationPath := aPaths.ConfigurationPath;
-  // The existing godmode.lua lookup precedes Lua/CLI DataPath overrides.
-  DataPath := aPaths.DataPath;
 end;
 
 function TGameApplication.CreateConfiguration( var aPaths : TGamePaths ) : TObject;
 var iConfiguration : TGameConfiguration;
     iConfig : TGameConfig;
 begin
-  iConfiguration := TGameConfiguration.Create( aPaths.ConfigurationPath, aPaths.SettingsPath );
+  // The godmode.lua lookup precedes the Lua and command-line DataPath overrides.
+  iConfiguration := TGameConfiguration.Create( aPaths.ConfigurationPath,
+    aPaths.SettingsPath, aPaths.DataPath + 'godmode.lua' );
   iConfig := iConfiguration.LuaConfig;
   try
     aPaths.DataPath := iConfig.Configure( 'DataPath', aPaths.DataPath );
     aPaths.WritePath := iConfig.Configure( 'WritePath', aPaths.WritePath );
     aPaths.ScorePath := iConfig.Configure( 'ScorePath', aPaths.ScorePath );
-    SoundPath := iConfig.Configure( 'SoundPath', SoundPath );
+    iConfiguration.SoundPath := iConfig.Configure( 'SoundPath',
+      aPaths.ResourcePath + 'sound' + PathDelim );
     Result := iConfiguration;
   except
     iConfiguration.Free;
@@ -261,33 +223,28 @@ begin
 end;
 
 procedure TGameApplication.ApplyOptions;
+var iConfiguration : TGameConfiguration;
+    iLaunch        : TGameLaunchOptions;
 begin
+  iConfiguration := TGameConfiguration( Configuration );
   if HasOption( 'datapath' ) then FPaths.DataPath := GetOptionValue( 'datapath' );
   if HasOption( 'writepath' ) then FPaths.WritePath := GetOptionValue( 'writepath' );
   if HasOption( 'scorepath' ) then FPaths.ScorePath := GetOptionValue( 'scorepath' );
-  if HasOption( 'soundpath' ) then SoundPath := GetOptionValue( 'soundpath' );
-  TGameConfiguration( Configuration ).NameOverridden := HasOption( 'name' );
-  if HasOption( 'name' ) then Option_AlwaysName := GetOptionValue( 'name' );
-  if HasOption( 'console' ) then Option_Graphics := False;
-  if HasOption( 'graphics' ) then Option_Graphics := True;
-  if HasOption( 'fullscreen' ) then
-  begin
-    Option_FullScreen := True;
-    TGameConfiguration( Configuration ).FullscreenOverride := 1;
-  end;
-  if HasOption( 'windowed' ) then
-  begin
-    Option_FullScreen := False;
-    TGameConfiguration( Configuration ).FullscreenOverride := 0;
-  end;
+  if HasOption( 'soundpath' ) then iConfiguration.SoundPath := GetOptionValue( 'soundpath' );
+  iLaunch := iConfiguration.Launch;
+  iLaunch.HasName := HasOption( 'name' );
+  if iLaunch.HasName then iLaunch.Name := GetOptionValue( 'name' );
+  iLaunch.ForceConsole := HasOption( 'console' );
+  iLaunch.ForceGraphics := HasOption( 'graphics' );
+  if HasOption( 'fullscreen' ) then iLaunch.Fullscreen := 1;
+  if HasOption( 'windowed' ) then iLaunch.Fullscreen := 0;
+  iConfiguration.Launch := iLaunch;
 
   FPaths.Normalize;
   if FPaths.ScorePath = '' then FPaths.ScorePath := FPaths.WritePath;
   FPaths.DeriveDiagnostics;
-  if SoundPath <> '' then SoundPath := IncludeTrailingPathDelimiter( SoundPath );
-  DataPath := FPaths.DataPath;
-  WritePath := FPaths.WritePath;
-  ScorePath := FPaths.ScorePath;
+  if iConfiguration.SoundPath <> '' then
+    iConfiguration.SoundPath := IncludeTrailingPathDelimiter( iConfiguration.SoundPath );
 end;
 
 procedure TGameApplication.BeforeDiagnostics;

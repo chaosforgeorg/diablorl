@@ -5,54 +5,53 @@
 unit rllua;
 interface
 
-uses sysutils, vrltools, vlua, vluagamestack, vdf, rlnpc, rlitem, rlthing, rllevel, rlconfig;
-
-var LuaPlayerX : Byte = 2;
-    LuaPlayerY : Byte = 2;
+uses sysutils, vnode, vrltools, vlua, vlualibrary, vluagamestack, vdf, rlglobal, rlnpc, rlitem, rlthing, rllevel, rlconfig, rlui;
 
 type
 
 { TGameLua }
 
 TGameLua = class(TLua)
-       constructor Create( aConfig : TGameConfig );
-       procedure Initialize( const aDataPath : AnsiString );
+       constructor Create( aConfig : TGameConfig; aUI : TGameUI );
+       // Registers the natives; the Session natives register after this.
+       procedure Initialize;
+       // Loads content; natives register first, because core.lua guards globals.
+       procedure LoadData( const aDataPath : AnsiString );
+       // Factories creating entities from Lua use the active Session's context.
+       procedure BindNodeContext( aContext : TNodeContext );
+       // Fills the cell table once per Lua generation.
+       procedure LoadCells( aGraphicsMode : Boolean );
        destructor Destroy; override;
-//       function RunHook(const TableName: Ansistring; Index: Variant; const Name: Ansistring; const Args: array of const ) : Variant;
-       procedure RegisterPlayer(Thing: TThing);
        procedure OnError(const ErrorString : Ansistring); override;
      private
-       CoreData: TVDataFile;
+       CoreData : TVDataFile;
+       FUI      : TGameUI;    // borrowed from Runtime
+       FNodeContext : TNodeContext; // borrowed from the active Session
+       FCells   : TCellTable;
      private
        procedure ReadData( const DataFile : AnsiString );
+     public
+       property NodeContext : TNodeContext read FNodeContext;
+       property Cells : TCellTable read FCells;
      end;
 
 { TGameLuaStack }
 
 TGameLuaStack = object(TLuaGameStack)
-  function ToNewNPC( Index : Integer ) : TNPC;
-  function ToNewItem( Index : Integer ) : TItem;
+  function ToNewItem( Index : Integer; aContext : TNodeContext ) : TItem;
   function ToItemList( Index : Integer; MaxSize : DWord = 0 ) : TItemList;
 end;
 
-
 implementation
 
-uses vnode, vlualibrary, vluaentitynode, vluatools, vdebug, viotypes, vutil, vluadungen,
-     rlglobal, rlgame, rlplayer, rlui, rlshop;
+uses vluaentitynode, vluatools, vdebug, viotypes, vutil, vluadungen,
+     rlplayer, rlshop;
 
 { TGameLuaStack }
 
-function TGameLuaStack.ToNewNPC ( Index : Integer ) : TNPC;
+function TGameLuaStack.ToNewItem ( Index : Integer; aContext : TNodeContext ) : TItem;
 begin
-  if IsString( Index ) then Exit( TNPC.Create( ToString( Index ) ) );
-  if IsObject( Index ) then Exit( ToObject( Index ) as TNPC );
-  Error('NPC/id expected!');
-end;
-
-function TGameLuaStack.ToNewItem ( Index : Integer ) : TItem;
-begin
-  if IsString( Index ) then Exit( TItem.Create( ToString( Index ) ) );
+  if IsString( Index ) then Exit( TItem.Create( aContext, ToString( Index ) ) );
   if IsObject( Index ) then Exit( ToObject( Index ) as TItem );
   Error('Item/id expected!');
 end;
@@ -85,83 +84,25 @@ begin
   Log('%s loaded.',[DataFile]);
 end;
 
-procedure TGameLua.RegisterPlayer(Thing: TThing);
-begin
-  SetValue( 'player', Thing );
-  RegisterKillsClass( Raw, TPlayer(Thing).Kills, 'kills' );
-  RegisterStatisticsClass( Raw, TPlayer(Thing).Stats, 'stats' );
-end;
-
 procedure TGameLua.OnError(const ErrorString: Ansistring);
 begin
-  if (UI <> nil)  then
-  begin
-    UI.Msg( 'LuaError: '+ ErrorString );
-  end
-  else
-    raise ELuaException.Create('LuaError: '+ErrorString);
+  FUI.Msg( 'LuaError: '+ ErrorString );
   Log('LuaError: '+ErrorString);
 end;
 
-function lua_world_end_game(L: Plua_State): Integer; cdecl;
-begin
-  Result := 0;
-  Game.Ended:=true;
-  Game.Player.SpeedCount := Game.Player.SpeedCount - 50;
-end;
-
-// temp?
-function lua_world_get_shop(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaStack;
-    ID     : AnsiString;
-    Shop   : TShop;
-begin
-  State.Init(L);
-  ID := State.ToString(1);
-  if ID = '' then Exit(0);
-  Shop := Game.FindChild( ID ) as TShop;
-  if Shop = nil then Exit(0);
-  State.Push( Shop );
-  Result := 1;
-end;
-
-// temp?
-function lua_world_get_level(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaStack;
-    ID     : AnsiString;
-    Level  : TLevel;
-begin
-  State.Init(L);
-  ID := State.ToString(1);
-  if ID = '' then Exit(0);
-  Level := Game.FindChild( ID ) as TLevel;
-  if Level = nil then Exit(0);
-  State.Push( Level );
-  Result := 1;
-end;
-
-function lua_world_get_turn_count(L: Plua_State): Integer; cdecl;
-var State  : TGameLuaStack;
-begin
-  State.Init(L);
-  State.Push( LongInt( Game.TurnCount ) );
-  Result := 1;
-end;
-
-const lua_world_lib : array[0..4] of luaL_Reg = (
-    ( name : 'get_level';        func : @lua_world_get_level),
-    ( name : 'get_shop';         func : @lua_world_get_shop),
-    ( name : 'get_turn_count';   func : @lua_world_get_turn_count),
-    ( name : 'end_game';         func : @lua_world_end_game),
-    ( name : nil;                func : nil; )
-);
-
-constructor TGameLua.Create( aConfig : TGameConfig );
+constructor TGameLua.Create( aConfig : TGameConfig; aUI : TGameUI );
 begin
   if GodMode then inherited Create( aConfig.Raw ) else inherited Create;
+  FUI := aUI;
+  FCells := TCellTable.Create;
 end;
 
-procedure TGameLua.Initialize( const aDataPath : AnsiString );
+procedure TGameLua.BindNodeContext( aContext : TNodeContext );
+begin
+  FNodeContext := aContext;
+end;
+
+procedure TGameLua.Initialize;
 var Count     : DWord;
     LuaInfo   : TLuaClassInfo;
 begin
@@ -192,10 +133,7 @@ begin
   LuaInfo := GetClassInfo( TPlayer );
   LuaInfo.RegisterHooks( [ Hook_OnCreate, Hook_OnAttack, Hook_OnBroadcast, Hook_OnAct, Hook_OnTalk, Hook_OnSpot, Hook_OnHit, Hook_OnDie ], HookNameList );
 
-//  AddVar('VERSION',Version);
-  Register( 'world', lua_world_lib );
-
-  TGameUI.RegisterLuaAPI( Self );
+  FUI.RegisterLuaAPI( Self );
   TNode.RegisterLuaAPI( Self, 'game_object');
   TThing.RegisterLuaAPI( Self );
   TLuaEntityNode.RegisterLuaAPI( Self, 'thing');
@@ -207,7 +145,10 @@ begin
   TPlayer.RegisterLuaAPI( Self );
 
   RegisterDunGenClass( Raw, 'generator' );
+end;
 
+procedure TGameLua.LoadData( const aDataPath : AnsiString );
+begin
   if GodMode then
   try
     RegisterModule('diablorl','lua' + DirectorySeparator);
@@ -223,11 +164,47 @@ begin
 
 end;
 
+procedure TGameLua.LoadCells( aGraphicsMode : Boolean );
+var CellCount : Word;
+    Count,C   : Word;
+begin
+  for Count := 1 to 255 do FCells.Data[Count].id := '';
+
+  CellCount := Get(['cells','__counter']);
+
+  for Count := 1 to CellCount do
+  with GetTable( ['cells', Count] ) do
+  try
+    with FCells.Data[Count] do
+    begin
+      id      := GetString('id');
+
+      flags   := GetFlags('flags');
+      color   := GetInteger('color');
+      pic     := GetString('pic')[1];
+      if not aGraphicsMode then
+        pic     := GetString('piclow')[1];
+      name    := GetString('name');
+      cost    := GetFloat('cost',1.0);
+      Hooks := [];
+      for C := Low( CellHookNames ) to High( CellHookNames ) do
+        if isFunction( CellHookNames[C] ) then
+          Include( Hooks, C );
+    end;
+  finally
+    Free;
+  end;
+
+  FCells.Floor      := Defines['floor'];
+  FCells.StairsUp   := Defines['stairs_up'];
+  FCells.TownPortal := Defines['shimmering_portal'];
+end;
 
 destructor TGameLua.Destroy;
 begin
   FreeAndNil(CoreData);
   inherited Destroy;
+  FreeAndNil(FCells);
 end;
 
 { TGameLuaStack }

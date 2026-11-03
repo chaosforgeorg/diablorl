@@ -8,9 +8,22 @@ const GAME_CONFIGURATION_GROUP_DISPLAY  = 'display';
       GAME_CONFIGURATION_GROUP_GAMEPLAY = 'gameplay';
       GAME_CONFIGURATION_GROUP_AUDIO    = 'audio';
 
+// Command-line choices; each reader asks the configuration through the answers below.
+type TGameLaunchOptions = record
+  ForceConsole  : Boolean;
+  ForceGraphics : Boolean;
+  // -1 uses the setting, 0 is --windowed, 1 is --fullscreen.
+  Fullscreen    : Integer;
+  // --name was given, even with an empty value.
+  HasName       : Boolean;
+  Name          : AnsiString;
+end;
+
 type TGameConfiguration = class( TConfigurationManager )
-  constructor Create( const aConfigurationPath, aSettingsPath : AnsiString );
-  procedure ApplyLiveSettings;
+  constructor Create( const aConfigurationPath, aSettingsPath, aGodModeFile : AnsiString );
+  function GraphicsMode : Boolean;
+  function Fullscreen : Boolean;
+  function FixedPlayerName : AnsiString;
   procedure LoadBindings( aGame, aUI : TBindingContext );
   procedure ResetValues;
   procedure ResetGroup( const aGroupID : AnsiString );
@@ -23,16 +36,16 @@ type TGameConfiguration = class( TConfigurationManager )
   destructor Destroy; override;
 private
   FLuaConfig         : TGameConfig;
-  FNameOverridden    : Boolean;
-  FFullscreenOverride : Integer;
+  FLaunch            : TGameLaunchOptions;
+  FSoundPath         : AnsiString;
   FGameKeyBindings   : TGameBindingCatalog;
   FUIKeyBindings     : TGameBindingCatalog;
   FRunModifier       : TIntegerConfigurationEntry;
   FAttackModifier    : TIntegerConfigurationEntry;
   FSettingsPath      : AnsiString;
 public
-  property FullscreenOverride : Integer read FFullscreenOverride write FFullscreenOverride;
-  property NameOverridden  : Boolean read FNameOverridden write FNameOverridden;
+  property Launch          : TGameLaunchOptions          read FLaunch write FLaunch;
+  property SoundPath       : AnsiString                  read FSoundPath write FSoundPath;
   property LuaConfig       : TGameConfig                 read FLuaConfig;
   property GameKeyBindings : TGameBindingCatalog        read FGameKeyBindings;
   property UIKeyBindings   : TGameBindingCatalog        read FUIKeyBindings;
@@ -46,14 +59,14 @@ implementation
 uses SysUtils, vutil, vdebug, rlglobal;
 
 constructor TGameConfiguration.Create( const aConfigurationPath,
-  aSettingsPath : AnsiString );
+  aSettingsPath, aGodModeFile : AnsiString );
 var iDisplayGroup  : TConfigurationGroup;
     iMovementGroup : TConfigurationGroup;
     iGroup         : TConfigurationGroup;
 begin
   inherited Create;
   FSettingsPath := aSettingsPath;
-  FFullscreenOverride := -1;
+  FLaunch.Fullscreen := -1;
 
   iDisplayGroup := AddGroup( GAME_CONFIGURATION_GROUP_DISPLAY );
   iDisplayGroup.AddInteger( 'display_mode', 0 ).SetName( 'Resolution' )
@@ -110,15 +123,31 @@ begin
   FUIKeyBindings.RegisterGroup( AddGroup( UI_KEY_BINDING_GROUP ), UI_KEY_BINDING_GROUP );
   FUIKeyBindings.ValidateRegistration;
 
-  FLuaConfig := TGameConfig.Create( aConfigurationPath );
+  FLuaConfig := TGameConfig.Create( aConfigurationPath, aGodModeFile );
 
   if (FSettingsPath <> '') and FileExists( FSettingsPath )
     then ReadSettings
     else if FSettingsPath <> ''
       then WriteSettings;
-  ApplyLiveSettings;
-  Option_Graphics := not GetBoolean( 'ascii_mode' );
-  Option_FullScreen := GetBoolean( 'fullscreen' );
+end;
+
+function TGameConfiguration.GraphicsMode : Boolean;
+begin
+  if FLaunch.ForceGraphics then Exit( True );
+  if FLaunch.ForceConsole then Exit( False );
+  Result := not GetBoolean( 'ascii_mode' );
+end;
+
+function TGameConfiguration.Fullscreen : Boolean;
+begin
+  if FLaunch.Fullscreen >= 0 then Exit( FLaunch.Fullscreen = 1 );
+  Result := GetBoolean( 'fullscreen' );
+end;
+
+function TGameConfiguration.FixedPlayerName : AnsiString;
+begin
+  if FLaunch.HasName then Exit( FLaunch.Name );
+  Result := GetString( 'always_name' );
 end;
 
 procedure TGameConfiguration.LoadBindings( aGame, aUI : TBindingContext );
@@ -224,14 +253,6 @@ begin
         TToggleConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ]
       else if iEntry is TStringConfigurationEntry then
         TStringConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ];
-end;
-
-procedure TGameConfiguration.ApplyLiveSettings;
-begin
-  Option_RunDelay := GetInteger( 'run_delay' );
-  Option_TownReveal := GetBoolean( 'reveal_town' );
-  Option_WalkSound := GetBoolean( 'walk_sound' );
-  if not FNameOverridden then Option_AlwaysName := GetString( 'always_name' );
 end;
 
 function TGameConfiguration.ValuesValid : Boolean;

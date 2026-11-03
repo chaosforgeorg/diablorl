@@ -30,8 +30,10 @@ TNPC = class(TThing, IPathQuery)
        property Activated: boolean read FActivated;
      public
        // Overriden constructor -- sets x,y to (1,1).
-       constructor Create(const thingID :string);
-       procedure Action; virtual;
+       constructor Create( aContext : TNodeContext; const thingID : AnsiString );
+       // What this NPC presents through; its level's presentation.
+       function Presentation : IGamePresentation; virtual;
+       procedure Action;
        // Opening doors/Closing doors/Opening Sacrophagus/etc...
        function ActivateCell(c : TCoord2D) : Boolean;
        // Attack NPC
@@ -109,14 +111,14 @@ TNPC = class(TThing, IPathQuery)
      end;
 
 implementation
-uses vvision, vluaentitynode, vutil, rllua, rlgame, rllevel, rlplayer, rlui;
+uses vvision, vluaentitynode, vutil, rllua, rllevel, rlplayer;
 
-constructor TNPC.Create(const thingID :string);
+constructor TNPC.Create( aContext : TNodeContext; const thingID : AnsiString );
 var iTable  : AnsiString;
     iCorpse : AnsiString;
 begin
   // Set other atributes and find given thingID
-  inherited Create(thingID);
+  inherited Create( aContext, thingID );
   FPathfinder := TPathfinder.Create( Self );
   FEntityID := ENTITY_BEING;
   fid := ThingID;
@@ -124,7 +126,7 @@ begin
   if FContext.Lua.Defined(['klasses',id]) then
     iTable := 'klasses'
   else if not FContext.Lua.Defined(['npcs',id]) then
-    Game.Lua.OnError('NPC "'+id+'" not found!')
+    FContext.Lua.OnError('NPC "'+id+'" not found!')
   else
     iTable := 'npcs';
 
@@ -140,7 +142,7 @@ begin
     iCorpse  := GetString('corpse');
     if iCorpse <> '' then  FCorpse := FContext.Lua.Defines[iCorpse];
     FAI      := GetInteger('ai');
-    FStats[ STAT_HPMAX ] := RandRange( Game.RNG,
+    FStats[ STAT_HPMAX ] := RandRange( GameRNG,
       GetInteger( 'hpmin' ), GetInteger( 'hpmax' ) );
     if (nfUnique in FFlags) then FStats[ STAT_EXPVALUE ] *= 2;
     FSound   := GetString('sound','');
@@ -149,7 +151,7 @@ begin
   end;
 
   FStats[ STAT_HP ] := FStats[ STAT_HPMAX ];
-  FSpeedCount := 90 - Game.RNG.RLongInt( 40 );
+  FSpeedCount := 90 - GameRNG.RLongInt( 40 );
   FActivated  := False;
   FRecovery := 0;
 
@@ -157,6 +159,11 @@ begin
 end;
 
 //Find closest target matching AI
+function TNPC.Presentation : IGamePresentation;
+begin
+  Exit( TLevel( Parent ).Presentation );
+end;
+
 function TNPC.ClosestTarget(AISet: TAITypeSet; Radius : Byte):TNPC;
 var t, ran : Word;
     sc : TCoord2D;
@@ -231,12 +238,12 @@ begin
       16 : if HitChance < 30  then HitChance := 30;
     end;
 
-    if Game.RNG.RLongInt( 100 ) >= HitChance then
+    if GameRNG.RLongInt( 100 ) >= HitChance then
     begin
       if NPC.isPlayer then
-        UI.Msg(GetName(TheName)+' misses you.')
+        Presentation.Msg(GetName(TheName)+' misses you.')
       else
-        UI.Msg(GetName(TheName)+' misses '+NPC.GetName(TheName)+'.');
+        Presentation.Msg(GetName(TheName)+' misses '+NPC.GetName(TheName)+'.');
       Exit(false);
     end;
 
@@ -247,11 +254,11 @@ begin
   end;
 
   if NPC.isPlayer then
-    UI.Msg(GetName(TheName)+' hits you.')
+    Presentation.Msg(GetName(TheName)+' hits you.')
   else
-    UI.Msg(GetName(TheName)+' hits '+NPC.GetName(TheName)+'.');
+    Presentation.Msg(GetName(TheName)+' hits '+NPC.GetName(TheName)+'.');
 
-  Damage := RandRange( Game.RNG, DmgMin, DmgMax );
+  Damage := RandRange( GameRNG, DmgMin, DmgMax );
 
   DmgType := DAMAGE_GENERAL;
   if spellID > 0 then
@@ -293,14 +300,14 @@ var CellID : Byte;
 begin
   iLevel := TLevel(Parent);
   cellID := iLevel.Cell[c];
-  if (c<>position)and( not (cfBlockMove in CellData[CellID].Flags)) then
+  if (c<>position)and( not (cfBlockMove in iLevel.Cells.Data[CellID].Flags)) then
     if (iLevel.NPCs[c] <> nil) or (iLevel.Items[c] <> nil) then
     begin
       PlayerMsg('There''s something blocking the way.');
       Exit(false);
     end;
   //focus Lua on the cell activator and execute script
-  if (CellHook_OnAct in CellData[CellID].Hooks) then
+  if (CellHook_OnAct in iLevel.Cells.Data[CellID].Hooks) then
   begin
     iLevel.CellHook( CellHook_OnAct, c, [Self] );
   end
@@ -331,7 +338,7 @@ begin
   iResist := Min( iResist, 100 );
   if iResist >= 100 then
   begin
-    if (Visible) and (not isPlayer) then UI.Msg(getName(TheName)+' is unaffected.');
+    if (Visible) and (not isPlayer) then Presentation.Msg(getName(TheName)+' is unaffected.');
     exit( False );
   end;
   aDamage := Max( (aDamage * (100-iResist)) div 100,1);
@@ -399,8 +406,10 @@ begin
 end;
 
 procedure TNPC.TimeFlow(time : LongInt);
+var iLevel : TLevel;
 begin
-  if Game.Ended then Exit;
+  iLevel := TLevel( Parent );
+  if iLevel.Player.Died then Exit;
   // Do your action
   if not (isPlayer()or (nfNoHeal in Fflags)) then
   begin
@@ -419,7 +428,9 @@ begin
   Inc(FSpeedCount,Max(0,time-FRecovery));
   FRecovery := Max(0,FRecovery-Time);
   if FRecovery = 0 then exclude( Fflags, nfStatue );
-  while (FSpeedCount >= 100) and (Game.Ended = False) do Action;
+  // The Session runs the player's turns.
+  if isPlayer then Exit;
+  while (FSpeedCount >= 100) and (not Dead) and (not iLevel.Player.Died) do Action;
 end;
 
 function TNPC.getResist(aResStat: DWord): LongInt;
@@ -428,32 +439,37 @@ begin
 end;
 
 procedure TNPC.Die(Attacker: TNPC = nil);
+var iLevel  : TLevel;
+    iPlayer : TPlayer;
 begin
+  // Parent is nil once this NPC is discarded below.
+  iLevel  := TLevel( Parent );
+  iPlayer := iLevel.Player;
   if FAI in AIMonster then
-    Game.Player.Kills.Add(ID);
+    iPlayer.Kills.Add(ID);
 
   // technically not needed anymore
-  if UID = Game.Player.Enemy then Game.Player.Enemy := 0;
+  if UID = iPlayer.Enemy then iPlayer.Enemy := 0;
 
-  if Visible then UI.Msg(GetName(TheName)+' dies.');
+  if Visible then Presentation.Msg(GetName(TheName)+' dies.');
   PlaySound('d');
   RunHook( Hook_OnDrop, [ Attacker ] );
   if FAI in AIMonster then
-    UI.Msg('You gain '+IntToStr(getExpValue(Game.Player.Level))+' experience.');
-  Game.Player.AddExp(getExpValue(Game.Player.Level));
+    Presentation.Msg('You gain '+IntToStr(getExpValue(iPlayer.Level))+' experience.');
+  iPlayer.AddExp(getExpValue(iPlayer.Level));
   if FCorpse <> 0 then
-    if not (cfBlockChange in CellData[TLevel(Parent).Cell[Position]].Flags) then
-      TLevel(Parent).Cell[Position] := FCorpse;
+    if not (cfBlockChange in iLevel.Cells.Data[iLevel.Cell[Position]].Flags) then
+      iLevel.Cell[Position] := FCorpse;
   RunHook( Hook_OnDie, [Attacker] );
   Discard;
   if FAI in AIMonster then
-    Game.Level.OnMonsterDie(Position);
+    iLevel.OnMonsterDie(Position);
 
 end;
 
 procedure TNPC.PlayerMsg(const mstr : string);
 begin
-  if IsPlayer then UI.Msg(mstr);
+  if IsPlayer then Presentation.Msg(mstr);
 end;
 
 procedure TNPC.KnockBack(dir : TDirection);
@@ -485,7 +501,7 @@ var r : TCoord2D;
   function TryMove(mv : TCoord2D) : Byte;
   begin with TLevel(Parent) do begin
     if NPCs[mv] <> nil then Exit(100);
-    if cfBlockMove in CellData[Cell[mv]].Flags then Exit(100);
+    if cfBlockMove in Cells.Data[Cell[mv]].Flags then Exit(100);
     r := mv;
     Exit(0);
   end; end;
@@ -524,13 +540,13 @@ begin
   if MoveResult = 100 then
     if m.x = 0 then
       MoveResult := TryMove( NewCoord2D(
-        Position.x + ( Game.RNG.RLongInt( 2 ) * 2 - 1 ), Position.y + m.y ) )
+        Position.x + ( GameRNG.RLongInt( 2 ) * 2 - 1 ), Position.y + m.y ) )
     else
       MoveResult := TryMove(Position.IfIncX(m.x));
   if MoveResult = 100 then
     if m.y = 0 then
       MoveResult := TryMove( Position.IfInc(
-        m.x, Game.RNG.RLongInt( 2 ) * 2 - 1 ) )
+        m.x, GameRNG.RLongInt( 2 ) * 2 - 1 ) )
     else
       MoveResult := TryMove(Position.IfIncY(m.y));
 
@@ -554,7 +570,10 @@ var Ray       : TBresenhamRay;
     Dmin, DMax: Word;
     bHit      : Boolean;
     dmgtype   : byte;
+    iLevel    : TLevel;
 begin
+  // Attacks can discard this NPC, so the level is captured first.
+  iLevel  := TLevel( Parent );
   dmgtype := DAMAGE_GENERAL;
   if not isPlayer then Dec(FSpeedCount, SpdAtk);
 
@@ -601,56 +620,56 @@ begin
   repeat
     Old := Ray.Current;
     Ray.Next;
-    if TLevel(Parent).isVisible(Ray.Current) then
+    if iLevel.isVisible(Ray.Current) then
     begin
       iAnimTgt  := Ray.Current;
       iDuration += DrawDelay;
     end;
     //hit obstacle
-    if not TLevel(Parent).isEmpty(Ray.Current, [efNoBlockMissile]) then begin
+    if not iLevel.isEmpty(Ray.Current, [efNoBlockMissile]) then begin
       // Missile hits non-passable feature
       if (mtype = mt_Arrow) then
-         UI.PlaySound('sfx/misc/arrowall.wav',Ray.Current);
+         iLevel.Presentation.PlaySound('sfx/misc/arrowall.wav',Ray.Current);
       if explosion > 0 then
       begin
         include(Fflags, nfUnAffected);
-        TLevel(Parent).Explosion(Old, Col, explosion, DMin, DMax, 50, dmgtype, Self, iDuration );
+        iLevel.Explosion(Old, Col, explosion, DMin, DMax, 50, dmgtype, Self, iDuration );
         exclude(Fflags, nfUnAffected);
       end
-      else if TLevel(Parent).isVisible(Ray.Current) then
+      else if iLevel.isVisible(Ray.Current) then
       begin
-        UI.AddMarkAnimation( Ray.Current, '*', LightGray, HITDELAY, iDuration );
+        iLevel.Presentation.AddMarkAnimation( Ray.Current, '*', LightGray, HITDELAY, iDuration );
       end;
       Break;
     end;
    //hit monster
-   if not TLevel(Parent).isEmpty(Ray.Current, [efNoMonsters]) then
+   if not iLevel.isEmpty(Ray.Current, [efNoMonsters]) then
     begin
         bHit := false;
         case mtype of
             mt_Arrow  : if isPlayer or (tg = Ray.Current)
-                         then bHit := Attack(TLevel(Parent).NPCs[Ray.Current], true);
+                         then bHit := Attack(iLevel.NPCs[Ray.Current], true);
             mt_Spell  : if isPlayer or (tg = Ray.Current) then
                           if explosion > 0 then
                           begin
                             bHit := true;
                             include(Fflags, nfUnAffected);
-                            TLevel(Parent).Explosion(Ray.Current, Col, explosion, DMin, DMax, 50, dmgtype, self);
+                            iLevel.Explosion(Ray.Current, Col, explosion, DMin, DMax, 50, dmgtype, self);
                             exclude(Fflags, nfUnAffected);
                             break;
                           end
                           else
-                            bHit := Attack(TLevel(Parent).NPCs[Ray.Current], true, mid);
+                            bHit := Attack(iLevel.NPCs[Ray.Current], true, mid);
         end;
         if bHit and (explosion = 0) then
         begin
-          if TLevel(Parent).isVisible(Ray.Current) then
-            UI.AddMarkAnimation( Ray.Current, '*', Red, HITDELAY, iDuration );
+          if iLevel.isVisible(Ray.Current) then
+            iLevel.Presentation.AddMarkAnimation( Ray.Current, '*', Red, HITDELAY, iDuration );
           Break;
         end;
     end;
   until False;
-  UI.AddBulletAnimation( Position, iAnimTgt, Pict, Col, iDuration, 0 );
+  iLevel.Presentation.AddBulletAnimation( Position, iAnimTgt, Pict, Col, iDuration, 0 );
 end;
 
 function TNPC.doSpell(SpellID, SpellLevel: DWord): boolean;
@@ -663,11 +682,11 @@ begin
   with FContext.Lua.GetTable( ['spells',SpellID] ) do
   try
     if ( isPlayer ) then
-		UI.Msg('You cast '+getString('name')+'.')
+		Presentation.Msg('You cast '+getString('name')+'.')
 	else if ( Visible ) then
-		UI.Msg(GetName(TheName)+' casts '+getString('name')+'.');
-    if IsString('sound1') then UI.PlaySound('sfx/misc/' + getString('sound1') + '.wav');
-    if IsString('sound2') then UI.PlaySound('sfx/misc/' + getString('sound2') + '.wav');
+		Presentation.Msg(GetName(TheName)+' casts '+getString('name')+'.');
+    if IsString('sound1') then Presentation.PlaySound('sfx/misc/' + getString('sound1') + '.wav');
+    if IsString('sound2') then Presentation.PlaySound('sfx/misc/' + getString('sound2') + '.wav');
     if not ( isPlayer ) then
       if IsString('spdmag') then dec(FSpeedCount, getInteger('spdmag')) else dec(FSpeedCount, SpdAtk);
     Effect := GetInteger( 'effect' );
@@ -749,7 +768,7 @@ procedure TNPC.PlaySound(sID: char);
 begin
      if (FSound = '') then exit;
      // There are two versions of each sound, pick one randomly
-     UI.PlaySound(FSound + sID + IntToStr(UI.VisualRNG.RLongInt(2) + 1) + '.wav',Position);
+     Presentation.PlaySound(FSound + sID + IntToStr(Presentation.VisualRNG.RLongInt(2) + 1) + '.wav',Position);
 end;
 
 constructor TNPC.CreateFromStream( ISt : TStream; aContext : TNodeContext );
@@ -766,7 +785,7 @@ begin
   if FContext.Lua.Defined(['klasses',id]) then
     iTable := 'klasses'
   else if not FContext.Lua.Defined(['npcs',id]) then
-    Game.Lua.OnError('NPC "'+id+'" not found!')
+    FContext.Lua.OnError('NPC "'+id+'" not found!')
   else
     iTable := 'npcs';
 
@@ -834,7 +853,7 @@ begin
      then MoveCost := 1.0
      else MoveCost := 1.3;
 
-  MoveCost := MoveCost * CellData[TLevel(Parent).Cell[ Stop ]].Cost;
+  MoveCost := MoveCost * TLevel(Parent).Cells.Data[TLevel(Parent).Cell[ Stop ]].Cost;
   if TLevel(Parent).NPCs[ Stop ] <> nil then MoveCost := MoveCost * 5;
 end;
 
@@ -919,8 +938,8 @@ begin
   State.Init(L);
   npc := State.ToObject(1) as TNPC;
   c := State.ToPosition(2);
-  if Game.Level.NPCs[c] = nil then Exit(0);
-  npc.Attack(Game.Level.NPCs[c]);
+  if TLevel(npc.Parent).NPCs[c] = nil then Exit(0);
+  npc.Attack(TLevel(npc.Parent).NPCs[c]);
   Result := 0;
 end;
 
@@ -979,7 +998,7 @@ begin
   TLevel(npc.Parent).Area.Clamp(aoe);
   Count := 10;
   repeat
-    pos := aoe.RandomEdgeCoord( Game.RNG );
+    pos := aoe.RandomEdgeCoord( TLevel(npc.Parent).GameRNG );
     dec(Count);
   until (Count = 0) or (TLevel(npc.Parent).isEmpty(pos,[efNoMonsters, efNoObstacles, efSpawnOk]));
   if Count = 0 then

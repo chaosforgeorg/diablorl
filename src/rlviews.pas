@@ -7,7 +7,7 @@
 unit rlviews;
 interface
 
-uses classes, sysutils, vio, viotypes, vtigstyle, vmessages, rlpersistence;
+uses classes, sysutils, vio, viotypes, vtigstyle, vmessages, vlua, rlpersistence;
 
 const GAMEMENU_CONT = 0;
       GAMEMENU_HELP = 2;
@@ -27,6 +27,8 @@ type TFullScreenLayer = class( TIOLayer )
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
+  procedure Setup; override;
+protected
   FHeader   : Ansistring;
   FFooter   : Ansistring;
 end;
@@ -42,11 +44,11 @@ protected
 end;
 
 type TManualScreen = class( TScrollingLayer )
-  constructor Create;
+  constructor Create( const aFileName : AnsiString );
 end;
 
 type TMortemScreen = class( TScrollingLayer )
-  constructor Create;
+  constructor Create( const aFileName : AnsiString );
 end;
 
 type TMessagesScreen = class( TScrollingLayer )
@@ -70,7 +72,7 @@ end;
 type TGameMenuResult = ( GMR_NEW, GMR_LOAD, GMR_QUIT );
 
 type TMainMenuScreen = class( TMenuScreen )
-  constructor Create( aPersistence : TPersistence; var aResult : TGameMenuResult );
+  constructor Create( aPersistence : TPersistence; aCanLoad : Boolean; var aResult : TGameMenuResult );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
   FCanLoad : Boolean;
@@ -89,45 +91,45 @@ type TKlassInfo = record
 end;
 
 type TKlassScreen = class( TMenuScreen )
-  constructor Create;
+  constructor Create( aLua : TLua; var aKlass : Byte );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
+  FResult  : PByte;
   FKlasses : array of TKlassInfo;
   FCount   : Integer;
 end;
 
 type TNameScreen = class( TMenuScreen )
-  constructor Create;
+  constructor Create( var aName : AnsiString );
   destructor Destroy; override;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
+  procedure Setup; override;
+protected
+  FResult : PAnsiString;
   FName : array[0..32] of Char;
 end;
 
 type TConfirmDialog = class( TIOLayer )
-  constructor Create( const aQuery : AnsiString );
+  constructor Create( const aQuery : AnsiString; var aResult : DWord );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
   FQuery    : AnsiString;
-  class var FResult   : DWord;
-public
-  class property Result : DWord read FResult;
+  FResult   : PDWord;
 end;
 
 type TGameMenu = class( TIOLayer )
-  constructor Create;
+  constructor Create( var aResult : DWord );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
-  class var FResult   : DWord;
-public
-  class property Result : DWord read FResult;
+  FResult   : PDWord;
 end;
 
 implementation
 
-uses math, vlua, vutil, vtig, vtigio, rlglobal, rlui, rlgame;
+uses math, vutil, vtig, vtigio, rlglobal, rlui;
 
 { TMenuScreen }
 
@@ -171,6 +173,11 @@ begin
   VTIG_EventClear;
   VTIG_Clear;
   FHeader   := '';
+end;
+
+procedure TFullScreenLayer.Setup;
+begin
+  inherited Setup;
   FFooter   := ' Use {!' + UI.UIKey( VTIG_IE_UP ) + '/' + UI.UIKey( VTIG_IE_DOWN ) + '}, {!' + UI.UIKey( VTIG_IE_PGUP ) + '}, {!' + UI.UIKey( VTIG_IE_PGDOWN ) + '} to scroll, {!' + UI.UIKey( VTIG_IE_CANCEL ) + '} or {!' + UI.UIKey( VTIG_IE_CONFIRM ) + '} to exit.';
 end;
 
@@ -222,17 +229,17 @@ end;
 
 { TManualScreen }
 
-constructor TManualScreen.Create;
+constructor TManualScreen.Create( const aFileName : AnsiString );
 begin
-  inherited Create( TextFileToIOStringArray( DataPath + 'manual.txt' ) );
+  inherited Create( TextFileToIOStringArray( aFileName ) );
   FHeader := ' {!DiabloRL} Manual ({!manual.txt})';
 end;
 
 { TMortemScreen }
 
-constructor TMortemScreen.Create;
+constructor TMortemScreen.Create( const aFileName : AnsiString );
 begin
-  inherited Create( TextFileToIOStringArray( WritePath + 'mortem.txt' ) );
+  inherited Create( TextFileToIOStringArray( aFileName ) );
   FHeader := ' {!DiabloRL} PostMortem ({!mortem.txt})';
 end;
 
@@ -323,13 +330,13 @@ end;
 
 { TMainMenuScreen }
 
-constructor TMainMenuScreen.Create( aPersistence : TPersistence; var aResult : TGameMenuResult );
+constructor TMainMenuScreen.Create( aPersistence : TPersistence; aCanLoad : Boolean; var aResult : TGameMenuResult );
 begin
   inherited Create;
   FPersistence := aPersistence;
   FResult := @aResult;
   FResult^ := GMR_QUIT;
-  FCanLoad := FileExists( WritePath + 'save' );
+  FCanLoad := aCanLoad;
   VTIG_ResetSelect( 'main_menu' );
 end;
 
@@ -367,21 +374,22 @@ begin
   VTIG_End;
   case iChild of
     1 : UI.PushLayer( THighscoreViewer.Create( FPersistence.ScoreList ) );
-    2 : UI.PushLayer( TManualScreen.Create );
+    2 : UI.PushLayer( TManualScreen.Create( UI.ManualPath ) );
     3 : UI.ShowSettings;
   end;
 end;
 
 { TKlassScreen }
 
-constructor TKlassScreen.Create;
+constructor TKlassScreen.Create( aLua : TLua; var aKlass : Byte );
 var i : Integer;
 begin
   inherited Create;
-  FCount := Game.Context.Lua.GetTableSize('klasses');
+  FResult := @aKlass;
+  FCount := aLua.GetTableSize('klasses');
   SetLength( FKlasses, FCount );
   for i := 0 to FCount - 1 do
-    with Game.Context.Lua.GetTable(['klasses', i + 1 ]) do
+    with aLua.GetTable(['klasses', i + 1 ]) do
     try
       FKlasses[i].Name  := GetString('name');
       FKlasses[i].Desc  := GetString('desc');
@@ -407,7 +415,7 @@ begin
       for i := 0 to FCount - 1 do
         if VTIG_Selectable( FKlasses[i].Name ) then
         begin
-          Game.PlayerClass := i + 1;
+          FResult^ := i + 1;
           UI.PlaySound('sfx/items/titlslct.wav');
           FFinished := True;
         end;
@@ -434,16 +442,23 @@ end;
 
 { TNameScreen }
 
-constructor TNameScreen.Create;
+constructor TNameScreen.Create( var aName : AnsiString );
 begin
   inherited Create;
+  FResult := @aName;
   FName[0] := #0;
+end;
+
+procedure TNameScreen.Setup;
+begin
+  inherited Setup;
   UI.Driver.StartTextInput;
 end;
 
 destructor TNameScreen.Destroy;
 begin
-  UI.Driver.StopTextInput;
+  // A layer freed before it was pushed never started text input.
+  if Owner <> nil then UI.Driver.StopTextInput;
   inherited Destroy;
 end;
 
@@ -456,7 +471,7 @@ begin
   VTIG_PopStyle;
   if VTIG_Input( @FName[0], 12 ) then
   begin
-    Game.PlayerName := AnsiString( FName );
+    FResult^ := AnsiString( FName );
     UI.PlaySound('sfx/items/titlslct.wav');
     FFinished := True;
   end;
@@ -465,11 +480,12 @@ end;
 
 { TConfirmDialog }
 
-constructor TConfirmDialog.Create( const aQuery : AnsiString );
+constructor TConfirmDialog.Create( const aQuery : AnsiString; var aResult : DWord );
 begin
   VTIG_EventClear;
   VTIG_ResetSelect( 'confirm_dialog' );
-  FResult   := 0;
+  FResult   := @aResult;
+  FResult^  := 0;
   FQuery    := aQuery;
 end;
 
@@ -480,11 +496,11 @@ begin
   VTIG_Begin( 'confirm_dialog', Point( 40, 10 ) );
   VTIG_Text( FQuery, LightGray );
   VTIG_Text( '' );
-  if VTIG_Selectable( 'Cancel' )  then begin FResult := 0; FFinished := True; end;
-  if VTIG_Selectable( 'Confirm' ) then begin FResult := 1; FFinished := True; end;
+  if VTIG_Selectable( 'Cancel' )  then begin FResult^ := 0; FFinished := True; end;
+  if VTIG_Selectable( 'Confirm' ) then begin FResult^ := 1; FFinished := True; end;
   VTIG_End;
   VTIG_PopStyle;
-  if VTIG_EventCancel then begin FResult := 0; FFinished := True; end;
+  if VTIG_EventCancel then begin FResult^ := 0; FFinished := True; end;
 end;
 
 function TConfirmDialog.IsModal : Boolean;
@@ -494,10 +510,11 @@ end;
 
 { TGameMenu }
 
-constructor TGameMenu.Create;
+constructor TGameMenu.Create( var aResult : DWord );
 begin
   VTIG_EventClear;
-  FResult   := GAMEMENU_CONT;
+  FResult   := @aResult;
+  FResult^  := GAMEMENU_CONT;
 end;
 
 procedure TGameMenu.Update( aDTime : Integer; aActive : Boolean );
@@ -509,30 +526,30 @@ begin
   VTIG_Begin( 'game_menu', Point( 22, 9 ) );
   if VTIG_Selectable( 'Return to game' ) then
   begin
-    FResult   := GAMEMENU_CONT;
+    FResult^  := GAMEMENU_CONT;
     FFinished := True;
   end;
   if VTIG_Selectable( '  Help file' ) then
   begin
-    FResult   := GAMEMENU_HELP;
+    FResult^  := GAMEMENU_HELP;
     FFinished := True;
   end;
   iSettings := VTIG_Selectable( '  Settings' );
   if VTIG_Selectable( 'Save and return' ) then
   begin
-    FResult   := GAMEMENU_SAVE;
+    FResult^  := GAMEMENU_SAVE;
     FFinished := True;
   end;
   if VTIG_Selectable( 'Abandon game' ) then
   begin
-    FResult   := GAMEMENU_QUIT;
+    FResult^  := GAMEMENU_QUIT;
     FFinished := True;
   end;
   VTIG_End;
   VTIG_PopStyle;
   if VTIG_EventCancel then
   begin
-    FResult   := GAMEMENU_CONT;
+    FResult^  := GAMEMENU_CONT;
     FFinished := True;
   end;
   if iSettings then UI.ShowSettings;

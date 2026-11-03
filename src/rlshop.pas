@@ -15,7 +15,7 @@ type
 
 TShop = class( TNode )
   // General constructor
-  constructor Create(const thingID :string);
+  constructor Create( aContext : TNodeContext; const thingID : AnsiString ); reintroduce;
   // Destructor
   destructor Destroy; override;
   // Stream constructor
@@ -44,15 +44,14 @@ end;
 
 implementation
 
-// Remove
-uses rllua, rlgame;
+uses rllua;
 
 { TShop }
 
-constructor TShop.Create(const thingID: string);
+constructor TShop.Create( aContext : TNodeContext; const thingID : AnsiString );
 var Count : DWord;
 begin
-  inherited Create( thingID, Game.Context );
+  inherited Create( thingID, aContext );
   for Count := 1 to ITEMS_SHOP do FItems[Count] := nil;
   FLevel := 0;
 end;

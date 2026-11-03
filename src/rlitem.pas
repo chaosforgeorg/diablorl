@@ -5,7 +5,7 @@
 
 unit rlitem;
 interface
-uses classes, vnode, vutil, viotypes, vlua, rlthing, rlglobal;
+uses classes, vnode, vutil, viotypes, vlua, rlthing, rlnpc, rlglobal;
 
 type TItemColors = ( COLOR_NORMAL, COLOR_MAGIC, COLOR_UNIQUE, COLOR_RED );
 
@@ -28,11 +28,11 @@ TItem = class(TThing)
        property FlagsRaw : TFlags read FFlags;
      public
        // Overriden constructor. Passed ilvl is only for the OnCreate script
-       constructor Create(const thingID :string; ilvl : Word = 0);
+       constructor Create( aContext : TNodeContext; const thingID : AnsiString; ilvl : Word = 0 );
        // Identifies an item
        procedure Identify;
-       // Color for inventory windows
-       function InvColor: TIOColor;
+       // Color for inventory windows; requirements are those of aWearer, the player.
+       function InvColor( aWearer : TNPC ) : TIOColor;
        // Repair an item. RLevel is the repairer's level, 0 if ideal.
        procedure Repair( RLevel : Byte = 0 );
        // Recharge an item. RLevel is the recharger's level, 0 if ideal.
@@ -40,15 +40,15 @@ TItem = class(TThing)
        // Returns item name
        function GetName(outputType : TNameOutputType) : string; override;
        // Returns carried spell name
-       function GetSpellName : AnsiString;
+       function GetSpellName( aWearer : TNPC ) : AnsiString;
        // Returns status info line 1
        function GetStatusInfo1 : AnsiString;
        // Returns status info line 2
-       function GetStatusInfo2 : AnsiString;
+       function GetStatusInfo2( aWearer : TNPC ) : AnsiString;
        // Returns item price
        function GetPrice(PriceType: TPriceType): LongInt;
        //Return Mag requirement for book
-       function BookMagReq: Word;
+       function BookMagReq( aWearer : TNPC ) : Word;
        // Overriden Compare
        function Compare( aOther : TNode ) : Boolean; override;
        //Initialize before creation
@@ -60,7 +60,7 @@ TItem = class(TThing)
        // register lua functions
        class procedure RegisterLuaAPI( aLua : TLua );
        // Checks if requirements met / also checks for ifUnknown and for the special Req = bonus case
-       function ReqsMet( isWorn : Boolean ) : Boolean;
+       function ReqsMet( aWearer : TNPC; isWorn : Boolean ) : Boolean;
        // Init colors
        class procedure InitColors( aGraphicsMode : Boolean );
      published
@@ -120,7 +120,7 @@ type TItemList = specialize TGNodeList< TItem >;
 
 implementation
 
-uses sysutils, variants, vmath, vluaentitynode, rllua, rlgame;
+uses sysutils, variants, vmath, vluaentitynode, rllua, rlplayer;
 
 procedure TItem.Init;
 begin
@@ -143,11 +143,11 @@ begin
 end;
 
 // Overriden constructor.
-constructor TItem.Create(const thingID :string; ilvl : Word = 0);
+constructor TItem.Create( aContext : TNodeContext; const thingID : AnsiString; ilvl : Word = 0 );
 begin
   // Most importantly set the section of the database by inheritance of
   // TThing.
-  inherited Create(thingID);
+  inherited Create( aContext, thingID );
   FEntityID := ENTITY_ITEM;
   Init;
   FAmount := 1;
@@ -157,7 +157,7 @@ begin
   ReadStatistics( 'items' );
 
   FStats[ STAT_DURMAX ] := FStats[ STAT_DUR ];
-  FStats[ STAT_DUR ]    := RandRange( Game.RNG,
+  FStats[ STAT_DUR ]    := RandRange( GameRNG,
     1 + ( FStats[ STAT_DURMAX ] div 4 ), ( 3 * FStats[ STAT_DURMAX ] div 4 ) );
 
   with FContext.Lua.GetTable( ['items', thingID] ) do
@@ -169,7 +169,7 @@ begin
     if isString('spell') then
       FSpell := FContext.Lua.Get(['spells', GetString('spell'), 'nid']);
 
-    FStats[ STAT_AC ] := RandRange( Game.RNG,
+    FStats[ STAT_AC ] := RandRange( GameRNG,
       GetInteger( 'acmin', 0 ), GetInteger( 'acmax', 0 ) );
     if  flags[ ifUnique ] then Include( FFlags, ifUnknown );
   finally
@@ -183,18 +183,18 @@ begin
   RunHook( Hook_OnCreate, [ilvl]  )
 end;
 
-function TItem.BookMagReq : Word;
+function TItem.BookMagReq( aWearer : TNPC ) : Word;
 var i: word;
 begin
-  i := game.player.spells[FSpell];
+  i := TPlayer( aWearer ).Spells[FSpell];
   BookMagReq := MagReq;
   while i>0 do begin BookMagReq := (BookMagReq*12)div 10; dec(i); end;
   if BookMagReq > 213 then BookMagReq := 255;
 end;
 
-function TItem.InvColor: TIOColor;
+function TItem.InvColor( aWearer : TNPC ) : TIOColor;
 begin
-  if ReqsMet( False ) then
+  if ReqsMet( aWearer, False ) then
     if flags[ ifMagic ] then exit(FColors[COLOR_MAGIC])
     else if flags[ ifUnique ] then exit(FColors[COLOR_UNIQUE])
     else exit(FColors[COLOR_NORMAL])
@@ -274,7 +274,7 @@ procedure TItem.Repair(RLevel: Byte);
 begin
   if RLevel > 0 then
   repeat
-    FStats[ STAT_DUR ]    += RLevel + Game.RNG.RLongInt( RLevel );
+    FStats[ STAT_DUR ]    += RLevel + GameRNG.RLongInt( RLevel );
     FStats[ STAT_DURMAX ] := Max( FStats[ STAT_DURMAX ] - Max(1, Round(FStats[ STAT_DURMAX ] / (RLevel + 9))), 1 );
   until FStats[ STAT_DUR ] >= FStats[ STAT_DURMAX ];
   FStats[ STAT_DUR ] := FStats[ STAT_DURMAX ];
@@ -284,14 +284,14 @@ procedure TItem.Recharge(RLevel: Byte);
 begin
   if RLevel > 0 then
   repeat
-    FStats[ STAT_CHARGES ] += Game.RNG.RLongInt(
+    FStats[ STAT_CHARGES ] += GameRNG.RLongInt(
       RLevel div FContext.Lua.Get( ['spells', FSpell, 'book', 'level'], 0 ) ) + 1;
     dec(FStats[ STAT_CHARGESMAX ] );
   until FStats[ STAT_CHARGES ] >= FStats[ STAT_CHARGESMAX ];
   FStats[ STAT_CHARGES ] := FStats[ STAT_CHARGESMAX ];
 end;
 
-function TItem.GetSpellName : AnsiString;
+function TItem.GetSpellName( aWearer : TNPC ) : AnsiString;
 var iColor : AnsiString = '';
     iReq   : word;
 begin
@@ -305,7 +305,7 @@ begin
   finally
     Free;
   end;
-  if iReq > Game.Player.getMag then
+  if iReq > TPlayer( aWearer ).getMag then
   begin
     GetSpellName := '{r'+GetSpellName+'}';
     iColor := 'r';
@@ -401,9 +401,11 @@ begin
   if (length(Result) > 0) and (Result[length(Result)-1]=',') then delete(Result, length(Result)-1, 2);
 end;
 
-function TItem.GetStatusInfo2 : AnsiString;
+function TItem.GetStatusInfo2( aWearer : TNPC ) : AnsiString;
 var iMagReq : word;
+    iPlayer : TPlayer;
 begin
+  iPlayer := TPlayer( aWearer );
   Result := '';
 
   if FIType in [TYPE_HELM, TYPE_WEAPON, TYPE_ARMOR, TYPE_SHIELD, TYPE_BOW, TYPE_STAFF] then
@@ -412,33 +414,33 @@ begin
     else Result := 'Durability: '+inttostr(FStats[ STAT_DUR ])+'/'+inttostr(FStats[ STAT_DURMAX ]);
 
   if FIType = TYPE_BOOK
-    then iMagReq := BookMagReq
+    then iMagReq := BookMagReq( aWearer )
     else iMagReq := MagReq;
 
   if (StrReq<>0) or (DexReq<>0) or (iMagReq<>0) then
   begin
-    if not reqsmet(false)
+    if not ReqsMet( aWearer, False )
       then Result += ' {rRequires} '
       else Result += ' Requires ';
     if StrReq<>0 then
     begin
-      if StrReq>Game.Player.GetStr then Result += '{r';
+      if StrReq>iPlayer.GetStr then Result += '{r';
       Result += 'STR:'+inttostr(StrReq);
-      if StrReq>Game.Player.GetStr then Result += '}';
+      if StrReq>iPlayer.GetStr then Result += '}';
       if (iMagReq<>0) or (DexReq<>0) then Result += ' ';
     end;
     if iMagReq<>0 then
     begin
-      if iMagReq>Game.Player.GetMag then Result += '{r';
+      if iMagReq>iPlayer.GetMag then Result += '{r';
       Result += 'MAG:'+inttostr(iMagReq);
-      if iMagReq>Game.Player.GetMag then Result += '}';
+      if iMagReq>iPlayer.GetMag then Result += '}';
       if (DexReq<>0) then Result += ' ';
     end;
     if DexReq<>0 then
     begin
-      if DexReq>Game.Player.GetDex then Result += '{r';
+      if DexReq>iPlayer.GetDex then Result += '{r';
       Result += 'DEX:'+inttostr(DexReq);
-      if DexReq>Game.Player.GetDex then Result += '}';
+      if DexReq>iPlayer.GetDex then Result += '}';
     end;
   end;
 end;
@@ -479,15 +481,17 @@ begin
   Exit( False );
 end;
 
-function TItem.ReqsMet( isWorn : Boolean ) : Boolean;
+function TItem.ReqsMet( aWearer : TNPC; isWorn : Boolean ) : Boolean;
 var Stat : DWord;
     Req  : Integer;
+    iPlayer : TPlayer;
 begin
+  iPlayer := TPlayer( aWearer );
   if ifUnknown in FFlags then Exit( False );
   for Stat in BaseStatistics do
     if (Stat = STAT_MAG) and (IType = TYPE_BOOK) then
     begin
-      if BookMagReq > Game.Player.getMag then Exit(False);
+      if BookMagReq( aWearer ) > iPlayer.getMag then Exit(False);
     end
     else
     begin
@@ -500,8 +504,8 @@ begin
       end;
 
       Include( FFlags, ifUnknown );
-      if Req > Game.Player.Statistics[ Stat ] then
-        if Req > Game.Player.getStat( Stat ) then
+      if Req > iPlayer.Statistics[ Stat ] then
+        if Req > iPlayer.getStat( Stat ) then
         begin
           Exclude( FFlags, ifUnknown);
           Exit( False );
@@ -562,7 +566,8 @@ function lua_item_new(L: Plua_State) : Integer; cdecl;
 var State   : TGameLuaStack;
 begin
   State.Init(L);
-  State.Push( TItem.Create( State.ToString(1), State.ToInteger(2,0) ) );
+  State.Push( TItem.Create( TGameLua( TLuaContext.FromState( L ).Lua ).NodeContext,
+    State.ToString(1), State.ToInteger(2,0) ) );
   Result := 1;
 end;
 
@@ -583,16 +588,6 @@ begin
   State.Init(L);
   it := State.ToObject(1) as TItem;
   State.Push(it.getPrice(TPriceType(State.ToInteger(2))));
-  Result := 1;
-end;
-
-function lua_item_reqs_met(L: Plua_State) : Integer; cdecl;
-var State   : TGameLuaStack;
-    it      : TItem;
-begin
-  State.Init(L);
-  it := State.ToObject(1) as TItem;
-  State.Push(it.ReqsMet(State.ToBoolean(2)));
   Result := 1;
 end;
 
@@ -623,11 +618,10 @@ begin
   Result := 0;
 end;
 
-const lua_item_lib : array[0..6] of luaL_Reg = (
+const lua_item_lib : array[0..5] of luaL_Reg = (
   ( name : 'identify';    func : @lua_item_identify),
   ( name : 'new';         func : @lua_item_new),
   ( name : 'get_price';   func : @lua_item_get_price),
-  ( name : 'reqs_met';    func : @lua_item_reqs_met),
   ( name : 'repair';      func : @lua_item_repair),
   ( name : 'recharge';    func : @lua_item_recharge),
   ( name : nil;           func : nil; )

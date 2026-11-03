@@ -6,8 +6,10 @@ unit rlui;
 
 interface
 uses {$IFDEF WINDOWS}windows,{$ENDIF} classes, sysutils,
-     vioevent, vcolor, viotypes, vioconsole, vlua, vluastack, viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, vutil, vbindings, vtigio,
-     rlconfiguration, rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio;
+     vio, vioevent, vcolor, viotypes, vioconsole, vlua, vluastack, viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, vutil, vbindings, vtigio,
+     rlconfiguration, rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio, rllevel;
+
+type EGameProcessQuit = class( Exception );
 
 var TIGFramedWindowStyle       : TTIGStyle;
     TIGNarrowFramedWindowStyle : TTIGStyle;
@@ -16,13 +18,12 @@ var TIGFramedWindowStyle       : TTIGStyle;
 {TGameUI}
 
 type
-  TGameUI = class(TIORL, ITextMap)
+  TGameUI = class(TIORL, ITextMap, IGamePresentation)
   public
-    constructor Create( aConfig : TGameConfiguration );
+    constructor Create( aConfig : TGameConfiguration; const aDataPath : AnsiString );
     function getGylph( const aCoord : TCoord2D ): TIOGylph;
-    destructor Destroy; override;
     procedure Draw();
-    procedure ShowMortem();
+    procedure ShowMortem( const aFileName : AnsiString );
     procedure Prepare( aPlayer : TPlayer );
     procedure UnPrepare;
     // Adds a message for the message buffer
@@ -42,7 +43,7 @@ type
     procedure UpdateStatus(STarget: TThing);
     //reviews last messages
     procedure ShowRecent;
-    procedure ShowHOF;
+    procedure ShowHOF( aScores : TIOStringArray );
     //Plot text window
     procedure PlotText( const Text: ansistring );
     procedure ItemInfo( aItem : TItem );
@@ -57,16 +58,21 @@ type
     procedure PlayMusic( const sID: ansistring );
     procedure PlaySound( const sID: ansistring; aSource : TCoord2D );
     procedure PlaySound( const sID: ansistring );
+    procedure PlayFootstep;
     procedure HaltSound();
     procedure SetMusicVolume(Volume: byte);
     procedure SetSoundVolume(Volume: byte);
     function GetTravelDestination( out aWhere : TCoord2D ) : Boolean;
     function YesNoDialog( const aQuery : AnsiString ) : Boolean;
-    class procedure RegisterLuaAPI( aLua : TLua );
+    // Target prompt for the prepared player; True when a target is accepted.
+    function ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : Boolean;
+    function ChooseDirection( out aDirection : TDirection ) : Boolean;
+    procedure RegisterLuaAPI( aLua : TLua );
   private
     procedure ReconfigureDisplay;
     procedure FitDisplay;
     function GetPlayer : TPlayer;
+    function GetLevel : TLevel;
     function TranslateColor( aColor : Byte; aPosition : TCoord2D ) : Byte;
     function TranslateColorFull( aColor : Byte; aPosition : TCoord2D ) : TColor;
   private
@@ -82,57 +88,47 @@ type
     FRequestedSize : TIOPoint;
     FFontMultiplier : Integer;
     FAudio         : TGameAudio; // borrowed from Runtime
+    FManualPath    : AnsiString;
   public
     property MainScreen : TMainScreen read FMainScreen;
     property SizeX : Word read FSizeX;
     property SizeY : Word read FSizeY;
     property Player : TPlayer read GetPlayer;
+    property Level : TLevel read GetLevel;
+    property ManualPath : AnsiString read FManualPath;
     property GraphicsMode : Boolean read FGraphicsMode;
     property TargetMode : Byte read FTargetMode write FTargetMode;
   end;
 
-function CommandDirection(Command: byte): TDirection;
-
-var
-  UI: TGameUI = nil;
+// Every DiabloRL layer is pushed onto the game UI.
+type TGameLayerHelper = class helper for TIOLayer
+  function UI : TGameUI;
+end;
 
 implementation
 
-uses dateutils, variants,
+uses dateutils, variants, vlualibrary,
      {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF} vsdlio, vglconsole, vlog, vdebug, vmath,
-     rlshop, rllua, rlgame, rlpersistence, rllevel, rlsettingsview;
+     rlshop, rllua, rlnpc, rlsettingsview;
 
-function CommandDirection(Command: byte): TDirection;
+function TGameLayerHelper.UI : TGameUI;
 begin
-  case Command of
-    COMMAND_WALKWEST, COMMAND_RUNWEST, COMMAND_ATKWEST : CommandDirection{%H-}.Create(4);
-    COMMAND_WALKEAST, COMMAND_RUNEAST, COMMAND_ATKEAST : CommandDirection.Create(6);
-    COMMAND_WALKNORTH,COMMAND_RUNNORTH,COMMAND_ATKNORTH: CommandDirection.Create(8);
-    COMMAND_WALKSOUTH,COMMAND_RUNSOUTH,COMMAND_ATKSOUTH: CommandDirection.Create(2);
-    COMMAND_WALKNW,   COMMAND_RUNNW,   COMMAND_ATKNW   : CommandDirection.Create(7);
-    COMMAND_WALKNE,   COMMAND_RUNNE,   COMMAND_ATKNE   : CommandDirection.Create(9);
-    COMMAND_WALKSW,   COMMAND_RUNSW,   COMMAND_ATKSW   : CommandDirection.Create(1);
-    COMMAND_WALKSE,   COMMAND_RUNSE,   COMMAND_ATKSE   : CommandDirection.Create(3);
-    COMMAND_WAIT: CommandDirection.Create(5);
-    else
-      CommandDirection.Create(0);
-  end;
+  Exit( TGameUI( Owner ) );
 end;
 
 { TGameUI }
 
-constructor TGameUI.Create( aConfig : TGameConfiguration );
+constructor TGameUI.Create( aConfig : TGameConfiguration; const aDataPath : AnsiString );
 var iFlags : TSDLIOFlags;
     iWidth, iHeight : Word;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
-  Log( LOGINFO, 'Loading configuration file "'+ConfigurationPath+'"...' );
-
   FConfiguration := aConfig;
+  FManualPath   := aDataPath + 'manual.txt';
   FSizeX        := aConfig.GetInteger( 'ascii_width' );
   FSizeY        := aConfig.GetInteger( 'ascii_height' );
-  FGraphicsMode := Option_Graphics;
+  FGraphicsMode := aConfig.GraphicsMode;
 
   if FGraphicsMode then
   begin
@@ -152,7 +148,7 @@ begin
     iFlags := [ SDLIO_OpenGL, SDLIO_Resizable ];
     iWidth := aConfig.GetInteger( 'screen_width' );
     iHeight := aConfig.GetInteger( 'screen_height' );
-    if Option_FullScreen then
+    if aConfig.Fullscreen then
     begin
       Include( iFlags, SDLIO_DesktopFullScreen );
       iWidth := 0;
@@ -160,8 +156,8 @@ begin
     end;
     Log( LOGINFO, 'Initializing driver...' );
     FIODriver := TSDLIODriver.Create( iWidth, iHeight, 32, iFlags );
-    Log( LOGINFO, 'Creating renderer, using font file "'+DataPath+'font10x18.png"...' );
-    FConsole := TGLConsoleRenderer.Create( FIODriver, DataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
+    Log( LOGINFO, 'Creating renderer, using font file "'+aDataPath+'font10x18.png"...' );
+    FConsole := TGLConsoleRenderer.Create( FIODriver, aDataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
   end
   else
   begin
@@ -251,17 +247,17 @@ end;
 procedure TGameUI.ShowRecent;
 begin
   if FMessages <> nil then
-    UI.RunLayer( TMessagesScreen.Create( FMessages.Content ) );
+    RunLayer( TMessagesScreen.Create( FMessages.Content ) );
 end;
 
 procedure TGameUI.UpdateStatus(c: TCoord2D);
 begin
-  FMainScreen.Status.Update(c);
+  FMainScreen.Status.Update( Player, c );
 end;
 
 procedure TGameUI.UpdateStatus(STarget: TThing);
 begin
-  FMainScreen.Status.Update(STarget);
+  FMainScreen.Status.Update( Player, STarget );
 end;
 
 
@@ -273,7 +269,7 @@ var iPicture : Word;
     iColor   : TColor;
 begin
   if not FLevel.isProperCoord( aCoord ) then Exit(IOGylph(' ',0));
-  iPicture := Game.Level.GetPicture( aCoord );
+  iPicture := Level.GetPicture( aCoord );
   getGylph.ASCII := Chr(iPicture mod 256);
   if not FGraphicsMode then
   begin
@@ -365,12 +361,6 @@ begin
   PlaySound('sfx/items/titlslct.wav');
 end;
 
-destructor TGameUI.Destroy();
-begin
-  UI := nil;
-  inherited Destroy;
-end;
-
 procedure TGameUI.PlotText(const Text: ansistring);
 begin
   RunLayer( TPlotWindow.Create( Text ) );
@@ -379,7 +369,7 @@ end;
 
 procedure TGameUI.ItemInfo( aItem: TItem );
 begin
-  RunLayer( TItemInfo.Create( aItem ) );
+  RunLayer( TItemInfo.Create( aItem, Player ) );
 end;
 
 procedure TGameUI.Update( aMSec : DWord );
@@ -400,15 +390,15 @@ begin
   if (FTargetMode = TM_LOOK) and not IsModal then ShowCursor;
 end;
 
-procedure TGameUI.ShowMortem;
+procedure TGameUI.ShowMortem( const aFileName : AnsiString );
 begin
-  if not FileExists('mortem.txt') then Exit;
-  RunLayer( TMortemScreen.Create );
+  if not FileExists( aFileName ) then Exit;
+  RunLayer( TMortemScreen.Create( aFileName ) );
 end;
 
-procedure TGameUI.ShowHOF;
+procedure TGameUI.ShowHOF( aScores : TIOStringArray );
 begin
-  RunLayer( THighscoreViewer.Create( Game.Persistence.ScoreList ) );
+  RunLayer( THighscoreViewer.Create( aScores ) );
 end;
 
 procedure TGameUI.ShowSettings;
@@ -448,7 +438,7 @@ begin
     begin
       if FTargetMode = TM_LOOK then Focus( Player.Target );
       FocusCursor( Player.Target );
-      if (FTargetMode = TM_FIRE) and Game.Level.isExplored( Player.Target ) then
+      if (FTargetMode = TM_FIRE) and Level.isExplored( Player.Target ) then
         MarkTile( Player.Target, 'X', Red );
     end;
   end;
@@ -466,9 +456,7 @@ begin
     iMinimum := Point( X, Y );
   if not iDriver.SetMinimumSize( Point( iMinimum.X * 80, iMinimum.Y * 25 ) ) then
     raise EIOException.Create( 'Could not set the minimum window size.' );
-  iFullscreen := FConfiguration.GetBoolean( 'fullscreen' );
-  if FConfiguration.FullscreenOverride >= 0 then
-    iFullscreen := FConfiguration.FullscreenOverride = 1;
+  iFullscreen := FConfiguration.Fullscreen;
   iFlags := [SDLIO_OpenGL, SDLIO_Resizable];
   iSize := Point( FConfiguration.GetInteger( 'screen_width' ),
     FConfiguration.GetInteger( 'screen_height' ) );
@@ -508,7 +496,6 @@ end;
 procedure TGameUI.Reconfigure;
 begin
   ReconfigureDisplay;
-  FConfiguration.ApplyLiveSettings;
   FConfiguration.LoadBindings( GameBindings, UIBindings );
   SetSoundVolume( FConfiguration.GetInteger( 'sound_volume' ) );
   SetMusicVolume( FConfiguration.GetInteger( 'music_volume' ) );
@@ -519,13 +506,18 @@ begin
   Exit( TPlayer(FPlayer) );
 end;
 
+function TGameUI.GetLevel : TLevel;
+begin
+  Exit( TLevel(FLevel) );
+end;
+
 function TGameUI.TranslateColor ( aColor : Byte; aPosition : TCoord2D ) : Byte;
 begin
   if aColor < 16 then
     Exit( aColor );
   case aColor of
-    ColorWall  : Exit( Game.Level.BaseWallColor );
-    ColorFloor : Exit( Game.Level.BaseFloorColor );
+    ColorWall  : Exit( Level.BaseWallColor );
+    ColorFloor : Exit( Level.BaseFloorColor );
     ColorPortal: case FAnimCount mod 4 of
         0: Exit(Blue);
         1, 3: Exit(LightBlue);
@@ -566,8 +558,8 @@ begin
         2 : Exit( ColorLerp( NewColor( Yellow ),   NewColor( LightRed ), ( Sin( iValue + Pi )     + 1.0 ) / 2.0 ) );
       end;
     end;
-    ColorWall  : Exit( Game.Level.WallColor );
-    ColorFloor : Exit( Game.Level.FloorColor );
+    ColorWall  : Exit( Level.WallColor );
+    ColorFloor : Exit( Level.FloorColor );
     ColorPortal,
     ColorRedPortal,
     ColorFire:
@@ -590,9 +582,9 @@ end;
 
 function TGameUI.OnEvent( const aEvent : TIOEvent ) : Boolean;
 begin
-  // Title/child menus have no Session to abandon. Gameplay retains its existing
-  // system-event routing; this does not invent a close/save policy for a run.
-  if ( Game = nil ) and ( aEvent.EType = VEVENT_SYSTEM ) and
+  // Without a prepared player there is no run to abandon. Gameplay retains its
+  // existing system-event routing; this does not invent a close/save policy for a run.
+  if ( FPlayer = nil ) and ( aEvent.EType = VEVENT_SYSTEM ) and
      ( aEvent.System.Code = VIO_SYSEVENT_QUIT ) then
     raise EGameProcessQuit.Create( 'System quit requested' );
   if not FLayers.IsEmpty then
@@ -623,6 +615,12 @@ begin
   if FAudio <> nil then FAudio.PlaySound( sID );
 end;
 
+procedure TGameUI.PlayFootstep;
+begin
+  if FConfiguration.GetBoolean( 'walk_sound' ) then
+    PlaySound( 'sfx/misc/walk2.wav' );
+end;
+
 procedure TGameUI.HaltSound;
 begin
   if FAudio <> nil then FAudio.HaltSound;
@@ -639,52 +637,109 @@ begin
 end;
 
 function TGameUI.GetTravelDestination ( out aWhere : TCoord2D ) : Boolean;
+var iChoice : Integer;
 begin
-  RunLayer( TTravelWindow.Create );
-  if TTravelWindow.Result >= 0 then
+  RunLayer( TTravelWindow.Create( iChoice ) );
+  if iChoice >= 0 then
   begin
-    aWhere := (UI.Player.Parent as TLevel).TravelPoints[ TTravelWindow.Result ].Where;
+    aWhere := Level.TravelPoints[ iChoice ].Where;
     Exit( True );
   end;
   Exit( False );
 end;
 
 function TGameUI.YesNoDialog ( const aQuery : AnsiString ) : Boolean;
+var iChoice : DWord;
 begin
-  RunLayer( TConfirmDialog.Create( aQuery ) );
-  Exit( TConfirmDialog.Result > 0 );
+  RunLayer( TConfirmDialog.Create( aQuery, iChoice ) );
+  Exit( iChoice > 0 );
 end;
 
-{ TItemWindow }
-
-{constructor TItemWindow.Create(newParent: TUIElement;
-  newItem: TItem; newTitle: ansistring = '');
+function TGameUI.ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : Boolean;
+var iKey    : Byte;
+    iDir    : TDirection;
+    iPlayer : TPlayer;
+    iEnemy  : TNPC;
+    iAuto   : TAutoTarget;
 begin
-  inherited Create(newParent, NewRectXY(5, 9, 75, 15), newTitle);
-  Item := newItem;
-end;
+  iPlayer := Player;
+  iPlayer.Target := iPlayer.Position;
+  iEnemy := nil;
+  iAuto  := nil;
+  if iPlayer.Enemy <> 0 then iEnemy := iPlayer.Context.UIDs.Get( iPlayer.Enemy ) as TNPC;
 
-procedure TItemWindow.Draw;
-begin
-  inherited Draw;
-  Output.CenterDrawString(40, 11, Item.Color, Item.GetName(PlainName));
-  if Item.GetName(Status1) = '' then
-    Output.CenterDrawString(40, 12, Item.Color, Item.GetName(Status2))
-  else
+  if aTargetMode <> TM_LOOK then
   begin
-    Output.CenterDrawString(40, 12, Item.Color, Item.GetName(Status1));
-    Output.CenterDrawString(40, 13, Item.Color, Item.GetName(Status2));
+    iAuto := iPlayer.CreateAutoTarget( AIMonster, iPlayer.getLightStrength );
+    if (iEnemy <> nil) and (iEnemy.Visible) and (not (iEnemy.AI in [AINPC, AIGolem])) then
+      iAuto.PriorityTarget( iEnemy.Position );
+    iPlayer.Target := iAuto.Current;
   end;
+  if iEnemy = nil
+    then iPlayer.Enemy := 0
+    else iPlayer.Enemy := iEnemy.UID;
+
+  FTargetMode := aTargetMode;
+  repeat
+    FocusCursor( iPlayer.Target );
+
+    UpdateStatus( iPlayer.Target );
+
+    if aTargetMode in [TM_FIRE] then
+      if Level.isExplored( iPlayer.Target ) then
+        MarkTile( iPlayer.Target, 'X', Red );
+    iKey := GetCommand( COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_SWITCHMODE,COMMAND_OK,aFireCmd] );
+    if iKey in [COMMAND_ESCAPE, COMMAND_LOOK] then
+    begin
+      iPlayer.Target := ZeroCoord2D;
+      FTargetMode := 0;
+      HideCursor;
+      MarkClear;
+      FreeAndNil( iAuto );
+      Exit( False );
+    end;
+
+    if (iAuto <> nil) and (iKey = COMMAND_SWITCHMODE) then iPlayer.Target := iAuto.Next;
+
+    if (iKey in COMMANDS_MOVE) then
+    begin
+      iDir := CommandDirection( iKey );
+      if Level.isProperCoord( iPlayer.Target + iDir ) then
+        if ( aTargetMode <> TM_FIRE ) or ( Distance( iPlayer.Position, iPlayer.Target + iDir ) < iPlayer.LightStrength ) then
+          iPlayer.Target := iPlayer.Target + iDir;
+    end;
+    MarkClear;
+    if aTargetMode = TM_LOOK then
+      Focus( iPlayer.Target );
+  until iKey in [aFireCmd,COMMAND_OK];
+  FreeAndNil( iAuto );
+  FTargetMode := 0;
+  HideCursor;
+
+  if iPlayer.Position = iPlayer.Target then
+  begin
+    Msg('Suicide? Too easy for you...');
+    Exit( False );
+  end;
+  Exit( True );
 end;
 
-procedure TItemWindow.Run;
+function TGameUI.ChooseDirection( out aDirection : TDirection ) : Boolean;
+var iKey : Byte;
 begin
-  Show;
-  Draw;
-  UI.GetKey;
-end;}
+  Msg('Choose direction...');
+  iKey := GetCommand( COMMANDS_MOVE+[COMMAND_ESCAPE] );
+  if iKey = COMMAND_ESCAPE
+    then aDirection.code := 0
+    else aDirection := CommandDirection( iKey );
+  Exit( aDirection.isProper );
+end;
 
-{ TMainUIArea }
+// The ui natives are registered with the UI as their upvalue.
+function LuaUI( L : PLua_State ) : TGameUI;
+begin
+  Exit( TGameUI( lua_touserdata( L, lua_upvalueindex( 1 ) ) ) );
+end;
 
 function lua_ui_get_key(L: Plua_State): integer; cdecl;
 var
@@ -699,7 +754,7 @@ begin
     include(KeyFilter, State.ToInteger(Count));
     Dec(Count);
   end;
-  State.Push(UI.WaitForKey(KeyFilter));
+  State.Push(LuaUI( L ).WaitForKey(KeyFilter));
   Result := 1;
 end;
 
@@ -708,17 +763,19 @@ var iState : TGameLuaStack;
 begin
   iState.Init( L );
   if iState.StackSize = 0 then Exit( 0 );
-  UI.Msg( Capitalized( iState.ToString( 1 ) ) );
+  LuaUI( L ).Msg( Capitalized( iState.ToString( 1 ) ) );
   Result := 0;
 end;
 
 function lua_ui_msg_enter( L : Plua_State ) : Integer; cdecl;
 var iState : TGameLuaStack;
+    iUI    : TGameUI;
 begin
   iState.Init( L );
-  UI.Msg( iState.ToString( 1 ) + ' Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>...' );
-  UI.WaitForKey( [ UI.UIBindings.GetKey( VTIG_IE_CONFIRM ) ] );
-  UI.MsgUpdate;
+  iUI := LuaUI( L );
+  iUI.Msg( iState.ToString( 1 ) + ' Press <{!' + iUI.UIKey( VTIG_IE_CONFIRM ) + '}>...' );
+  iUI.WaitForKey( [ iUI.UIBindings.GetKey( VTIG_IE_CONFIRM ) ] );
+  iUI.MsgUpdate;
   Result := 0;
 end;
 
@@ -727,7 +784,7 @@ var
   State: TGameLuaStack;
 begin
   State.Init(L);
-  UI.PlotText(State.ToString(1));
+  LuaUI( L ).PlotText(State.ToString(1));
   Result := 0;
 end;
 
@@ -736,7 +793,7 @@ var
   State: TGameLuaStack;
 begin
   State.Init(L);
-  UI.ItemInfo(State.ToObject(1) as TItem);
+  LuaUI( L ).ItemInfo(State.ToObject(1) as TItem);
   Result := 0;
 end;
 
@@ -745,35 +802,38 @@ end;
 function lua_ui_talk_run(L: Plua_State): integer; cdecl;
 var
   State       : TGameLuaStack;
+  iUI         : TGameUI;
   iCount      : Word;
   iChoice     : Word;
   iValue      : AnsiString;
   iWindow     : TTalkWindow;
+  iResult     : Integer;
 begin
   State.Init(L);
   iCount := State.StackSize;
   if iCount < 2 then Exit(0);
 
-  UI.MainScreen.ClearBoth;
-  iWindow := TTalkWindow.Create( UI.MainScreen, State.ToString(1) );
-  UI.MainScreen.Right := iWindow;
-  UI.MainScreen.UpdateMap;
+  iUI := LuaUI( L );
+  iUI.MainScreen.ClearBoth;
+  iWindow := TTalkWindow.Create( iUI.MainScreen, State.ToString(1), iResult );
+  iUI.MainScreen.Right := iWindow;
+  iUI.MainScreen.UpdateMap;
 
   for iChoice := 2 to iCount do
   begin
     iValue := State.ToString(iChoice);
     iWindow.Add(iValue, (Length(iValue) > 0) and (iValue[1] <> '@'));
   end;
-  UI.RunLayer( iWindow );
-  State.Push( Integer( TTalkWindow.Result + 1 ) );
+  iUI.RunLayer( iWindow );
+  State.Push( Integer( iResult + 1 ) );
   Result := 1;
 end;
 
 function lua_ui_shop_run(L: Plua_State): integer; cdecl;
 var State       : TGameLuaStack;
+    iUI         : TGameUI;
     iCount      : byte;
     iChoice     : Integer;
-    iSource     : AnsiString;
     iTitle      : AnsiString;
     iShop       : TShop;
     iShopMode   : byte;
@@ -785,27 +845,27 @@ begin
   if iCount < 1 then
     Exit(0);
 
-  iSource := State.ToString(1);
+  iUI := LuaUI( L );
+  iShop   := State.ToObject(1) as TShop;
   iTitle  := State.ToString(2);
 
   if iCount > 2
     then iShopMode := State.ToInteger(3)
     else iShopMode := SHOP_BUY;
 
-  iShop := Game.FindChild( iSource ) as TShop;
   iShop.Resort;
-  iShopWindow := TShopWindow.Create( iTitle );
+  iShopWindow := TShopWindow.Create( iTitle, iUI.Player, iChoice );
 
-  for iChoice := 1 to iShop.getCount do
+  for iCount := 1 to iShop.getCount do
   case iShopMode of
-    SHOP_BUY      : iShopWindow.Add( iShop.FItems[iChoice], COST_BUY );
-    SHOP_SELL     : iShopWindow.Add( iShop.FItems[iChoice], COST_SELL );
-    SHOP_REPAIR   : iShopWindow.Add( iShop.FItems[iChoice], COST_REPAIR );
-    SHOP_RECHARGE : iShopWindow.Add( iShop.FItems[iChoice], COST_RECHARGE );
-    SHOP_IDENTIFY : iShopWindow.Add( iShop.FItems[iChoice], COST_IDENTIFY );
+    SHOP_BUY      : iShopWindow.Add( iShop.FItems[iCount], COST_BUY );
+    SHOP_SELL     : iShopWindow.Add( iShop.FItems[iCount], COST_SELL );
+    SHOP_REPAIR   : iShopWindow.Add( iShop.FItems[iCount], COST_REPAIR );
+    SHOP_RECHARGE : iShopWindow.Add( iShop.FItems[iCount], COST_RECHARGE );
+    SHOP_IDENTIFY : iShopWindow.Add( iShop.FItems[iCount], COST_IDENTIFY );
     SHOP_REPAIRFREE,
     SHOP_RECHARGEFREE,
-    SHOP_IDENTIFYFREE: iShopWindow.Add( iShop.FItems[iChoice] );
+    SHOP_IDENTIFYFREE: iShopWindow.Add( iShop.FItems[iCount] );
   end;
 
   case iShopMode of
@@ -819,8 +879,7 @@ begin
     SHOP_IDENTIFYFREE : iShopWindow.Close( 'You have nothing to identify.');
   end;
 
-  UI.RunLayer( iShopWindow );
-  iChoice := TShopWindow.Result;
+  iUI.RunLayer( iShopWindow );
 
   if iChoice < 0 then
     State.PushNil
@@ -837,7 +896,7 @@ var
 begin
   State.Init(L);
   if State.StackSize = 1 then
-    UI.PlayMusic(State.ToString(1));
+    LuaUI( L ).PlayMusic(State.ToString(1));
   Result := 0;
 end;
 
@@ -849,9 +908,9 @@ begin
   State.Init(L);
   nargs := State.StackSize;
   if nargs >= 2 then
-    UI.PlaySound(State.ToString(1), State.ToCoord(2))
+    LuaUI( L ).PlaySound(State.ToString(1), State.ToCoord(2))
   else if nargs >= 1 then
-    UI.PlaySound(State.ToString(1));
+    LuaUI( L ).PlaySound(State.ToString(1));
   Result := 0;
 end;
 
@@ -870,9 +929,10 @@ const lua_ui_lib : array[0..9] of luaL_Reg = (
   ( name : nil;           func : nil; )
 );
 
-class procedure TGameUI.RegisterLuaAPI( aLua : TLua );
+procedure TGameUI.RegisterLuaAPI( aLua : TLua );
 begin
-  aLua.Register( 'ui', lua_ui_lib );
+  lua_pushlightuserdata( aLua.Raw, Self );
+  aLua.Register( 'ui', lua_ui_lib, 1 );
 end;
 
 end.

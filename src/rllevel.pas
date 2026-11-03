@@ -7,7 +7,7 @@
 
 unit rllevel;
 interface
-uses classes, vnode, vgenerics, vcolor, vutil, vrandom, vrltools, vluaentitynode, vluamapnode, vlua, rlglobal, rlnpc, rlitem;
+uses classes, vnode, vgenerics, vcolor, vutil, vrandom, vrltools, vluaentitynode, vluamapnode, vlua, rlglobal, rlthing, rlnpc, rlitem, rlplayer;
 
 type TTravelPoint = class( TVObject )
   constructor Create( aWhere : TCoord2D; aWhat : AnsiString );
@@ -30,7 +30,8 @@ type TTravelPoints = specialize TGObjectArray< TTravelPoint >;
 type TLevel = class(TLuaMapNode)
        // The map array that holds TCells.
        private
-       FIterate        : TNode;
+       FPresentation   : IGamePresentation; // borrowed from Runtime
+       FPlayer         : TPlayer;           // borrowed from the Session while the player is here
        FTravelPoints   : TTravelPoints;
        FWallColor      : TColor;
        FBaseWallColor  : DWord;
@@ -40,9 +41,8 @@ type TLevel = class(TLuaMapNode)
        FMusic          : AnsiString;
        public
        // Overriden constructor.
-       constructor Create( const aLevelID : AnsiString );
-       // Disposes the children (TThings) and clears the map.
-       procedure ClearInit;
+       constructor Create( aContext : TNodeContext; aGameRNG : TRNG;
+         aPresentation : IGamePresentation; const aLevelID : AnsiString );
        // Adds a travel point
        procedure AddTravelPoint( const aWhere : TCoord2D; const aWhat : AnsiString );
        // Removes a travel point
@@ -75,8 +75,6 @@ type TLevel = class(TLuaMapNode)
        class procedure RegisterLuaAPI( aLua : TLua );
        // Call a cellhook if present. Returns true if hook was present, false otherwise
        function CellHook( Hook : Byte; c : TCoord2D; const Params : array of Const ) : Boolean;
-       // Override of remove - automatic map clear
-       procedure Remove( aNode : TNode ); override;
        // Find space that is near, but not neccesarily right beside
        function FindNearSpace(var Where : TCoord2D; Range : Byte; EmptyFlags : TFlags32) : boolean;
        function GetTileFlags( const aCoord : TCoord2D ) : TFlags;
@@ -88,12 +86,18 @@ type TLevel = class(TLuaMapNode)
        //Initialization before construction
        procedure Init;
        // Stream constructor
-       constructor CreateFromStream( aStream : TStream; aContext : TNodeContext; aGameRNG : TRNG ); override;
+       constructor CreateFromStream( aStream : TStream; aContext : TNodeContext; aGameRNG : TRNG;
+         aPresentation : IGamePresentation ); reintroduce;
        procedure WriteToStream( aStream : TStream ); override;
        // Abstract function for child creation from stream
        // NPC = 1, Item = 2
        function EntityFromStream( aStream : TStream; aEntityID : Byte ) : TLuaEntityNode; override;
+     private
+       function GetCells : TCellTable;
      public
+       property Presentation : IGamePresentation read FPresentation;
+       property Player : TPlayer read FPlayer write FPlayer;
+       property Cells : TCellTable read GetCells;
        property NPCs[ const aCoord2D : TCoord2D ] : TNPC read GetBeing;
        property Items[ const aCoord2D : TCoord2D ] : TItem read GetItem;
        property TileFlags[ const aCoord2D : TCoord2D ] : TFlags read GetTileFlags;
@@ -112,7 +116,7 @@ type TLevel = class(TLuaMapNode)
 
 implementation
 
-uses sysutils, vluatools, vluadungen, rllua, rlui, rlgame;
+uses sysutils, vluatools, vluadungen, rllua;
 
 { TTravelPoint }
 
@@ -152,15 +156,17 @@ begin
   end;
 end;
 
-constructor TLevel.Create(const aLevelID : AnsiString);
+constructor TLevel.Create( aContext : TNodeContext; aGameRNG : TRNG;
+  aPresentation : IGamePresentation; const aLevelID : AnsiString );
 begin
-  inherited Create( aLevelID, MapSizeX, MapSizeY, 15, Game.Context, Game.RNG );
+  inherited Create( aLevelID, MapSizeX, MapSizeY, 15, aContext, aGameRNG );
+  FPresentation := aPresentation;
 
   Init;
   Log('Created.');
   FTravelPoints := TTravelPoints.Create( True );
 
-  ClearAll(CELL_FLOOR);
+  ClearAll( Cells.Floor );
 
   RunHook( Hook_OnCreate, [] );
 
@@ -190,7 +196,7 @@ begin
     if NPCs[a] <> nil then
       NPCs[a].Flags[ nfAffected ] := (Attacker<>nil) and (Attacker.AI in AIMonster) and (NPCs[a].AI in AIMonster);
   //Draw the explosion
-  UI.Explosion( c, Color, Range, DrawDelay, aDelay );
+  FPresentation.Explosion( c, Color, Range, DrawDelay, aDelay );
 
   //Deal damage to creatures
   for a in NewArea( c, range ).Clamped( FArea ) do
@@ -202,7 +208,7 @@ begin
         begin
           NPCs[a].Flags[ nfAffected ] := True;
           NPCs[a].ApplyDamage(
-            RandRange( Game.RNG, DmgMin, DmgMax ), DamageType, Attacker );
+            RandRange( GameRNG, DmgMin, DmgMax ), DamageType, Attacker );
         end;
 
   //Clear nfAffected flag
@@ -211,9 +217,14 @@ begin
        NPCs[a].Flags[ nfAffected ] := False;
 end;
 
+function TLevel.GetCells : TCellTable;
+begin
+  Exit( TGameLua( FContext.Lua ).Cells );
+end;
+
 function TLevel.CellToID ( const aCell : Byte ) : AnsiString;
 begin
-  Exit( CellData[ aCell ].ID );
+  Exit( Cells.Data[ aCell ].ID );
 end;
 
 function TLevel.GetPicture ( const aCoord : TCoord2D ) : Word;
@@ -221,7 +232,7 @@ const BlackCell = Ord(' ') + LightGray shl 8;
 begin
   if not isProperCoord(aCoord) then Exit(BlackCell);
   if not isVisible(aCoord) then
-    if Game.Player.Flags[ nfInfravision ] and (NPCs[aCoord] <> nil) then
+    if FPlayer.Flags[ nfInfravision ] and (NPCs[aCoord] <> nil) then
       if not NPCs[aCoord].Flags[ nfInvisible ] then
         Exit(Ord(NPCs[aCoord].Picture) + LightRed shl 8);
   if not IsExplored(aCoord) then Exit(BlackCell);
@@ -235,10 +246,10 @@ begin
           exit(NPCs[aCoord].GetPicture);
     if (Items[aCoord] <> nil) then
       exit(Items[aCoord].getPicture);
-    exit(Ord(CellData[Cell[aCoord]].Pic) + CellData[Cell[aCoord]].Color shl 8);
+    exit(Ord(Cells.Data[Cell[aCoord]].Pic) + Cells.Data[Cell[aCoord]].Color shl 8);
   end
   else
-    exit(Ord(CellData[Cell[aCoord]].Pic) + DarkGray shl 8);
+    exit(Ord(Cells.Data[Cell[aCoord]].Pic) + DarkGray shl 8);
 end;
 
 procedure TLevel.PlacePortal( aPortalID : DWord; aWhere : TCoord2D );
@@ -249,9 +260,9 @@ begin
     iCoord := DropCoord( aWhere,
       [efNoMonsters,efNoObstacles,efNoItems,efNoChangeRes] );
     Cell[iCoord] := aPortalID;
-    if isVisible(iCoord) then UI.Msg('A portal appears!');
+    if isVisible(iCoord) then FPresentation.Msg('A portal appears!');
     AddTravelPoint( iCoord, 'Town Portal' );
-    Game.Player.PortalLevel := ID;
+    FPlayer.PortalLevel := ID;
   except
   end;
 end;
@@ -263,7 +274,7 @@ begin
      if Cell[ iCoord ] = aPortalID then
      begin
        RemoveTravelPoint( iCoord );
-       Cell[ iCoord ] := CELL_FLOOR;
+       Cell[ iCoord ] := Cells.Floor;
      end;
 end;
 
@@ -275,7 +286,7 @@ end;
 
 function TLevel.isPassable ( const c : TCoord2D ) : boolean;
 begin
-  Exit( not ( cfBlockMove in CellData[Cell[c]].Flags ) );
+  Exit( not ( cfBlockMove in Cells.Data[Cell[c]].Flags ) );
 end;
 
 function TLevel.isEmpty( const c : TCoord2D; cFlags : TFlags32 = [] ) : boolean;
@@ -283,40 +294,31 @@ var iCell : Byte;
 begin
   if not inherited isEmpty( c, cFlags ) then Exit( False );
   iCell := Cell[c];
-  if (efSpawnOk        in cFlags) and (cfNoSpawn in CellData[iCell].Flags) then Exit(False);
-  if (efNoChangeRes    in cFlags) and (cfBlockChange in CellData[iCell].Flags) then Exit(False);
-  if (efNoBlockMissile in cFlags) and (cfBlockMissile in CellData[iCell].Flags) then Exit(False);
-  if (efCorpse in cFlags) and (not (cfBloodCorpse in CellData[iCell].Flags)) then Exit(False);
-  if (efBones in cFlags)  and (not (cfBoneCorpse  in CellData[iCell].Flags)) then Exit(False);
+  if (efSpawnOk        in cFlags) and (cfNoSpawn in Cells.Data[iCell].Flags) then Exit(False);
+  if (efNoChangeRes    in cFlags) and (cfBlockChange in Cells.Data[iCell].Flags) then Exit(False);
+  if (efNoBlockMissile in cFlags) and (cfBlockMissile in Cells.Data[iCell].Flags) then Exit(False);
+  if (efCorpse in cFlags) and (not (cfBloodCorpse in Cells.Data[iCell].Flags)) then Exit(False);
+  if (efBones in cFlags)  and (not (cfBoneCorpse  in Cells.Data[iCell].Flags)) then Exit(False);
   Exit(True);
 end;
 
 procedure TLevel.TimeFlow(time : LongInt);
-var iScan : TNode;
+var iNode : TNode;
 begin
   // Do things.
-  with Game.Player do
+  with FPlayer do
     if PortalCount > 0 then
        if PortalCount = 1 then
        begin
-         PortalLevel := Game.Level.ID;
-         PlacePortal(CELL_TOWN_PORTAL,Position);
-         UI.PlaySound('sfx/misc/sentinel.wav',Position);
+         PortalLevel := Self.ID;
+         PlacePortal( Cells.TownPortal, Position );
+         FPresentation.PlaySound('sfx/misc/sentinel.wav',Position);
          PortalCount := 0;
        end else PortalCount:=PortalCount - 1;
-  // Pass time flow to children:
-  iScan := Child as TNode;
-  if iScan <> nil then
-  repeat
-    FIterate := iScan.Next;
-    if iScan is TNPC then (iScan as TNPC).TimeFlow(time);
-    iScan := FIterate;
-  until (iScan = nil) or (iScan = Child);
-end;
-
-procedure TLevel.ClearInit;
-begin
-  DestroyChildren;
+  // Pass time flow to children; the enumeration survives discarded NPCs.
+  for iNode in Self do
+    if ( iNode is TNPC ) and ( not iNode.Dead ) then
+      TNPC( iNode ).TimeFlow( time );
 end;
 
 procedure TLevel.AddTravelPoint ( const aWhere : TCoord2D;
@@ -351,7 +353,7 @@ end;
 function TLevel.blocksVision ( const coord : TCoord2D ) : boolean;
 begin
   if not isProperCoord( coord ) then Exit( True );
-  Exit( cfBlockVision in CellData[GetCell(coord)].Flags );
+  Exit( cfBlockVision in Cells.Data[GetCell(coord)].Flags );
 end;
 
 procedure TLevel.BroadcastEvent(origin : TCoord2D; radius : Word; event : String);
@@ -369,9 +371,11 @@ begin
   inherited Destroy;
 end;
 
-constructor TLevel.CreateFromStream( aStream : TStream; aContext : TNodeContext; aGameRNG : TRNG );
+constructor TLevel.CreateFromStream( aStream : TStream; aContext : TNodeContext; aGameRNG : TRNG;
+  aPresentation : IGamePresentation );
 begin
   inherited CreateFromStream( aStream, aContext, aGameRNG );
+  FPresentation := aPresentation;
   Init;
   FTravelPoints := TTravelPoints.CreateFromStream( aStream );
 end;
@@ -411,7 +415,7 @@ begin
     NPC := nil;
   end
   else
-    NPC := Level.Drop( TNPC.Create(tid), c ) as TNPC;
+    NPC := Level.Drop( TNPC.Create( Level.Context, tid ), c ) as TNPC;
   State.Push( NPC );
   Result := 1;
 end;
@@ -434,9 +438,9 @@ begin
     exit(0);
   end;
   if State.StackSize = 4 then
-    Item := TItem.Create(tid,State.ToInteger(4))
+    Item := TItem.Create( Level.Context, tid, State.ToInteger(4) )
   else
-    Item :=TItem.Create(tid);
+    Item := TItem.Create( Level.Context, tid );
   Item := Level.Drop( Item, Coord ) as TItem;
   State.Push(Item);
   Result := 1;
@@ -551,16 +555,9 @@ function TLevel.CellHook ( Hook : Byte; c : TCoord2D; const Params : array of co
 var iCell : Byte;
 begin
   iCell := Cell[c];
-  if not (Hook in CellData[iCell].hooks) then Exit( false );
-  FContext.Lua.ProtectedCall([ 'cells',CellData[iCell].id,CellHookNames[ Hook ] ],ConcatConstArray([Self,LuaCoord(c)],Params) );
+  if not (Hook in Cells.Data[iCell].hooks) then Exit( false );
+  FContext.Lua.ProtectedCall([ 'cells',Cells.Data[iCell].id,CellHookNames[ Hook ] ],ConcatConstArray([Self,LuaCoord(c)],Params) );
   Exit( True );
-end;
-
-procedure TLevel.Remove ( aNode : TNode ) ;
-begin
-  inherited Remove ( aNode ) ;
-  if FIterate = aNode then FIterate := FIterate.Next;
-  if FIterate = aNode then FIterate := nil;
 end;
 
 function TLevel.GetBeing ( const aCoord : TCoord2D ) : TNPC;
@@ -582,8 +579,8 @@ begin
   repeat
     if Critical > CriticalSize then Exit(False);
     Inc(Critical);
-    GC := Where.RandomShifted( Game.RNG, Range );
-  until isProperCoord(GC) and (GetCell(GC) = CELL_FLOOR) and (isEmpty(GC,EmptyFlags));
+    GC := Where.RandomShifted( GameRNG, Range );
+  until isProperCoord(GC) and (GetCell(GC) = Cells.Floor) and (isEmpty(GC,EmptyFlags));
   Where := GC;
   Exit(true);
 end;
@@ -591,7 +588,7 @@ end;
 function TLevel.GetTileFlags ( const aCoord : TCoord2D ) : TFlags;
 begin
   if not isProperCoord( aCoord ) then Exit([]);
-  Exit( CellData[Cell[aCoord]].Flags );
+  Exit( Cells.Data[Cell[aCoord]].Flags );
 end;
 
 

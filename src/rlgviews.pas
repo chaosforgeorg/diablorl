@@ -7,7 +7,7 @@ interface
 
 uses classes, sysutils,
      vio, viotypes, vioevent, vtig, vtigio, vtigstyle, vtextmap, vmessages, vrltools,
-     rlglobal, rlthing, rlitem;
+     rlglobal, rlthing, rlnpc, rlitem, rlplayer;
 
 type TMainScreen = class;
 
@@ -29,9 +29,9 @@ end;
 type TStatus = class
   constructor Create;
   procedure Reset;
-  procedure Update( c : TCoord2D );
-  procedure Update( aThing : TThing );
-  procedure Draw;
+  procedure Update( aPlayer : TPlayer; c : TCoord2D );
+  procedure Update( aPlayer : TPlayer; aThing : TThing );
+  procedure Draw( aPlayer : TPlayer; aSize : TIOPoint );
 private
   FLine1 : TStatusLine;
   FLine2 : TStatusLine;
@@ -79,7 +79,7 @@ end;
 { TItemInfo }
 
 type TItemInfo = class( TIOLayer )
-  constructor Create( const aItem : TItem );
+  constructor Create( const aItem : TItem; aWearer : TNPC );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
@@ -99,7 +99,7 @@ end;
 type TShopItemArray = array of TShopItem;
 
 type TShopWindow = class( TPanel )
-  constructor Create( const aTitle : AnsiString );
+  constructor Create( const aTitle : AnsiString; aWearer : TNPC; var aResult : Integer );
   procedure Add( aItem : TItem; aPriceType : TPriceType = COST_NONE );
   procedure Close( const aEmptyLabel : AnsiString );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
@@ -112,9 +112,8 @@ protected
   FItemCount  : Integer;
   FClosed     : Boolean;
   FShift      : TIOPoint;
-  class var FResult : Integer;
-public
-  class property Result : Integer read FResult;
+  FWearer     : TNPC;
+  FResult     : PInteger;
 end;
 
 { TCharWindow }
@@ -144,7 +143,7 @@ type TTalkOption = record
 end;
 
 type TTalkWindow = class( TPanel )
-  constructor Create( aOwner : TMainScreen; const aIntro : AnsiString );
+  constructor Create( aOwner : TMainScreen; const aIntro : AnsiString; var aResult : Integer );
   procedure Add( const aOption : AnsiString; aActive : Boolean = True );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -153,9 +152,7 @@ protected
   FIntro       : AnsiString;
   FOptions     : array of TTalkOption;
   FOptionCount : Integer;
-  class var FResult : Integer;
-public
-  class property Result : Integer read FResult;
+  FResult      : PInteger;
 end;
 
 // TODO - handle cases when equipment gets destroyed or
@@ -193,16 +190,14 @@ end;
 type TSkillEntryArray = array of TSkillEntry;
 
 type TSkillWindow = class( TIOLayer )
-  constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
   destructor Destroy; override;
 protected
   FEntries  : TSkillEntryArray;
   FCount    : Integer;
-  class var FResult : DWord;
-public
-  class property Result : DWord read FResult;
+  FResult   : DWord;
+  procedure Setup; override;
 end;
 
 { TQsWindow }
@@ -219,18 +214,16 @@ end;
 { TTravelWindow }
 
 type TTravelWindow = class( TIOLayer )
-  constructor Create;
+  constructor Create( var aResult : Integer );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
-  class var FResult : Integer;
-public
-  class property Result : Integer read FResult;
+  FResult : PInteger;
 end;
 
 implementation
 
-uses math, vutil, vlua, rlgame, rlconfig, rllevel, rlui, rlnpc, rlplayer;
+uses math, vutil, vlua, rlconfig, rllevel, rlui;
 
 { TPanel }
 
@@ -269,26 +262,26 @@ begin
   FLine3.Init('');
 end;
 
-procedure TStatus.Update( c : TCoord2D );
+procedure TStatus.Update( aPlayer : TPlayer; c : TCoord2D );
 begin
   Reset;
-  with Game.Level do
+  with TLevel( aPlayer.Parent ) do
   begin
     if not isVisible( c ) then Exit;
     if (not isEmpty( c, [efNoMonsters])) and (not (NPCs[c].Flags[nfInvisible]))
-      then Update( NPCs[c] )
+      then Update( aPlayer, NPCs[c] )
       else if not isEmpty(c, [efNoItems])
-        then Update( Items[c] )
+        then Update( aPlayer, Items[c] )
         else
         begin
-          FLine2.Init(CellData[Cell[c]].Name);
-          if CellHook_OnTravelName in CellData[Cell[c]].hooks then
-            FLine2.Init(Game.Context.Lua.ProtectedCall([ 'cells',CellData[Cell[c]].id,CellHookNames[ CellHook_OnTravelName ] ], [Game.Level] ));
+          FLine2.Init(Cells.Data[Cell[c]].Name);
+          if CellHook_OnTravelName in Cells.Data[Cell[c]].hooks then
+            FLine2.Init(Context.Lua.ProtectedCall([ 'cells',Cells.Data[Cell[c]].id,CellHookNames[ CellHook_OnTravelName ] ], [aPlayer.Parent] ));
         end;
   end;
 end;
 
-procedure TStatus.Update( aThing : TThing );
+procedure TStatus.Update( aPlayer : TPlayer; aThing : TThing );
 var iCount  : Byte;
     iStatus : AnsiString;
 begin
@@ -304,7 +297,7 @@ begin
       iCount := Max( 0, Min( 10, (HP * 10) div HPMax ) );
       FLine1.Init('{R ' + StringOfChar( '#', iCount ) + '}{d ' + StringOfChar( '.', 10-iCount ) + '}');
       FLine2.Init( Name );
-      iCount := Game.Player.Kills.Get( ID );
+      iCount := aPlayer.Kills.Get( ID );
       if iCount > 0 then FLine3.Init('Total kills : ' + IntToStr( iCount ));
       if iCount > 15 then FLine3.Text += '   ('+GetResistancesString+')' ;
       if iCount > 30 then
@@ -321,17 +314,17 @@ begin
   begin
     iStatus := GetStatusInfo1;
     if iStatus = ''
-      then FLine2.Init( GetName(PlainName), InvColor )
+      then FLine2.Init( GetName(PlainName), InvColor( aPlayer ) )
       else
       begin
-        FLine1.Init( '[' + GetName(PlainName) + ']', InvColor );
-        FLine2.Init( iStatus, InvColor );
+        FLine1.Init( '[' + GetName(PlainName) + ']', InvColor( aPlayer ) );
+        FLine2.Init( iStatus, InvColor( aPlayer ) );
       end;
-    FLine3.Init( GetStatusInfo2, InvColor );
+    FLine3.Init( GetStatusInfo2( aPlayer ), InvColor( aPlayer ) );
   end;
 end;
 
-procedure TStatus.Draw;
+procedure TStatus.Draw( aPlayer : TPlayer; aSize : TIOPoint );
 var iScreenSize : TIOPoint;
     iOrbStr     : AnsiString;
 
@@ -381,9 +374,9 @@ var iCount    : DWord;
     iOrbColor : TIOColor;
 begin
   iScreenSize := VTIG_GetIOState.Size;
-  if UI.Player = nil then Exit;
+  if aPlayer = nil then Exit;
   VTIG_FreeLabel( StringOfChar( '-', iScreenSize.X - 2 ), Point( 0, iScreenSize.Y - 3 ), DarkGray );
-  with UI.Player do
+  with aPlayer do
   begin
     DrawOrb( HP, getLife, Red, 3 );
     if Flags[ nfManaShield ] then
@@ -392,7 +385,7 @@ begin
       iOrbColor := Blue;
     DrawOrb(MP, getMana, iOrbColor, iScreenSize.X-9);
 
-    iOrbStr := TLevel(UI.Player.Parent).Name;
+    iOrbStr := TLevel(aPlayer.Parent).Name;
     VTIG_FreeLabel( ' ' + iOrbStr + ' ', Point( iScreenSize.X - 13 - Length(iOrbStr), iScreenSize.Y - 3 ), LightGray );
 
     if LevelUp then
@@ -401,10 +394,10 @@ begin
       VTIG_FreeLabel( 'Level Up!', Point( 2, iScreenSize.Y - 5 ), White );
     end;
 
-    DurMark( Equipment[slotHead],  Point( UI.SizeX-2,UI.SizeY-11 ), #127 );
-    DurMark( Equipment[slotTorso], Point( UI.SizeX-2,UI.SizeY-10 ), #219 );
-    DurMark( Equipment[slotRHand], Point( UI.SizeX-3,UI.SizeY-11 ), #179 );
-    DurMark( Equipment[slotLHand], Point( UI.SizeX-3,UI.SizeY-10 ), #197 );
+    DurMark( Equipment[slotHead],  Point( aSize.X-2,aSize.Y-11 ), #127 );
+    DurMark( Equipment[slotTorso], Point( aSize.X-2,aSize.Y-10 ), #219 );
+    DurMark( Equipment[slotRHand], Point( aSize.X-3,aSize.Y-11 ), #179 );
+    DurMark( Equipment[slotLHand], Point( aSize.X-3,aSize.Y-10 ), #197 );
 
     VTIG_FreeLabel( ' [' + StringOfChar('.', ITEMS_QS) + '] ', Point( 10, iScreenSize.Y - 3 ), DarkGray );
     for iCount := 1 to ITEMS_QS do
@@ -413,7 +406,7 @@ begin
 
     if Spell.Spell > 0 then
     case Spell.Source of
-      CAST_STAFF : VTIG_FreeLabel( UI.Strip(Equipment[SlotRHand].getSpellName), Point(11, iScreenSize.Y-2), DarkGray );
+      CAST_STAFF : VTIG_FreeLabel( VTIG_StripTags(Equipment[SlotRHand].getSpellName( aPlayer )), Point(11, iScreenSize.Y-2), DarkGray );
       CAST_SCROLL: VTIG_FreeLabel( Spell.Name, Point(11, iScreenSize.Y-2), DarkGray );
       else
         VTIG_FreeLabel( Spell.Name, Point(11, iScreenSize.Y-2), DarkGray );
@@ -461,7 +454,7 @@ begin
         else iColor := DarkGray;
       VTIG_FreeLabel( FMessages.Content[ -i ], Point(2, 2-i), iColor );
     end;
-  FStatus.Draw;
+  FStatus.Draw( UI.Player, Point( UI.SizeX, UI.SizeY ) );
 end;
 
 function TMainScreen.IsModal : Boolean;
@@ -626,7 +619,7 @@ end;
 
 { TItemInfo }
 
-constructor TItemInfo.Create( const aItem : TItem );
+constructor TItemInfo.Create( const aItem : TItem; aWearer : TNPC );
 var iStatus : String;
 begin
   VTIG_EventClear;
@@ -641,7 +634,7 @@ begin
         FLine1 := '{'+ColorCodes[Color]+' ' + GetName(PlainName) + '}';
         FLine2 := '{'+ColorCodes[Color]+' ' + iStatus + '}';
       end;
-    FLine3 := '{'+ColorCodes[Color]+' ' + GetStatusInfo2 + '}';
+    FLine3 := '{'+ColorCodes[Color]+' ' + GetStatusInfo2( aWearer ) + '}';
   end;
 end;
 
@@ -674,15 +667,17 @@ end;
 
 { TShopWindow }
 
-constructor TShopWindow.Create( const aTitle : AnsiString );
+constructor TShopWindow.Create( const aTitle : AnsiString; aWearer : TNPC; var aResult : Integer );
 begin
   inherited Create;
   FTitle      := aTitle;
+  FWearer     := aWearer;
+  FResult     := @aResult;
   FEmptyLabel := '';
   FItems      := nil;
   FItemCount  := 0;
   FClosed     := False;
-  FResult     := -1;
+  FResult^    := -1;
 end;
 
 procedure TShopWindow.Add( aItem : TItem; aPriceType : TPriceType );
@@ -690,7 +685,7 @@ begin
   if FItemCount >= Length(FItems) then
     SetLength( FItems, FItemCount + 16 );
   FItems[FItemCount].Data  := aItem;
-  FItems[FItemCount].Color := aItem.InvColor;
+  FItems[FItemCount].Color := aItem.InvColor( FWearer );
   if aPriceType <> COST_NONE
     then FItems[FItemCount].Name := Padded( aItem.GetName(PlainName), 55 ) + IntToStr( aItem.GetPrice(aPriceType) )
     else FItems[FItemCount].Name := aItem.GetName(PlainName);
@@ -739,16 +734,16 @@ begin
   begin
     UI.UpdateStatus( nil );
     if iSel < FItemCount then
-      FResult := iSel
+      FResult^ := iSel
     else
-      FResult := -1;
+      FResult^ := -1;
     FFinished := True;
   end;
 
   if VTIG_EventCancel then
   begin
     UI.UpdateStatus( nil );
-    FResult := -1;
+    FResult^ := -1;
     FFinished := True;
   end;
 end;
@@ -925,13 +920,14 @@ end;
 
 { TTalkWindow }
 
-constructor TTalkWindow.Create( aOwner : TMainScreen; const aIntro : AnsiString );
+constructor TTalkWindow.Create( aOwner : TMainScreen; const aIntro : AnsiString; var aResult : Integer );
 begin
   inherited Create( aOwner );
+  FResult      := @aResult;
   FIntro       := aIntro;
   FOptions     := nil;
   FOptionCount := 0;
-  FResult      := -1;
+  FResult^     := -1;
 end;
 
 procedure TTalkWindow.Add( const aOption : AnsiString; aActive : Boolean );
@@ -959,7 +955,7 @@ begin
   for i := 0 to FOptionCount - 1 do
     if VTIG_Selectable( FOptions[i].Text, FOptions[i].Active ) then
     begin
-      FResult := i;
+      FResult^ := i;
       FFinished := True;
     end;
   VTIG_SetAlignment( VTIG_ALIGN_LEFT );
@@ -970,7 +966,7 @@ begin
 
   if VTIG_EventCancel then
   begin
-    FResult := -1;
+    FResult^ := -1;
     FFinished := True;
   end;
 end;
@@ -1036,11 +1032,11 @@ begin
       begin
         iEqSelMap[iEqCount] := iIndex;
         Inc(iEqCount);
-        if VTIG_Selectable( iEqList[ iIndex ].GetName(PlainName), True, iEqList[ iIndex ].InvColor ) then
+        if VTIG_Selectable( iEqList[ iIndex ].GetName(PlainName), True, iEqList[ iIndex ].InvColor( UI.Player ) ) then
           iConfirmSlot := iIndex;
       end
       else
-        VTIG_Text( iEqList[ iIndex ].GetName(PlainName), iEqList[ iIndex ].InvColor );
+        VTIG_Text( iEqList[ iIndex ].GetName(PlainName), iEqList[ iIndex ].InvColor( UI.Player ) );
     end;
   end;
 
@@ -1053,7 +1049,7 @@ begin
     VTIG_PushStyle( @TIGEmbeddedStyle );
     VTIG_Begin( 'inv_items', Point( iSize.X - 4, iSize.Y - ITEMS_EQ - 5 ), VTIG_PositionResolve( Point( 0, ITEMS_EQ + 2 ) ) );
     for iItem in iInvList do
-      if VTIG_Selectable( Padded(iItem.GetName(PlainName), iSize.X - 7) + ' ' + IntToStr(iItem.Volume), True, iItem.InvColor ) then
+      if VTIG_Selectable( Padded(iItem.GetName(PlainName), iSize.X - 7) + ' ' + IntToStr(iItem.Volume), True, iItem.InvColor( UI.Player ) ) then
         iConfirmItem := iItem;
     VTIG_Scrollbar;
     VTIG_End;
@@ -1063,7 +1059,7 @@ begin
   begin
     // Plain text in parent window for EqMode
     for iItem in iInvList do
-      VTIG_Text( Padded(iItem.GetName(PlainName), iSize.X - 7) + ' ' + IntToStr(iItem.Volume), iItem.InvColor );
+      VTIG_Text( Padded(iItem.GetName(PlainName), iSize.X - 7) + ' ' + IntToStr(iItem.Volume), iItem.InvColor( UI.Player ) );
   end;
 
 
@@ -1276,7 +1272,7 @@ end;
 
 { TSkillWindow }
 
-constructor TSkillWindow.Create;
+procedure TSkillWindow.Setup;
 var iCount : Byte;
     iBonus : Integer;
     iItem  : TItem;
@@ -1340,7 +1336,7 @@ begin
     if (iItem.Spell <> 0) then
     begin
       SetLength( FEntries, FCount + 1 );
-      FEntries[FCount].Name  := Padded('/ ' + iItem.getSpellName, 20) + getQuick(254);
+      FEntries[FCount].Name  := Padded('/ ' + iItem.getSpellName( UI.Player ), 20) + getQuick(254);
       FEntries[FCount].Data  := iItem.Spell + ord(CAST_STAFF) shl 8;
       FEntries[FCount].Valid := (iItem.Charges > 0);
       Inc( FCount );
@@ -1384,8 +1380,8 @@ begin
       case iSource of
         CAST_SPELL  : UI.Player.Spell.Init(UI.Player, iSpell);
         CAST_SKILL  : UI.Player.Spell.Init(UI.Player, iSpell, true);
-        CAST_STAFF  : UI.Player.Spell.Init(UI.Player.Equipment[SlotRHand]);
-        CAST_SCROLL : UI.Player.Spell.Init(UI.Player.FindScroll(iSpell));
+        CAST_STAFF  : UI.Player.Spell.Init(UI.Player, UI.Player.Equipment[SlotRHand]);
+        CAST_SCROLL : UI.Player.Spell.Init(UI.Player, UI.Player.FindScroll(iSpell));
       end;
     end;
     FFinished := True;
@@ -1490,11 +1486,12 @@ end;
 
 { TTravelWindow }
 
-constructor TTravelWindow.Create;
+constructor TTravelWindow.Create( var aResult : Integer );
 begin
   VTIG_EventClear;
   FFinished := False;
-  FResult   := -1;
+  FResult   := @aResult;
+  FResult^  := -1;
 end;
 
 procedure TTravelWindow.Update( aDTime : Integer; aActive : Boolean );
@@ -1502,7 +1499,7 @@ var iPoints : TTravelPoints;
     iCount  : DWord;
     iSize   : TIOPoint;
 begin
-  iPoints := Game.Level.TravelPoints;
+  iPoints := UI.Level.TravelPoints;
   iSize.X := 16;
   iSize.Y := iPoints.Size + 5;
   if iPoints.Size > 0 then
@@ -1516,13 +1513,13 @@ begin
     for iCount := 0 to iPoints.Size - 1 do
       if VTIG_Selectable( iPoints[ iCount ].What ) then
       begin
-        FResult := iCount;
+        FResult^ := iCount;
         FFinished := True;
       end;
 
   if VTIG_Selectable( 'Cancel' ) or VTIG_EventCancel then
   begin
-    FResult   := -1;
+    FResult^  := -1;
     FFinished := True;
   end;
 

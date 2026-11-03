@@ -5,7 +5,7 @@
 
 unit rlplayer;
 interface
-uses classes, vutil, vnode, vrltools, vgenerics, vlua, rlglobal, rlnpc, rlconfig, rlitem;
+uses classes, vutil, vnode, vrltools, vgenerics, vlua, rlglobal, rlthing, rlnpc, rlconfig, rlitem;
 
 type TQuests = array[1..MaxQuests] of byte;
 type TSpells = array[1..MaxSpells] of byte;
@@ -32,7 +32,7 @@ TQuickSkill = object
   Source : TSpellSource;
   Spell : byte;
   function getIcon(): char;
-  procedure Init( aItem : TItem);
+  procedure Init( aPlayer : TPlayer; aItem : TItem );
   procedure Init( aPlayer: TPlayer; aSpell : byte; isSkill: boolean = false);
   procedure Copy( aSource : TQuickSkill );
   procedure Reset();
@@ -88,6 +88,11 @@ TPlayer = class(TNPC)
        // if set to true, all Success, Emote and Fail messages are silent
        FSilentAction : Boolean;
 
+       FPresentation   : IGamePresentation; // borrowed from the Session
+       FDied           : Boolean;
+       FMemorialText   : Text;
+       FWritingMemorial: Boolean;
+
      public
        property Stats : TStatistics read FStatistics;
        property Enemy : TUID read FEnemy write FEnemy;
@@ -101,21 +106,35 @@ TPlayer = class(TNPC)
        property QuickSkills: TQuickSkills read FQuickSkills;
        property PortalCount: byte read FPortalCount write FPortalCount;
        property PortalCell: Word read FPortalCell write FPortalCell;
+       property Died : Boolean read FDied;
+       property LightStrength : DWord read FLightStrength;
+       property RunCommand : Byte read FRunCommand;
+       property Travelling : Boolean read FTravelMode write FTravelMode;
      public
        // Return enumerator
        function GetEnumerator : TPlayerEnumerator;
        // Overriden constructor
-       constructor Create(const thingID :string);
-       // Death procedure -- does all cleanup.
+       constructor Create( aContext : TNodeContext; const thingID : AnsiString );
+       // Presents through the Session's presentation, also while detached.
+       procedure BindPresentation( aPresentation : IGamePresentation );
+       function Presentation : IGamePresentation; override;
+       // Records the death; the Session presents it after the step.
        procedure Die(iAttacker: TNPC = nil); override;
-       procedure Displace( const new : TCoord2D ); override;
-       // Command Act
-       procedure doAct;
-       // Command Travel;
-       procedure doTravel;
-       // QuickSlot view
-       //procedure QsCallback(Choice: byte);
-       //procedure doQuickSlot;
+       // Turn rules run by the Session: vision, surroundings, kills and OnStep.
+       procedure BeginTurn( aTurnCount : DWord );
+       // Enemy, status line and spell checks before choosing a command.
+       procedure ReviewSurroundings;
+       // Takes the next travel step; False when the path ended without a move.
+       function TravelStep : Boolean;
+       // Whether a run goes on; stops it when the walls or enemies change.
+       function ContinueRun : Boolean;
+       procedure StartRun( aCommand : Byte );
+       procedure ActionMove( aDirection : TDirection );
+       procedure ActionAttack( aDirection : TDirection );
+       procedure ActionWait;
+       procedure ActionAct( aDirection : TDirection );
+       function CanTravel : Boolean;
+       procedure StartTravel( const aTarget : TCoord2D );
        //find the first free quickslot
        function  getFreeSlot : byte;
        // Command Pickup
@@ -130,8 +149,6 @@ TPlayer = class(TNPC)
        function CastSpell() : Boolean;
        // Check if can cast the spell
        function CanCast(aSpell: byte; aSpellLevel: byte = 0; aSource : TSpellSource = CAST_SPELL ) : boolean;
-       // Player action
-       procedure Action; override;
        // Player Attack monster
        function Attack(NPC : TNPC; Ranged: boolean = false; SpellID : Byte = 0) : Boolean; override;
        // Block Attack
@@ -185,7 +202,8 @@ TPlayer = class(TNPC)
        // Adds given amount of experience.
        procedure addExp(Amount : DWord);
        procedure durabilityCheck(Slot : Byte);
-       procedure WriteMemorial;
+       // Writes the memorial file and returns the score.
+       function WriteMemorial( const aFileName : AnsiString; aEnemy : TNPC ) : LongInt;
        function  SlotName(slot : byte) : string;
        function  ItemToSlot(Item : TItem) : byte;
        function  ItemToEqSlot(Item : TItem) : byte;
@@ -200,10 +218,6 @@ TPlayer = class(TNPC)
        function  UseItem(item : TItem) : Boolean;
        //
        function CreateAutoTarget( aAISet : TAITypeSet; aRange : Integer ): TAutoTarget;
-       //Targeting
-       function  ChooseTarget( TargetMode : Byte = TM_LOOK; FireCmd : byte = COMMAND_LOOK ) : boolean;
-       //Targeting
-       function  ChooseDirection : boolean;
        //Targeting
        function ChooseSpellTarget(aSpell : byte) : boolean;
        procedure PlaySound(sID : string);
@@ -313,11 +327,7 @@ const SlotNone       = 0;
       SlotFailTown   = 106;
 
 implementation
-uses math, sysutils, variants, vuid, vdebug, vtigio, rllevel, rlgame, rllua, rlui, rlviews;
-
-var
-      MemorialText : Text;
-      WritingMemorial: boolean = false;
+uses math, sysutils, variants, vuid, vdebug, vtig, rllevel, rllua;
 
 { TQuickSkill }
 
@@ -330,7 +340,7 @@ begin
   end;
 end;
 
-procedure TQuickSkill.Init(aItem : TItem);
+procedure TQuickSkill.Init( aPlayer : TPlayer; aItem : TItem );
 begin
   Spell := aItem.Spell;
   case aItem.itype of
@@ -340,7 +350,7 @@ begin
                   end;
     TYPE_STAFF : begin
                    Source := CAST_STAFF;
-                   Name := aItem.GetSpellName();
+                   Name := aItem.GetSpellName( aPlayer );
                  end;
   end;
 end;
@@ -384,91 +394,13 @@ begin
   OSt.WriteAnsiString(Name);
 end;
 
-function TPlayer.ChooseTarget( TargetMode : Byte = TM_LOOK; FireCmd : byte = COMMAND_LOOK ) : boolean;
-var Key : Byte;
-    Dir : TDirection;
-    iEnemy : TNPC;
-    iAuto  : TAutoTarget;
-begin
-    FTarget := Position;
-    iEnemy := nil;
-    iAuto  := nil;
-    if FEnemy <> 0 then iEnemy := Game.UIDs.Get(FEnemy) as TNPC;
-
-    if TargetMode <> TM_LOOK then
-    begin
-      iAuto := CreateAutoTarget( AIMonster, getLightStrength );
-      if (iEnemy <> nil) and (iEnemy.Visible) and (not (iEnemy.AI in [AINPC, AIGolem])) then
-        iAuto.PriorityTarget( iEnemy.Position );
-      FTarget := iAuto.Current;
-    end;
-    if iEnemy = nil
-      then FEnemy := 0
-      else FEnemy := iEnemy.UID;
-
-    UI.TargetMode := TargetMode;
-  repeat
-    UI.FocusCursor(Target);
-
-    UI.UpdateStatus(Target);
-
-    if TargetMode in [TM_FIRE] then
-      if TLevel(Parent).isExplored(Target) then
-        UI.MarkTile(Target, 'X', Red );
-    Key := UI.GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_SWITCHMODE,COMMAND_OK,FireCmd]);
-    if Key in [COMMAND_ESCAPE, COMMAND_LOOK] then
-    begin
-      Target := ZeroCoord2D;
-      UI.TargetMode := 0;
-      UI.HideCursor;
-      UI.MarkClear;
-      FreeAndNil( iAuto );
-      Exit(False);
-    end;
-
-    if (iAuto <> nil) and (Key = COMMAND_SWITCHMODE) then FTarget := iAuto.Next;
-
-    if (Key in COMMANDS_MOVE) then
-    begin
-      Dir := CommandDirection(Key);
-      if TLevel(Parent).isProperCoord(Target+Dir) then
-        if ( TargetMode <> TM_FIRE ) or (Distance( FPosition, Target + Dir) < FLightStrength ) then
-          FTarget += Dir;
-    end;
-    UI.MarkClear;
-    if TargetMode = TM_LOOK then
-      UI.Focus(Target);
-  until Key in [FireCmd,COMMAND_OK];
-  FreeAndNil( iAuto );
-  UI.TargetMode := 0;
-  UI.HideCursor;
-
-  if Position = Target then
-  begin
-    UI.Msg('Suicide? Too easy for you...');
-    exit(false);
-  end;
-  Exit(True);
-end;
-
-function TPlayer.ChooseDirection: boolean;
-var Key : Byte;
-begin
-  UI.Msg('Choose direction...');
-  Key := UI.GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE]);
-  if Key = COMMAND_ESCAPE
-    then FTargetDir.code := 0
-    else FTargetDir := CommandDirection(Key);
-  Exit( FTargetDir.isProper );
-end;
-
 function TPlayer.ChooseSpellTarget(aSpell: byte): boolean;
 var TargetType : Integer;
 begin
   TargetType := FContext.Lua.Get( ['spells',aSpell,'target'] );
   case TargetType of
-    SPELL_DIRECTION : if not ChooseDirection then Exit(False);
-    SPELL_TARGET    : if not ChooseTarget( TM_FIRE, COMMAND_CAST ) then Exit(False);
+    SPELL_DIRECTION : if not Presentation.ChooseDirection( FTargetDir ) then Exit(False);
+    SPELL_TARGET    : if not Presentation.ChooseTarget( TM_FIRE, COMMAND_CAST ) then Exit(False);
     else FTarget:=Position;
   end;
   Exit(True);
@@ -499,7 +431,7 @@ end;
 function TPlayer.ItemToSlot(Item : TItem) : byte;
 begin
   if Item = nil then Exit(SlotNone);
-  if not Item.ReqsMet( False ) then Exit(SlotFailReq);
+  if not Item.ReqsMet( Self, False ) then Exit(SlotFailReq);
 
   if Item.Flags[ ifTwoHanded ] then
     if (FEq[SlotLHand] = nil) then
@@ -638,7 +570,7 @@ begin
   Bonus := 0;
   for Count := 1 to ITEMS_EQ do
     if FEq[Count] <> nil then
-      if FEq[Count].ReqsMet( true ) then
+      if FEq[Count].ReqsMet( Self, true ) then
       begin
         Value += FEq[Count].AC;
         Bonus += FEq[Count].ACModPrc;
@@ -813,7 +745,7 @@ begin
   getItemFlag := False;
   for iCount := 1 to ITEMS_EQ do
     if FEq[iCount] <> nil then
-      if FEq[iCount].ReqsMet( true ) then
+      if FEq[iCount].ReqsMet( Self, true ) then
         if FEq[iCount].Flags[ aFlag ] then Exit( True );
 end;
 
@@ -823,7 +755,7 @@ begin
   getItemMaxBonus := 0;
   for iCount := 1 to ITEMS_EQ do
     if FEq[iCount] <> nil then
-      if FEq[iCount].ReqsMet( true ) then
+      if FEq[iCount].ReqsMet( Self, true ) then
         getItemMaxBonus := Max(getItemMaxBonus, FEq[iCount].Statistics[aStat]);
 end;
 
@@ -833,7 +765,7 @@ begin
   getItemSumBonus := 0;
   for iCount := 1 to ITEMS_EQ do
     if FEq[iCount] <> nil then
-      if (FEq[iCount].Statistics[aStat] <> 0) and FEq[iCount].ReqsMet( true ) then
+      if (FEq[iCount].Statistics[aStat] <> 0) and FEq[iCount].ReqsMet( Self, true ) then
         getItemSumBonus += FEq[iCount].Statistics[aStat];
 end;
 
@@ -855,20 +787,27 @@ var Count : DWord;
 begin
   for Count := 1 to ITEMS_EQ do
     if FEq[Count] <> nil then
-      if FEq[Count].HasHook( Hook ) and FEq[Count].ReqsMet( true ) then
+      if FEq[Count].HasHook( Hook ) and FEq[Count].ReqsMet( Self, true ) then
         FEq[Count].RunHook( Hook, aParams )
+end;
+
+procedure TPlayer.BindPresentation( aPresentation : IGamePresentation );
+begin
+  FPresentation := aPresentation;
+end;
+
+function TPlayer.Presentation : IGamePresentation;
+begin
+  Exit( FPresentation );
 end;
 
 procedure TPlayer.Die(iAttacker: TNPC = nil);
 begin
-  UI.MainScreen.ClearBoth;
+  // The Session presents the death once the step has stopped.
   PlaySound('71');
-  UI.Msg( 'You die... Press <{!' + UI.UIKey( VTIG_IE_CONFIRM ) + '}>...' );
-  UI.Draw;
-  UI.PressEnter;
   if iAttacker <> nil then
     FEnemy := iAttacker.UID;
-  Game.Ended := True;
+  FDied := True;
 end;
 
 function TPlayer.UseItem(item : TItem) : Boolean;
@@ -876,14 +815,14 @@ begin
 
   if item.Flags[ ifNotInTown ] and TLevel(Parent).Flags[ lfTown ] then
   begin
-    UI.Msg('Not in town!');
+    Presentation.Msg('Not in town!');
     Exit(False);
   end;
-       if Item.IType = TYPE_POTION then UI.Msg('You drink '+item.GetName(TheName)+'.')
-  else if Item.IType in [TYPE_SCROLL,TYPE_BOOK] then UI.Msg('You read '+item.GetName(TheName)+'.')
+       if Item.IType = TYPE_POTION then Presentation.Msg('You drink '+item.GetName(TheName)+'.')
+  else if Item.IType in [TYPE_SCROLL,TYPE_BOOK] then Presentation.Msg('You read '+item.GetName(TheName)+'.')
   else Exit(False);
-       if Item.IType in [TYPE_SCROLL,TYPE_POTION] then UI.PlaySound(Item.Sound1)
-  else UI.PlaySound('sfx/items/readbook.wav');
+       if Item.IType in [TYPE_SCROLL,TYPE_POTION] then Presentation.PlaySound(Item.Sound1)
+  else Presentation.PlaySound('sfx/items/readbook.wav');
 
   case Item.IType of
 
@@ -948,10 +887,10 @@ begin
   FExp := FExp + Amount;
   if FExp >= ExpTable[Level+1] then
   begin
-    UI.PlaySound('sfx/misc/levelup.wav');
+    Presentation.PlaySound('sfx/misc/levelup.wav');
     Inc( FStats[ STAT_LEVEL ] );
     if Level < 50 then Inc(FPoints,5);
-    UI.Msg('You advance to {!level '+IntToStr(Level)+'}!');
+    Presentation.Msg('You advance to {!level '+IntToStr(Level)+'}!');
     FStats[ STAT_HP ] := getLife;
     FStats[ STAT_MP ] := getMana;
     FLevelUp := True;
@@ -991,17 +930,17 @@ begin
         else HitChance := getToHitMagic
     else begin
       HitChance := getToHitMelee;
-      if (UI.VisualRNG.RLongInt(2) = 0) then UI.PlaySound('sfx/misc/swing.wav')
-      else UI.PlaySound('sfx/misc/swing2.wav');
+      if (Presentation.VisualRNG.RLongInt(2) = 0) then Presentation.PlaySound('sfx/misc/swing.wav')
+      else Presentation.PlaySound('sfx/misc/swing2.wav');
     end;
     HitChance := HitChance-NPC.getAC;
 
     if HitChance < 5  then HitChance := 5;
     if HitChance > 95 then HitChance := 95;
-    if Game.RNG.RLongInt( 100 ) >= HitChance then
+    if GameRNG.RLongInt( 100 ) >= HitChance then
     begin
       if (NPC.Visible) then
-        UI.Msg('You miss '+NPC.GetName(TheName)+'.');
+        Presentation.Msg('You miss '+NPC.GetName(TheName)+'.');
       Exit(false);
     end;
   end;
@@ -1010,7 +949,7 @@ begin
 
   if SpellID = 0 then
   begin
-    Damage := RandRange( Game.RNG, getFullDmgMin, getFullDmgMax );
+    Damage := RandRange( GameRNG, getFullDmgMin, getFullDmgMax );
   end
   else // spell
   begin
@@ -1024,18 +963,18 @@ begin
         then iDMax := ProtectedCall('dmax',[FSpells[SpellID],Self])
         else iDMax:= GetInteger('dmax');
 
-      Damage := RandRange( Game.RNG, iDMin, iDMax );
+      Damage := RandRange( GameRNG, iDMin, iDMax );
     finally
       Free;
     end;
   end;
   // Critical hit
   if (not aRanged) and (FKlass = KlassWarrior) and
-     ( Game.RNG.RLongInt( 100 ) < Level )
+     ( GameRNG.RLongInt( 100 ) < Level )
     then begin Damage := 2*Damage;
-               UI.Msg('You criticaly hit '+NPC.GetName(TheName)+'.');
+               Presentation.Msg('You criticaly hit '+NPC.GetName(TheName)+'.');
                end
-    else UI.Msg('You hit '+NPC.GetName(TheName)+'.');
+    else Presentation.Msg('You hit '+NPC.GetName(TheName)+'.');
 
   if (SpellID = 0) and (FEq[SlotRHand] <> nil) then
   begin
@@ -1061,7 +1000,7 @@ begin
     if iMax > 0 then
     begin
       iMin := getItemSumBonus( STAT_LIFESTEALMIN );
-      iAmount := RandRange( Game.RNG, iMin, iMax );
+      iAmount := RandRange( GameRNG, iMin, iMax );
       iAmount := Ceil((Damage*iAmount+500) / 1000 );
       if iAmount > 0
         then hp := min( hp + max( hp, 1 ), hpmax )
@@ -1072,7 +1011,7 @@ begin
     if iMax > 0 then
     begin
       iMin := getItemSumBonus( STAT_MANASTEALMIN );
-      iAmount := RandRange( Game.RNG, iMin, iMax );
+      iAmount := RandRange( GameRNG, iMin, iMax );
       iAmount := Ceil((Damage*iAmount+500) / 1000 );
       if iAmount > 0
         then mp := min( mp + max( mp, 1 ), mpmax )
@@ -1086,7 +1025,7 @@ begin
     if iMax <> 0 then
     begin
       iMin := getItemSumBonus( STAT_DMGFIREMIN );
-      if NPC.ApplyDamage( RandRange( Game.RNG, iMin, iMax ), DAMAGE_FIRE, self ) then NPC := nil;
+      if NPC.ApplyDamage( RandRange( GameRNG, iMin, iMax ), DAMAGE_FIRE, self ) then NPC := nil;
     end;
   end;
 
@@ -1096,7 +1035,7 @@ begin
     if iMax <> 0 then
     begin
       iMin := getItemSumBonus( STAT_DMGLIGHTNINGMIN );
-      if NPC.ApplyDamage( RandRange( Game.RNG, iMin, iMax ), DAMAGE_LIGHTNING, self ) then NPC := nil;
+      if NPC.ApplyDamage( RandRange( GameRNG, iMin, iMax ), DAMAGE_LIGHTNING, self ) then NPC := nil;
     end;
   end;
 
@@ -1121,12 +1060,12 @@ begin
         BlockChance := getBlock;
         if (npcAttacker <> nil) then
            BlockChance += 2*(Level-npcAttacker.Level);
-        if ( Game.RNG.RLongInt( 100 ) < BlockChance ) then begin
-          UI.PlaySound('sfx/items/invsword.wav');
+        if ( GameRNG.RLongInt( 100 ) < BlockChance ) then begin
+          Presentation.PlaySound('sfx/items/invsword.wav');
           if (npcAttacker = nil) then
-              UI.Msg('You block the trap.')
+              Presentation.Msg('You block the trap.')
           else
-              UI.Msg('You block the blow of '+npcAttacker.GetName(TheName)+'.');
+              Presentation.Msg('You block the blow of '+npcAttacker.GetName(TheName)+'.');
           FRecovery := 10;
           durabilityCheck(SlotLHand);
           Exit(true);
@@ -1145,7 +1084,7 @@ begin
     if FEq[slotTorso] = nil then
       Slot := slotHead
     else if FEq[slotHead] <> nil then
-      if Game.RNG.RLongInt( 3 ) = 0 then
+      if GameRNG.RLongInt( 3 ) = 0 then
         Slot := slotHead;
   end;
   if FEq[slot] = nil then Exit;
@@ -1153,24 +1092,24 @@ begin
   case slot of
     slotRHand : begin
                   if TYPE_BOW = FEq[Slot].IType then begin
-                    if Game.RNG.RLongInt( 40 ) = 0 then FEq[slot].Dur:=FEq[slot].Dur-1;    //Bow
-                  end else if Game.RNG.RLongInt( 30 ) = 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
+                    if GameRNG.RLongInt( 40 ) = 0 then FEq[slot].Dur:=FEq[slot].Dur-1;    //Bow
+                  end else if GameRNG.RLongInt( 30 ) = 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
                   // If two weapons are wielded check both
                   if (FEq[slotLHand]<>nil)and(FEq[slotLHand].IType in [ TYPE_WEAPON, TYPE_STAFF ])
-                    and ( Game.RNG.RLongInt( 30 ) = 0 ) then FEq[slotLHand].Dur := FEq[slotLHand].Dur - 1;
+                    and ( GameRNG.RLongInt( 30 ) = 0 ) then FEq[slotLHand].Dur := FEq[slotLHand].Dur - 1;
                 end;
-    slotTorso, slotHead : if Game.RNG.RLongInt( 4 ) <> 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
-    slotLHand : if Game.RNG.RLongInt( 10 ) = 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
+    slotTorso, slotHead : if GameRNG.RLongInt( 4 ) <> 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
+    slotLHand : if GameRNG.RLongInt( 10 ) = 0 then FEq[slot].Dur := FEq[slot].Dur - 1;
   end;
   if FEq[slot].Dur = 0 then
   begin
-    UI.Msg('Your '+FEq[slot].GetName(PlainName)+' breaks!');
+    Presentation.Msg('Your '+FEq[slot].GetName(PlainName)+' breaks!');
     case FEq[slot].IType of
-         TYPE_HELM: UI.PlaySound('sfx/items/hlmtfkd.wav');
-         TYPE_ARMOR: UI.PlaySound('sfx/items/armrfkd.wav');
-         TYPE_SHIELD: UI.PlaySound('sfx/items/shielfkd.wav');
+         TYPE_HELM: Presentation.PlaySound('sfx/items/hlmtfkd.wav');
+         TYPE_ARMOR: Presentation.PlaySound('sfx/items/armrfkd.wav');
+         TYPE_SHIELD: Presentation.PlaySound('sfx/items/shielfkd.wav');
     else
-         UI.PlaySound('sfx/items/Swrdfkd.wav');
+         Presentation.PlaySound('sfx/items/Swrdfkd.wav');
     end;
     FEq[slot].Free;
   end;
@@ -1205,11 +1144,11 @@ begin
   GetEnumerator.Create(Self);
 end;
 
-constructor TPlayer.Create(const thingID :string);
+constructor TPlayer.Create( aContext : TNodeContext; const thingID : AnsiString );
 var Count : byte;
 begin
   // Set other atributes and find given thingID
-  inherited Create(thingID);
+  inherited Create( aContext, thingID );
 
   FSilentAction := False;
   FSpell.Reset();
@@ -1247,45 +1186,43 @@ begin
   FTravelTarget   := NewCoord2D(1,1);
 end;
 
-procedure TPlayer.doAct;
-var Dir : TDirection;
+procedure TPlayer.ActionAct( aDirection : TDirection );
 begin
-  UI.Msg('Choose direction...');
-  UI.Draw;
-  Dir := CommandDirection( UI.GetCommand );
-  if Dir.isProper then
+  if aDirection.isProper then
   begin
-    if (ActivateCell(Position + Dir)) then
+    if (ActivateCell(Position + aDirection)) then
       Dec(FSpeedCount,SpdMov);
   end;
 end;
 
-procedure TPlayer.doTravel;
+function TPlayer.CanTravel : Boolean;
 begin
   if FVisibleEnemies > 0 then
   begin
-     UI.Msg('{!"I can''t do that while enemies are present!"}');
+     Presentation.Msg('{!"I can''t do that while enemies are present!"}');
+     Exit( False );
+  end;
+  Exit( True );
+end;
+
+procedure TPlayer.StartTravel( const aTarget : TCoord2D );
+begin
+  FTravelTarget := aTarget;
+  if Distance( FPosition, FTravelTarget ) = 1 then
+  begin
+     Presentation.Msg('{!"I''m already here!"}');
      Exit;
   end;
 
-  if UI.GetTravelDestination( FTravelTarget ) then
-  begin
-    if Distance( FPosition, FTravelTarget ) = 1 then
-    begin
-       UI.Msg('{!"I''m already here!"}');
-       Exit;
-    end;
-
-    if FPathfinder.Run( FPosition, FTravelTarget, 5000 ) then
-      FTravelMode := True
-    else
-      UI.Msg('{!"I don''t know how to get there!"}');
-  end;
+  if FPathfinder.Run( FPosition, FTravelTarget, 5000 ) then
+    FTravelMode := True
+  else
+    Presentation.Msg('{!"I don''t know how to get there!"}');
 end;
 
 procedure TPlayer.FireArrow;
 begin
-    UI.PlaySound('sfx/misc/bfire.wav');
+    Presentation.PlaySound('sfx/misc/bfire.wav');
     SendMissile(Target, mt_Arrow);
     Dec(FSpeedCount,GetAtkSpeed-getItemMaxBonus(STAT_SPDATTACK));
     DurabilityCheck(SlotRHand);
@@ -1295,18 +1232,18 @@ procedure TPlayer.doFire;
 begin
   if TLevel(Parent).Flags[ lfTown ] then
   begin
-    UI.Msg('{!"That won''t work here"}');
+    Presentation.Msg('{!"That won''t work here"}');
     PlaySound('41');
     Exit;
   end;
 
-  if (FEq[SlotRhand] = nil) or ( not (TYPE_BOW = FEq[SlotRhand].IType) ) or ( not ( FEq[SlotRHand].ReqsMet( True ) ) ) then
+  if (FEq[SlotRhand] = nil) or ( not (TYPE_BOW = FEq[SlotRhand].IType) ) or ( not ( FEq[SlotRHand].ReqsMet( Self, True ) ) ) then
   begin
-    UI.Msg('You have no ranged weapon.');
+    Presentation.Msg('You have no ranged weapon.');
     Exit;
   end;
 
-  if ChooseTarget(TM_FIRE, COMMAND_FIRE) then FireArrow();
+  if Presentation.ChooseTarget( TM_FIRE, COMMAND_FIRE ) then FireArrow();
 end;
 
 function TPlayer.CastSpell(): Boolean;
@@ -1395,7 +1332,7 @@ var TownSafe : boolean = false;
 begin
   if aSpell = 0 then
   begin
-    UI.Msg('{!"I don''t have a spell ready."}');
+    Presentation.Msg('{!"I don''t have a spell ready."}');
     PlaySound('34');
     Exit(False);
   end;
@@ -1419,60 +1356,27 @@ begin
 
   if (TLevel(Parent).Flags[ lfTown ]) and (not TownSafe) then
   begin
-    UI.Msg('{!"I can''t cast that here."}');
+    Presentation.Msg('{!"I can''t cast that here."}');
     PlaySound('27');
     Exit(False);
   end;
 
   if (ManaCost > FStats[ STAT_MP ]) then
   begin
-    UI.Msg('{!"Not enough mana."}');
+    Presentation.Msg('{!"Not enough mana."}');
     PlaySound('35');
     Exit(False);
   end;
 
   if (ReqMag > getMag) then
   begin
-    UI.Msg('{!"I can''t cast that yet."}');
+    Presentation.Msg('{!"I can''t cast that yet."}');
     PlaySound('28');
     Exit(False);
   end;
 
   Exit(True);
 end;
-
-{
-procedure TPlayer.QsCallback(Choice : Byte);
-begin
-  if not(Choice in [1..ITEMS_QS]) then exit;
-  UI.UpdateStatus(FQuickSlots[Choice]);
-end;
-}
-{
-procedure TPlayer.doQuickSlot;
-var Window: TQsWindow;
-    Choice : word;
-
-begin
-  Window := TQsWindow.Create(UI.VUI);
-  Choice :=Window.Run;
-  FreeAndNil(Window);
-  if Choice=0 then exit;
-  case ItemToSlot(FQuickSlots[Choice]) of
-    SlotPotion,
-    SlotScroll    : begin
-                      UseItem(FQuickSlots[Choice]);
-                      exit;
-                    end;
-    SlotFailTown  : begin
-                      UI.Msg('{!"I can''t cast that here"}');
-                      PlaySound('27');
-                    end;
-    else UI.Msg('What?');
-  end;
-  doQuickSlot;
-end;
-}
 function TPlayer.addGold(Amount : DWord) : DWord;
 var slot : TItem;
     rest : DWord;
@@ -1482,7 +1386,7 @@ begin
   begin
     if InvVolume >= MaxVolume then Exit(Amount);
     if InvFull then Exit(Amount);
-    slot := TItem.Create('gold');
+    slot := TItem.Create( FContext, 'gold' );
     slot.Amount := Amount;
     Add( slot );
     exit(0);
@@ -1538,18 +1442,18 @@ begin
       igold := AddGold(aItem.Amount);
       if iGold = 0 then
       begin
-        UI.Msg('You got '+aItem.GetName(TheName)+'.');
+        Presentation.Msg('You got '+aItem.GetName(TheName)+'.');
         Dec(FSpeedCount,SpdMov);
         FreeAndNil(aItem);
         Exit(1);
       end;
       Dec(FSpeedCount,SpdMov);
       aItem.Amount := igold;
-      UI.Msg('You ran out of space in your backpack.');
+      Presentation.Msg('You ran out of space in your backpack.');
       Result := 1;
     end
   //or it can be placed into quickslot
-  else if (GetFreeSlot>0) and (aItem.IType in [TYPE_POTION, TYPE_SCROLL])and aItem.ReqsMet( False ) then
+  else if (GetFreeSlot>0) and (aItem.IType in [TYPE_POTION, TYPE_SCROLL])and aItem.ReqsMet( Self, False ) then
   begin
     Dec(FSpeedCount,SpdMov);
     Add( aItem );
@@ -1574,91 +1478,101 @@ begin
   case AddItem(nItem) of
   0:    begin
           nItem.RunHook( Hook_OnPickUp, [] );
-          UI.Msg('You put '+nItem.GetName(TheName)+' into your backpack.');
+          Presentation.Msg('You put '+nItem.GetName(TheName)+' into your backpack.');
         end;
   2:    begin
-          UI.Msg('You found '+nItem.GetName(AName)+'.');
+          Presentation.Msg('You found '+nItem.GetName(AName)+'.');
         end;
-  254:  UI.Msg('But there is nothing here!');
+  254:  Presentation.Msg('But there is nothing here!');
   255:  begin
-          nSound := 14 + UI.VisualRNG.RLongInt(3);
+          nSound := 14 + Presentation.VisualRNG.RLongInt(3);
           case nSound of
-          14: UI.Msg('{!"I can''t carry any more"}');
-          15: UI.Msg('{!"I have no room!"}');
-          16: UI.Msg('{!"Where would I put this?"}');
+          14: Presentation.Msg('{!"I can''t carry any more"}');
+          15: Presentation.Msg('{!"I have no room!"}');
+          16: Presentation.Msg('{!"Where would I put this?"}');
           end;
           PlaySound(IntToStr(nSound));
         end;
   end;
 end;
 
-procedure TPlayer.Action;
-var iKey   : Byte;
+procedure TPlayer.ActionMove( aDirection : TDirection );
+var NPC    : TNPC;
     iLevel : TLevel;
-    iEnemy : TNPC;
+begin
+  iLevel := TLevel(Parent);
+  NPC := iLevel.NPCs[Position+aDirection];
+  if NPC <> nil then
+  begin
+    FRunCommand := 0;
+    if NPC.AI = AINPC then
+    begin
+      FStatistics.Inc('talk_count');
+      NPC.RunHook( Hook_OnTalk, [] );
+      FTravelMode := False;
+    end else if NPC.AI = AIGolem then begin
+      iLevel.Displace(Self,Position+aDirection);
+      Dec(FSpeedCount,SpdMov);
+      NPC.Displace(Position+aDirection.Reversed);
+    end else if NPC.AI = AIGuardian then exit
+    else if ((FEq[SlotRhand] <> nil) and (TYPE_BOW = FEq[SlotRhand].IType)) then begin
+      Target := Position+aDirection;
+      FireArrow();
+    end else begin
+      Dec(FSpeedCount,getAtkSpeed-getItemMaxBonus(STAT_SPDATTACK));
+      Attack(NPC);
+    end;
+    Exit;
+  end;
 
-   procedure TryMove( dir : TDirection );
-   var NPC : TNPC;
-   begin
-     NPC := iLevel.NPCs[Position+dir];
-     if NPC <> nil then
-     begin
-       FRunCommand := 0;
-       if NPC.AI = AINPC then
-       begin
-         FStatistics.Inc('talk_count');
-         NPC.RunHook( Hook_OnTalk, [] );
-         FTravelMode := False;
-       end else if NPC.AI = AIGolem then begin
-         iLevel.Displace(Self,Position+Dir);
-         Dec(FSpeedCount,SpdMov);
-         NPC.Displace(Position+Dir.Reversed);
-       end else if NPC.AI = AIGuardian then exit
-       else if ((FEq[SlotRhand] <> nil) and (TYPE_BOW = FEq[SlotRhand].IType)) then begin
-         Target := Position+dir;
-         FireArrow();
-       end else begin
-         Dec(FSpeedCount,getAtkSpeed-getItemMaxBonus(STAT_SPDATTACK));
-         Attack(NPC);
-       end;
-       Exit;
-     end;
+  if not (cfBlockMove in iLevel.Cells.Data[iLevel.Cell[Position+aDirection]].Flags) then
+  begin
+    iLevel.Displace(Self,Position+aDirection); Dec(FSpeedCount,SpdMov);
+    if (FRunCommand = 0) and (not FTravelMode) then
+      Presentation.PlayFootstep;
+    Exit;
+  end;
+  FRunCommand := 0;
+  if CellHook_OnAct in iLevel.Cells.Data[iLevel.Cell[Position+aDirection]].Hooks then
+  begin
+    ActivateCell(Position+aDirection);
+    Dec(FSpeedCount,SpdMov);
+  end;
+end;
 
-     if not (cfBlockMove in CellData[iLevel.Cell[Position+dir]].Flags) then
-     begin
-       iLevel.Displace(Self,Position+Dir); Dec(FSpeedCount,SpdMov);
-       if (FRunCommand = 0) and (not FTravelMode) and Option_WalkSound then
-         UI.PlaySound('sfx/misc/walk2.wav');
-       Exit;
-     end;
-     FRunCommand := 0;
-     if CellHook_OnAct in CellData[iLevel.Cell[Position+dir]].Hooks then
-     begin
-       ActivateCell(Position+Dir);
-       Dec(FSpeedCount,SpdMov);
-       if Game.LevelChange then FTravelMode := False;
-     end;
-   end;
+procedure TPlayer.ActionAttack( aDirection : TDirection );
+begin
+  if TLevel(Parent).NPCs[ FPosition + aDirection ] <> nil then
+    ActionMove( aDirection )
+  else
+    Dec(FSpeedCount,SpdMov);
+end;
 
+procedure TPlayer.ActionWait;
+begin
+  Dec(FSpeedCount,SpdMov);
+end;
+
+procedure TPlayer.BeginTurn( aTurnCount : DWord );
+var iLevel : TLevel;
 begin
   iLevel := TLevel(Parent);
   if FStats[ STAT_HP ]>GetLife then FStats[ STAT_HP ]:=GetLife;
   FLightStrength := getLightStrength;
   iLevel.RunVision(Position,FLightStrength);
   ScanSurroundings( FLightStrength );
-  FKills.Update( Game.TurnCount );
-  UI.Draw;
+  FKills.Update( aTurnCount );
+  Presentation.Draw;
   iLevel.CellHook( CellHook_OnStep, Position, [] );
+end;
 
-  // Portal possibility
-  if Game.LevelChange then
-  begin
-    Dec(FSpeedCount,50);
-    Exit;
-  end;
-
+procedure TPlayer.ReviewSurroundings;
+var iLevel : TLevel;
+    iEnemy : TNPC;
+begin
+  iLevel := TLevel(Parent);
   iEnemy := nil;
-  if FEnemy <> 0 then iEnemy := Game.UIDs.Get(FEnemy) as TNPC;
+  if FEnemy <> 0 then iEnemy := FContext.UIDs.Get(FEnemy) as TNPC;
 
   if (iEnemy <> nil) and ((not iEnemy.Visible) or iEnemy.Flags[ nfInvisible ]) then
   begin
@@ -1667,127 +1581,70 @@ begin
   end;
 
   if iEnemy <> nil then
-    UI.UpdateStatus(iEnemy)
+    Presentation.UpdateStatus(iEnemy)
   else if iLevel.Items[Position] <> nil then
   begin
-    UI.Msg(iLevel.Items[Position].GetName(AName)+' is lying here.');
-    UI.UpdateStatus(iLevel.Items[Position])
+    Presentation.Msg(iLevel.Items[Position].GetName(AName)+' is lying here.');
+    Presentation.UpdateStatus(iLevel.Items[Position])
   end
   else
-    UI.UpdateStatus(nil);
+    Presentation.UpdateStatus(nil);
 
   ValidateSpell();
 
-  UI.Draw;
+  Presentation.Draw;
 
   if FTravelMode and (FVisibleEnemies > 0) then FTravelMode := False;
-
-  if FTravelMode then
-  begin
-    if FPathfinder.Start = FPathfinder.Stop then
-    begin
-      FTravelMode := False;
-      if Distance( FPosition, FTravelTarget ) = 1 then
-        TryMove( NewDirection( FPosition, FTravelTarget ) );
-    end
-    else
-    begin
-      FPathfinder.Start := FPathfinder.Start.Child;
-      if FPathfinder.Start = nil then
-        Exit;
-      TryMove( NewDirection( FPosition, FPathfinder.Start.Coord ) );
-    end;
-    UI.Delay( Option_RunDelay );
-    UI.WaitForAnimationCompletion( True );
-    Exit;
-  end;
-
-  if FRunCommand <> 0 then
-  begin
-    if (GetWallCount <> FRunWallCount) or (FVisibleEnemies > 0) then
-    begin
-      FRunCommand := 0;
-      Exit;
-    end;
-    iKey := FRunCommand;
-  end
-  else
-    iKey := UI.GetCommand;
-
-  if iKey in COMMANDS_MOVE then
-    TryMove( CommandDirection( iKey ) )
-  else if iKey in COMMANDS_RUN then
-  begin
-    if FRunCommand = 0 then
-    begin
-      FRunCommand   := iKey;
-      FRunWallCount := GetWallCount;
-    end;
-    UI.Delay( Option_RunDelay );
-    TryMove( CommandDirection( iKey ) )
-  end
-  else if iKey in COMMANDS_ATTACK then
-  begin
-    if iLevel.NPCs[ FPosition + CommandDirection( iKey ) ] <> nil then
-      TryMove( CommandDirection( iKey ) )
-    else
-      Dec(FSpeedCount,SpdMov);
-  end
-  else case iKey of
-    0 :;
-    COMMAND_ESCAPE     :
-    begin
-      UI.RunLayer( TGameMenu.Create );
-      case TGameMenu.Result of
-        GAMEMENU_HELP : UI.RunLayer( TManualScreen.Create );
-        GAMEMENU_QUIT : begin
-          if (GodMode) or UI.YesNoDialog('If you quit without saving, your character will be lost!'#10'Are you sure?') then
-          begin
-            Game.Ended := True;
-            Dec(FSpeedCount,50);
-          end;
-        end;
-        GAMEMENU_SAVE : begin Game.Ended := True; Game.Save; Dec(FSpeedCount,50); end;
-      end;
-    end;
-    COMMAND_ACT        : doAct;
-    COMMAND_SWITCHMODE : doTravel;
-    COMMAND_MESSAGES   : UI.ShowRecent;
-    //COMMAND_SPELLS     : doQuickSkill;
-    COMMAND_CAST       : CastSpell();
-    COMMAND_LOOK       : ChooseTarget();
-    COMMAND_FIRE       : doFire;
-    COMMAND_WAIT       : Dec(FSpeedCount,SpdMov);
-    COMMAND_PICKUP     : doPickUp;
-
-    COMMAND_QUICKSLOT1..COMMAND_QUICKSLOT8 : UseQuickSlot(iKey-COMMAND_QUICKSLOT1+1);
-{    COMMAND_QUICKSKILL1 ..
-    COMMAND_QUICKSKILL4 : if QuickSkills[Key - COMMAND_QUICKSKILL1 + 1] > 0 then Spell:=QuickSkills[iKey - COMMAND_QUICKSKILL1 + 1];}
-    else UI.Msg( 'Unknown command. Press {!' + UI.CommandKey( COMMAND_ESCAPE ) + '} for menu and help file!' );
-  end;
-  UI.WaitForAnimationCompletion( True );
 end;
 
-procedure TPlayer.WriteMemorial;
-var iEnemy  : TNPC;
-    iScore  : LongInt;
-    iResult : AnsiString;
+function TPlayer.TravelStep : Boolean;
 begin
-  Assign( MemorialText, WritePath + 'mortem.txt' );
-  Rewrite( MemorialText );
-  WritingMemorial := true;
-  iEnemy := nil;
-  if FEnemy <> 0 then iEnemy := Game.UIDs.Get( FEnemy ) as TNPC;
-  iScore := FContext.Lua.ProtectedCall([ 'player', 'write_memorial' ], [ Self, iEnemy ]);
-  WritingMemorial := false;
-  Close( MemorialText );
+  if FPathfinder.Start = FPathfinder.Stop then
+  begin
+    FTravelMode := False;
+    if Distance( FPosition, FTravelTarget ) = 1 then
+      ActionMove( NewDirection( FPosition, FTravelTarget ) );
+  end
+  else
+  begin
+    FPathfinder.Start := FPathfinder.Start.Child;
+    if FPathfinder.Start = nil then
+      Exit( False );
+    ActionMove( NewDirection( FPosition, FPathfinder.Start.Coord ) );
+  end;
+  Exit( True );
+end;
 
-  iResult := 'died in '+Game.Level.Name;
-  if iEnemy <> nil         then iResult := 'killed by '+iEnemy.GetName(AName);
-  if Game.Level.Depth > 12 then iResult := 'reached Hell';
-  Game.Persistence.Add( iScore, FName, Game.Player.Level, Game.Level.Name, FContext.Lua.Get( ['klasses',FKlass,'name'] ), iResult );
+function TPlayer.ContinueRun : Boolean;
+begin
+  if (GetWallCount <> FRunWallCount) or (FVisibleEnemies > 0) then
+  begin
+    FRunCommand := 0;
+    Exit( False );
+  end;
+  Exit( True );
+end;
 
-  UI.ShowHOF;
+procedure TPlayer.StartRun( aCommand : Byte );
+begin
+  if FRunCommand = 0 then
+  begin
+    FRunCommand   := aCommand;
+    FRunWallCount := GetWallCount;
+  end;
+end;
+
+function TPlayer.WriteMemorial( const aFileName : AnsiString; aEnemy : TNPC ) : LongInt;
+begin
+  Assign( FMemorialText, aFileName );
+  Rewrite( FMemorialText );
+  FWritingMemorial := True;
+  try
+    Result := FContext.Lua.ProtectedCall([ 'player', 'write_memorial' ], [ Self, aEnemy ]);
+  finally
+    FWritingMemorial := False;
+    Close( FMemorialText );
+  end;
 end;
 
 // Takes care of the items.
@@ -1803,12 +1660,7 @@ end;
 procedure TPlayer.PlaySound(sID : string);
 begin
      // TODO: Special case for wario/warior
-     UI.PlaySound(FSound + sID + '.wav');
-end;
-
-procedure TPlayer.Displace( const new : TCoord2D );
-begin
-  inherited Displace(new);
+     Presentation.PlaySound(FSound + sID + '.wav');
 end;
 
 constructor TPlayer.CreateFromStream( ISt : TStream; aContext : TNodeContext );
@@ -1839,9 +1691,9 @@ begin
   for Count := 1 to FContext.Lua.Get(['quests','__counter'])  do
     begin
       if Count in tsob then
-        Game.Lua.SetValue( ['world', 'quests', Count, 'enabled'], true )
+        FContext.Lua.SetValue( ['world', 'quests', Count, 'enabled'], true )
       else
-        Game.Lua.SetValue( ['world', 'quests', Count, 'enabled'], false );
+        FContext.Lua.SetValue( ['world', 'quests', Count, 'enabled'], false );
       FQuests[Count] := ISt.ReadByte;
     end;
 
@@ -1919,7 +1771,7 @@ var iLevel : TLevel;
 begin
   iLevel := Parent as TLevel;
   if not iLevel.isExplored( Coord ) then Exit( False );
-  if (CellHook_OnAct in CellData[ iLevel.Cell[Coord] ].Hooks) and iLevel.HasTravelPoint( Coord ) then Exit( True );
+  if (CellHook_OnAct in iLevel.Cells.Data[ iLevel.Cell[Coord] ].Hooks) and iLevel.HasTravelPoint( Coord ) then Exit( True );
   Result := inherited passableCoord ( Coord ) ;
 end;
 
@@ -1933,14 +1785,14 @@ begin
     with TLevel(Parent) do
       if (Items[ Position ] <> nil) and (Items[ Position ].IType in [TYPE_POTION, TYPE_SCROLL]) then
       begin
-        UI.Msg('You found '+Items[ Position ].GetName(AName)+'.');
+        Presentation.Msg('You found '+Items[ Position ].GetName(AName)+'.');
         Dec(FSpeedCount,SpdMov);
         iItem := Items[ Position ];
         Add( iItem );
         FQuickSlots[slot] := iItem;
       end
       else
-        UI.Msg('No quick item in slot '+IntToStr(slot)+'!');
+        Presentation.Msg('No quick item in slot '+IntToStr(slot)+'!');
 end;
 
 procedure TPlayer.useQuickSkill( slot: byte );
@@ -1971,9 +1823,9 @@ begin
         and (not iLevel.HasTravelPoint( iCoord )) then
         begin
           iCell := iLevel.Cell[ iCoord ];
-          if CellHook_OnTravelName in CellData[ iCell ].Hooks
-            then iLevel.AddTravelPoint( iCoord, FContext.Lua.ProtectedCall([ 'cells',CellData[iCell].id,CellHookNames[ CellHook_OnTravelName ] ], [iLevel] ) )
-            else iLevel.AddTravelPoint( iCoord, CellData[ iCell ].Name );
+          if CellHook_OnTravelName in iLevel.Cells.Data[ iCell ].Hooks
+            then iLevel.AddTravelPoint( iCoord, FContext.Lua.ProtectedCall([ 'cells',iLevel.Cells.Data[iCell].id,CellHookNames[ CellHook_OnTravelName ] ], [iLevel] ) )
+            else iLevel.AddTravelPoint( iCoord, iLevel.Cells.Data[ iCell ].Name );
         end;
     end;
 end;
@@ -2011,8 +1863,8 @@ end;
 function TPlayer.Fail( const aText : AnsiString; const aParams : array of const; const aSound : AnsiString ) : Boolean;
 begin
   if FSilentAction then Exit( False );
-  if aSound <> ''  then UI.PlaySound( aSound );
-  if aText  <> ''  then UI.Msg( Format( aText, aParams ) );
+  if aSound <> ''  then Presentation.PlaySound( aSound );
+  if aText  <> ''  then Presentation.Msg( Format( aText, aParams ) );
   Exit( False );
 end;
 
@@ -2020,8 +1872,8 @@ function TPlayer.Success ( const aText : AnsiString; const aParams : array of co
 begin
   if aCost <> 0    then Dec( FSpeedCount, aCost );
   if FSilentAction then Exit( True );
-  if aSound <> ''  then UI.PlaySound( aSound );
-  if aText <> ''   then UI.Msg( Format( aText, aParams ) );
+  if aSound <> ''  then Presentation.PlaySound( aSound );
+  if aText <> ''   then Presentation.Msg( Format( aText, aParams ) );
   Exit( True );
 end;
 
@@ -2063,7 +1915,7 @@ begin
   if aItem <> nil then
   begin
     if not (aItem.IType in [TYPE_POTION, TYPE_SCROLL] ) then Exit( Fail( 'Not a quickslot item!',[] ) );
-    if not aItem.ReqsMet( False ) then Exit( Fail( '{!"I can''t use this yet"}', [], '13' ) );
+    if not aItem.ReqsMet( Self, False ) then Exit( Fail( '{!"I can''t use this yet"}', [], '13' ) );
   end;
 
   if FQuickSlots[aSlot] <> nil then
@@ -2083,7 +1935,7 @@ begin
   begin
     aItem.Amount := aItem.Amount - 5000;
     aItem.Volume := aItem.Volume - 1;
-    aItem := TItem.Create('gold');
+    aItem := TItem.Create( FContext, 'gold' );
     aItem.Amount := 5000;
   end
   else
@@ -2343,7 +2195,7 @@ begin
   if State.IsTable(2) then
     Item := State.ToObject(2) as TItem
   else
-    Item := TItem.Create(State.ToString(2));
+    Item := TItem.Create( Player.Context, State.ToString(2) );
   State.Push( Player.AddItem(Item) < 254 );
   Result := 1;
 end;
@@ -2380,7 +2232,7 @@ begin
   Player := State.ToObject(1) as TPlayer;
   Slot := State.ToInteger(2);
   if Slot = 0 then exit(0);
-  Item := State.ToNewItem(3);
+  Item := State.ToNewItem( 3, Player.Context );
 
   Player.FEq[slot].Free;
   if Item <> nil then
@@ -2411,7 +2263,7 @@ begin
   Player := State.ToObject(1) as TPlayer;
   Slot := State.ToInteger(2);
   if Slot = 0 then exit(0);
-  Item := State.ToNewItem(3);
+  Item := State.ToNewItem( 3, Player.Context );
 
   Player.FQuickSlots[slot].Free;
   if Item <> nil then
@@ -2422,40 +2274,29 @@ begin
   Result := 0;
 end;
 
-function lua_player_exit( L : PLua_State ): Integer; cdecl;
-var iState  : TGameLuaStack;
-    iPlayer : TPlayer;
-begin
-  iState.Init(L);
-  iPlayer := iState.ToObject(1) as TPlayer;
-  Game.LevelChange := True;
-  Game.NextLevelID := iState.ToString(2);
-  Game.StairNumber := iState.ToID( iPlayer.Context.Lua, 3 );
-    if Game.StairNumber = 0 then raise EException.Create( 'Cell 0! at exit');
-
-  Dec(iPlayer.FSpeedCount,50);
-  Result := 0;
-end;
-
 function lua_player_memorial_print(L: Plua_State): Integer; cdecl;
 var State  : TGameLuaStack;
+    Player : TPlayer;
 begin
   State.Init(L);
-  if not WritingMemorial then
+  Player := State.ToObject(1) as TPlayer;
+  if not Player.FWritingMemorial then
     raise Exception.Create('player:memorial_print called in wrong place!');
-  WriteLn( MemorialText, UI.Strip( State.ToString( 2 ) ) );
+  WriteLn( Player.FMemorialText, VTIG_StripTags( State.ToString( 2 ) ) );
   Result := 0;
 end;
 
 function lua_player_memorial_dumpmsg(L: Plua_State): Integer; cdecl;
 var State  : TGameLuaStack;
+    Player : TPlayer;
     Count  : DWord;
 begin
   State.Init(L);
+  Player := State.ToObject(1) as TPlayer;
   Count  := State.ToInteger(2);
-  if not WritingMemorial then
+  if not Player.FWritingMemorial then
     raise Exception.Create('player:memorial_dumpmsg called in wrong place!');
-  UI.MsgDump( MemorialText, Count );
+  Player.Presentation.MsgDump( Player.FMemorialText, Count );
   Result := 0;
 end;
 
@@ -2491,7 +2332,7 @@ begin
   Result := 1;
 end;
 
-const lua_player_lib : array[0..21] of luaL_Reg = (
+const lua_player_lib : array[0..20] of luaL_Reg = (
   ( name : 'get_item';         func : @lua_player_get_item),
   ( name : 'spell_get';        func : @lua_player_spell_get),
   ( name : 'spell_set';        func : @lua_player_spell_set),
@@ -2507,7 +2348,6 @@ const lua_player_lib : array[0..21] of luaL_Reg = (
   ( name : 'eq_set';           func : @lua_player_eq_set),
   ( name : 'qs_get';           func : @lua_player_qs_get),
   ( name : 'qs_set';           func : @lua_player_qs_set),
-  ( name : 'exit';             func : @lua_player_exit),
   ( name : 'slot_name';        func : @lua_player_slot_name),
   ( name : 'is_backpack';      func : @lua_player_is_backpack),
   ( name : 'memorial_print';   func : @lua_player_memorial_print),
