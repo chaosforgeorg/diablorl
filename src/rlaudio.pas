@@ -46,7 +46,7 @@ begin
   iMPQ := aConfig.Configure( 'mpq', 'DIABDAT.MPQ' );
   if not SFileOpenArchive( PChar( iMPQ ), 0, STREAM_FLAG_READ_ONLY, @FMPQHandle ) then
     Log( 'Failed to open MPQ!' );
-  if iSound = 'DEFAULT' then iSound := {$IFDEF WINDOWS}'FMOD'{$ELSE}'SDL'{$ENDIF};
+  if iSound = 'DEFAULT' then iSound := 'FMOD';
   if iSound = 'FMOD' then
     FSound := TFMODSound.Create
   else
