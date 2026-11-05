@@ -104,7 +104,7 @@ end;
 implementation
 
 uses dateutils, variants, vlualibrary,
-     {$IFDEF UNIX}vcursesio, vcursesconsole, {$ELSE}vtextio, vtextconsole, {$ENDIF} vsdlio, vglconsole, vlog, vdebug, vmath,
+     vsdlio, vglconsole, vlog, vdebug, vmath,
      rlshop, rllua, rlnpc, rlsettingsview;
 
 function TGameLayerHelper.UI : TGameUI;
@@ -157,22 +157,9 @@ begin
     Log( LOGINFO, 'Setting up console mode...' );
     FGraphicsMode := False;
     Log( LOGINFO, 'Initializing driver...' );
-    {$IFDEF UNIX}
-    FIODriver := TCursesIODriver.Create( FSizeX, FSizeY );
-    {$ELSE}
-    FIODriver := TTextIODriver.Create( FSizeX, FSizeY );
-    {$ENDIF}
+    FIODriver := CreateTerminalDriver( FSizeX, FSizeY );
     Log( LOGINFO, 'Creating renderer...' );
-    {$IFDEF UNIX}
-    FConsole  := TCursesConsoleRenderer.Create( FSizeX, FSizeY, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
-    {$ELSE}
-    FConsole  := TTextConsoleRenderer.Create( FSizeX, FSizeY, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
-    {$ENDIF}
-    if (FIODriver.GetSizeX < FSizeX) or (FIODriver.GetSizeY < FSizeY) then
-    begin
-      Log( LOGERROR, 'Too small console available (%dx%d)!', [ FIODriver.GetSizeX, FIODriver.GetSizeY ] );
-      raise EIOException.Create('Too small console available, resize your console to '+IntToStr(FSizeX)+'x'+IntToStr(FSizeY)+'!');
-    end;
+    FConsole  := CreateTerminalRenderer( FSizeX, FSizeY );
   end;
   Log( LOGINFO, 'IO driver and console initialized.' );
   FIODriver.SetTitle('DiabloRL','DiabloRL');
