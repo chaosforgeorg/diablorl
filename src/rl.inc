@@ -8,7 +8,7 @@
 {$DEBUGINFO ON}
 {$UNITPATH ../../fpcvalkyrie/src}
 {$INCLUDEPATH ../../fpcvalkyrie/src}
-{$APPTYPE CONSOLE}
+{$IFDEF WINDOWS}{$APPTYPE CONSOLE}{$ENDIF}
 {$IFNDEF WINDOWS}
 {$LINKLIB m}
 {$ENDIF}

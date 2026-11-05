@@ -3,7 +3,7 @@
 // @author(Kornel Kisielewicz <admin@chaosforge.org>)
 unit rlpersistence;
 interface
-uses DOM, vxml, viotypes, vxmldata;
+uses DOM, viotypes, vxmldata;
 
 const MAX_SCORE_ENTRIES = 500;
 const SCORE_FILE_NAME   = 'score.mpq';
@@ -46,11 +46,11 @@ begin
     iEntry := FScoreFile.Add( aScore );
     if iEntry <> nil then 
     begin
-      iEntry.SetAttribute('level', IntToStr(aLevel) );
-      iEntry.SetAttribute('name', aName );
-      iEntry.SetAttribute('klass', aKlass );
-      iEntry.SetAttribute('grave', aGrave );
-      iEntry.SetAttribute('result', aResult );
+      iEntry.SetAttribute( 'level', UnicodeString( IntToStr( aLevel ) ) );
+      iEntry.SetAttribute( 'name', UnicodeString( aName ) );
+      iEntry.SetAttribute( 'klass', UnicodeString( aKlass ) );
+      iEntry.SetAttribute( 'grave', UnicodeString( aGrave ) );
+      iEntry.SetAttribute( 'result', UnicodeString( aResult ) );
       FScoreFile.Save;
     end;
   finally
@@ -73,11 +73,11 @@ begin
       then iColor := '{y'
       else iColor := '{l';
 
-    Result.Push( ' '+iColor + Padded( iEntry.GetAttribute('score') ,6)
-                             + Padded( iEntry.GetAttribute('name')  ,14)
-                             + Padded( iEntry.GetAttribute('klass') + '} L'+iEntry.GetAttribute('level') ,12)
-                             + Padded( iEntry.GetAttribute('grave') ,19)
-                             +         iEntry.GetAttribute('result') );
+    Result.Push( ' '+iColor + Padded( AnsiString( iEntry.GetAttribute( 'score' ) ) ,6)
+                             + Padded( AnsiString( iEntry.GetAttribute( 'name' ) )  ,14)
+                             + Padded( AnsiString( iEntry.GetAttribute( 'klass' ) ) + '} L'+AnsiString( iEntry.GetAttribute( 'level' ) ) ,12)
+                             + Padded( AnsiString( iEntry.GetAttribute( 'grave' ) ) ,19)
+                             +         AnsiString( iEntry.GetAttribute( 'result' ) ) );
   end;
 
 end;

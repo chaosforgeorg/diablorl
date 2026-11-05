@@ -95,8 +95,8 @@ begin
     iMaximum := TGLConsoleRenderer( UI.Console ).MaxScaleForDevice( Point( 80, 25 ) );
   if FConfiguration.GetInteger( 'font_multiplier' ) > iMaximum then
     iMaximum := FConfiguration.GetInteger( 'font_multiplier' );
+  iNames := [ 'Automatic' ];
   SetLength( iNames, iMaximum + 1 );
-  iNames[0] := 'Automatic';
   for i := 1 to iMaximum do iNames[i] := 'x' + IntToStr( i );
   FConfiguration.CastInteger( 'font_multiplier' ).SetNames( iNames );
 end;

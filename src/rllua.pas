@@ -44,7 +44,7 @@ end;
 
 implementation
 
-uses vluaentitynode, vluatools, vdebug, viotypes, vutil, vluadungen,
+uses vluaentitynode, vluatools, vdebug, viotypes, vluadungen,
      rlplayer, rlshop;
 
 { TGameLuaStack }

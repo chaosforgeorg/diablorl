@@ -99,7 +99,7 @@ end;
 type TShopItemArray = array of TShopItem;
 
 type TShopWindow = class( TPanel )
-  constructor Create( const aTitle : AnsiString; aWearer : TNPC; var aResult : Integer );
+  constructor Create( const aTitle : AnsiString; aWearer : TNPC; out aResult : Integer );
   procedure Add( aItem : TItem; aPriceType : TPriceType = COST_NONE );
   procedure Close( const aEmptyLabel : AnsiString );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
@@ -143,7 +143,7 @@ type TTalkOption = record
 end;
 
 type TTalkWindow = class( TPanel )
-  constructor Create( aOwner : TMainScreen; const aIntro : AnsiString; var aResult : Integer );
+  constructor Create( aOwner : TMainScreen; const aIntro : AnsiString; out aResult : Integer );
   procedure Add( const aOption : AnsiString; aActive : Boolean = True );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
@@ -214,7 +214,7 @@ end;
 { TTravelWindow }
 
 type TTravelWindow = class( TIOLayer )
-  constructor Create( var aResult : Integer );
+  constructor Create( out aResult : Integer );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
@@ -667,7 +667,7 @@ end;
 
 { TShopWindow }
 
-constructor TShopWindow.Create( const aTitle : AnsiString; aWearer : TNPC; var aResult : Integer );
+constructor TShopWindow.Create( const aTitle : AnsiString; aWearer : TNPC; out aResult : Integer );
 begin
   inherited Create;
   FTitle      := aTitle;
@@ -920,7 +920,7 @@ end;
 
 { TTalkWindow }
 
-constructor TTalkWindow.Create( aOwner : TMainScreen; const aIntro : AnsiString; var aResult : Integer );
+constructor TTalkWindow.Create( aOwner : TMainScreen; const aIntro : AnsiString; out aResult : Integer );
 begin
   inherited Create( aOwner );
   FResult      := @aResult;
@@ -1486,7 +1486,7 @@ end;
 
 { TTravelWindow }
 
-constructor TTravelWindow.Create( var aResult : Integer );
+constructor TTravelWindow.Create( out aResult : Integer );
 begin
   VTIG_EventClear;
   FFinished := False;

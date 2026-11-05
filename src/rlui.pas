@@ -256,7 +256,6 @@ end;
 
 function TGameUI.getGylph( const aCoord : TCoord2D ): TIOGylph;
 var iPicture : Word;
-    iChar    : Char;
     iLight   : Byte;
     iSingle  : Single;
     iColor   : TColor;

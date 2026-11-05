@@ -60,7 +60,7 @@ TItem = class(TThing)
        // register lua functions
        class procedure RegisterLuaAPI( aLua : TLua );
        // Checks if requirements met / also checks for ifUnknown and for the special Req = bonus case
-       function ReqsMet( aWearer : TNPC; isWorn : Boolean ) : Boolean;
+       function ReqsMet( aWearer : TNPC ) : Boolean;
        // Init colors
        class procedure InitColors( aGraphicsMode : Boolean );
      published
@@ -194,7 +194,7 @@ end;
 
 function TItem.InvColor( aWearer : TNPC ) : TIOColor;
 begin
-  if ReqsMet( aWearer, False ) then
+  if ReqsMet( aWearer ) then
     if flags[ ifMagic ] then exit(FColors[COLOR_MAGIC])
     else if flags[ ifUnique ] then exit(FColors[COLOR_UNIQUE])
     else exit(FColors[COLOR_NORMAL])
@@ -202,7 +202,6 @@ begin
 end;
 
 procedure TItem.Identify;
-var V : Variant;
 begin
   if not Flags[ ifUnknown ] then Exit;
 
@@ -419,7 +418,7 @@ begin
 
   if (StrReq<>0) or (DexReq<>0) or (iMagReq<>0) then
   begin
-    if not ReqsMet( aWearer, False )
+    if not ReqsMet( aWearer )
       then Result += ' {rRequires} '
       else Result += ' Requires ';
     if StrReq<>0 then
@@ -481,7 +480,7 @@ begin
   Exit( False );
 end;
 
-function TItem.ReqsMet( aWearer : TNPC; isWorn : Boolean ) : Boolean;
+function TItem.ReqsMet( aWearer : TNPC ) : Boolean;
 var Stat : DWord;
     Req  : Integer;
     iPlayer : TPlayer;

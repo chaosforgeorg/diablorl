@@ -39,7 +39,7 @@ type TGameApplication = class( TRLApplication )
 
 implementation
 
-uses vos, vioevent, vdebug, rlconfiguration, rlconfig, rlglobal, rlui, rllua;
+uses vioevent, vdebug, rlconfiguration, rlconfig, rlglobal, rlui, rllua;
 
 function TGameRuntime.CreateIO : TIORL;
 begin

@@ -5,7 +5,7 @@
 
 unit rlplayer;
 interface
-uses classes, vutil, vnode, vrltools, vgenerics, vlua, rlglobal, rlthing, rlnpc, rlconfig, rlitem;
+uses classes, vutil, vnode, vrltools, vlua, rlglobal, rlthing, rlnpc, rlconfig, rlitem;
 
 type TQuests = array[1..MaxQuests] of byte;
 type TSpells = array[1..MaxSpells] of byte;
@@ -431,7 +431,7 @@ end;
 function TPlayer.ItemToSlot(Item : TItem) : byte;
 begin
   if Item = nil then Exit(SlotNone);
-  if not Item.ReqsMet( Self, False ) then Exit(SlotFailReq);
+  if not Item.ReqsMet( Self ) then Exit(SlotFailReq);
 
   if Item.Flags[ ifTwoHanded ] then
     if (FEq[SlotLHand] = nil) then
@@ -570,7 +570,7 @@ begin
   Bonus := 0;
   for Count := 1 to ITEMS_EQ do
     if FEq[Count] <> nil then
-      if FEq[Count].ReqsMet( Self, true ) then
+      if FEq[Count].ReqsMet( Self ) then
       begin
         Value += FEq[Count].AC;
         Bonus += FEq[Count].ACModPrc;
@@ -745,7 +745,7 @@ begin
   getItemFlag := False;
   for iCount := 1 to ITEMS_EQ do
     if FEq[iCount] <> nil then
-      if FEq[iCount].ReqsMet( Self, true ) then
+      if FEq[iCount].ReqsMet( Self ) then
         if FEq[iCount].Flags[ aFlag ] then Exit( True );
 end;
 
@@ -755,7 +755,7 @@ begin
   getItemMaxBonus := 0;
   for iCount := 1 to ITEMS_EQ do
     if FEq[iCount] <> nil then
-      if FEq[iCount].ReqsMet( Self, true ) then
+      if FEq[iCount].ReqsMet( Self ) then
         getItemMaxBonus := Max(getItemMaxBonus, FEq[iCount].Statistics[aStat]);
 end;
 
@@ -765,7 +765,7 @@ begin
   getItemSumBonus := 0;
   for iCount := 1 to ITEMS_EQ do
     if FEq[iCount] <> nil then
-      if (FEq[iCount].Statistics[aStat] <> 0) and FEq[iCount].ReqsMet( Self, true ) then
+      if (FEq[iCount].Statistics[aStat] <> 0) and FEq[iCount].ReqsMet( Self ) then
         getItemSumBonus += FEq[iCount].Statistics[aStat];
 end;
 
@@ -787,7 +787,7 @@ var Count : DWord;
 begin
   for Count := 1 to ITEMS_EQ do
     if FEq[Count] <> nil then
-      if FEq[Count].HasHook( Hook ) and FEq[Count].ReqsMet( Self, true ) then
+      if FEq[Count].HasHook( Hook ) and FEq[Count].ReqsMet( Self ) then
         FEq[Count].RunHook( Hook, aParams )
 end;
 
@@ -1237,7 +1237,7 @@ begin
     Exit;
   end;
 
-  if (FEq[SlotRhand] = nil) or ( not (TYPE_BOW = FEq[SlotRhand].IType) ) or ( not ( FEq[SlotRHand].ReqsMet( Self, True ) ) ) then
+  if (FEq[SlotRhand] = nil) or ( not (TYPE_BOW = FEq[SlotRhand].IType) ) or ( not ( FEq[SlotRHand].ReqsMet( Self ) ) ) then
   begin
     Presentation.Msg('You have no ranged weapon.');
     Exit;
@@ -1249,7 +1249,6 @@ end;
 function TPlayer.CastSpell(): Boolean;
 var Cost       : DWord;
     slvl       : LongInt;
-    TargetType : DWord;
     FromStaff  : boolean;
     SpellID    : byte;
     SpellLevel : byte;
@@ -1301,7 +1300,6 @@ begin
         Cost := GetInteger( 'magic',0 )
     else
       Cost := max(LongInt(Call('cost',[20, Self])),(Call('cost',[slvl, Self])*FSpellCost)div 100);
-    TargetType:= GetInteger( 'target' );
   finally
     Free;
   end;
@@ -1453,7 +1451,7 @@ begin
       Result := 1;
     end
   //or it can be placed into quickslot
-  else if (GetFreeSlot>0) and (aItem.IType in [TYPE_POTION, TYPE_SCROLL])and aItem.ReqsMet( Self, False ) then
+  else if (GetFreeSlot>0) and (aItem.IType in [TYPE_POTION, TYPE_SCROLL])and aItem.ReqsMet( Self ) then
   begin
     Dec(FSpeedCount,SpdMov);
     Add( aItem );
@@ -1687,6 +1685,7 @@ begin
   ISt.Read( FSpells,      SizeOf( FSpells ) );
   ISt.Read( FQuickSkills, SizeOf( FQuickSkills ) );
 
+  tsob := [];
   ISt.Read(tsob, sizeof(tsob));
   for Count := 1 to FContext.Lua.Get(['quests','__counter'])  do
     begin
@@ -1915,7 +1914,7 @@ begin
   if aItem <> nil then
   begin
     if not (aItem.IType in [TYPE_POTION, TYPE_SCROLL] ) then Exit( Fail( 'Not a quickslot item!',[] ) );
-    if not aItem.ReqsMet( Self, False ) then Exit( Fail( '{!"I can''t use this yet"}', [], '13' ) );
+    if not aItem.ReqsMet( Self ) then Exit( Fail( '{!"I can''t use this yet"}', [], '13' ) );
   end;
 
   if FQuickSlots[aSlot] <> nil then

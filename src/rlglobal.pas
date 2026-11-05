@@ -8,7 +8,7 @@
 
 unit rlglobal;
 interface
-uses sysutils, vrandom, vrltools, vutil, vnode;
+uses sysutils, vrandom, vutil;
 
 type TNameOutputType = (TheName,AName,PlainName);
 type TPriceType  = (COST_NONE, COST_BUY, COST_SELL, COST_REPAIR, COST_RECHARGE, COST_IDENTIFY );

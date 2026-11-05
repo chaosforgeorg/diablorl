@@ -116,7 +116,7 @@ type TLevel = class(TLuaMapNode)
 
 implementation
 
-uses sysutils, vluatools, vluadungen, rllua;
+uses sysutils, vluatools, rllua;
 
 { TTravelPoint }
 

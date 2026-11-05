@@ -72,7 +72,7 @@ end;
 type TGameMenuResult = ( GMR_NEW, GMR_LOAD, GMR_QUIT );
 
 type TMainMenuScreen = class( TMenuScreen )
-  constructor Create( aPersistence : TPersistence; aCanLoad : Boolean; var aResult : TGameMenuResult );
+  constructor Create( aPersistence : TPersistence; aCanLoad : Boolean; out aResult : TGameMenuResult );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
   FCanLoad : Boolean;
@@ -111,7 +111,7 @@ protected
 end;
 
 type TConfirmDialog = class( TIOLayer )
-  constructor Create( const aQuery : AnsiString; var aResult : DWord );
+  constructor Create( const aQuery : AnsiString; out aResult : DWord );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
@@ -120,7 +120,7 @@ protected
 end;
 
 type TGameMenu = class( TIOLayer )
-  constructor Create( var aResult : DWord );
+  constructor Create( out aResult : DWord );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
 protected
@@ -129,7 +129,7 @@ end;
 
 implementation
 
-uses math, vutil, vtig, vtigio, rlglobal, rlui;
+uses vutil, vtig, vtigio, rlglobal, rlui;
 
 { TMenuScreen }
 
@@ -330,7 +330,7 @@ end;
 
 { TMainMenuScreen }
 
-constructor TMainMenuScreen.Create( aPersistence : TPersistence; aCanLoad : Boolean; var aResult : TGameMenuResult );
+constructor TMainMenuScreen.Create( aPersistence : TPersistence; aCanLoad : Boolean; out aResult : TGameMenuResult );
 begin
   inherited Create;
   FPersistence := aPersistence;
@@ -480,7 +480,7 @@ end;
 
 { TConfirmDialog }
 
-constructor TConfirmDialog.Create( const aQuery : AnsiString; var aResult : DWord );
+constructor TConfirmDialog.Create( const aQuery : AnsiString; out aResult : DWord );
 begin
   VTIG_EventClear;
   VTIG_ResetSelect( 'confirm_dialog' );
@@ -490,7 +490,6 @@ begin
 end;
 
 procedure TConfirmDialog.Update( aDTime : Integer; aActive : Boolean );
-var iWidth : Integer;
 begin
   VTIG_PushStyle( @TIGFramedWindowStyle );
   VTIG_Begin( 'confirm_dialog', Point( 40, 10 ) );
@@ -510,7 +509,7 @@ end;
 
 { TGameMenu }
 
-constructor TGameMenu.Create( var aResult : DWord );
+constructor TGameMenu.Create( out aResult : DWord );
 begin
   VTIG_EventClear;
   FResult   := @aResult;
