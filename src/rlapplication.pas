@@ -152,11 +152,8 @@ end;
 
 procedure TGameApplication.DefineOptions;
 begin
+  inherited DefineOptions;
   AddFlag( 'god', #0, 'Enable god mode and loose Lua from the working directory.' );
-  AddFlag( 'console', #0, 'Force native console mode.' );
-  AddFlag( 'graphics', #0, 'Force graphical ASCII mode; takes precedence over --console.' );
-  AddFlag( 'fullscreen', #0, 'Force fullscreen graphics.' );
-  AddFlag( 'windowed', #0, 'Force windowed graphics; takes precedence over --fullscreen.' );
   AddValueOption( 'name', #0, 'PLAYER_NAME', 'Override the configured player name.' );
   AddValueOption( 'soundpath', #0, 'DIR', 'Override the loose audio directory.' );
   AddValueOption( 'datapath', #0, 'DIR', 'Alias for --data-path.' );
@@ -166,6 +163,7 @@ end;
 
 procedure TGameApplication.ValidateOptions;
 begin
+  inherited ValidateOptions;
   if HasOption( 'datapath' ) and HasOption( 'data-path' ) then
     FailOption( 'Use only one of --datapath and --data-path.' )
   else if HasOption( 'writepath' ) and HasOption( 'write-path' ) then
@@ -233,10 +231,7 @@ begin
   iLaunch := iConfiguration.Launch;
   iLaunch.HasName := HasOption( 'name' );
   if iLaunch.HasName then iLaunch.Name := GetOptionValue( 'name' );
-  iLaunch.ForceConsole := HasOption( 'console' );
-  iLaunch.ForceGraphics := HasOption( 'graphics' );
-  if HasOption( 'fullscreen' ) then iLaunch.Fullscreen := 1;
-  if HasOption( 'windowed' ) then iLaunch.Fullscreen := 0;
+  iLaunch.Display := Launch;
   iConfiguration.Launch := iLaunch;
 
   FPaths.Normalize;

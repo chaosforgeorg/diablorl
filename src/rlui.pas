@@ -5,7 +5,7 @@
 unit rlui;
 
 interface
-uses {$IFDEF WINDOWS}windows,{$ENDIF} classes, sysutils,
+uses classes, sysutils,
      vio, vioevent, vcolor, viotypes, vioconsole, vlua, vluastack, viorl, vrltools, vtig, vtigstyle, vtextmap, vmessages, vutil, vbindings, vtigio,
      rlconfiguration, rlviews, rlgviews, rlglobal, rlthing, rlplayer, rlitem, rlconfig, rlaudio, rllevel;
 
@@ -128,21 +128,8 @@ begin
   if FGraphicsMode then
   begin
     Log( LOGINFO, 'Setting up graphics mode...' );
-    {$IFDEF WINDOWS}
-    if not GodMode then
-    begin
-      FreeConsole;
-    end
-    else
-    begin
-      Logger.AddSink( TConsoleLogSink.Create( LOGDEBUG, true ) );
-    end;
-    {$ENDIF}
-
-    FGraphicsMode := True;
-    iSetup := TIO.WindowSetup( aConfig );
-    // Launch flags override the saved mode for this session.
-    iSetup.Fullscreen    := aConfig.Fullscreen;
+    ReleaseConsole( GodMode );
+    iSetup := TIO.WindowSetup( aConfig, aConfig.Launch.Display );
     // 80x25 glyphs of font10x18.png.
     iSetup.MinimumPixels := Point( 80 * 10, 25 * 18 );
     Log( LOGINFO, 'Initializing driver...' );

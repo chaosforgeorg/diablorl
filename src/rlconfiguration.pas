@@ -2,7 +2,7 @@
 unit rlconfiguration;
 interface
 
-uses vbindings, vioevent, vconfiguration, rlconfig, rlbindings;
+uses vbindings, vioevent, viotypes, vconfiguration, rlconfig, rlbindings;
 
 const GAME_CONFIGURATION_GROUP_DISPLAY  = 'display';
       GAME_CONFIGURATION_GROUP_GAMEPLAY = 'gameplay';
@@ -10,10 +10,7 @@ const GAME_CONFIGURATION_GROUP_DISPLAY  = 'display';
 
 // Command-line choices; each reader asks the configuration through the answers below.
 type TGameLaunchOptions = record
-  ForceConsole  : Boolean;
-  ForceGraphics : Boolean;
-  // -1 uses the setting, 0 is --windowed, 1 is --fullscreen.
-  Fullscreen    : Integer;
+  Display       : TIOLaunchOptions;
   // --name was given, even with an empty value.
   HasName       : Boolean;
   Name          : AnsiString;
@@ -22,7 +19,6 @@ end;
 type TGameConfiguration = class( TConfigurationManager )
   constructor Create( const aConfigurationPath, aSettingsPath, aGodModeFile : AnsiString );
   function GraphicsMode : Boolean;
-  function Fullscreen : Boolean;
   function FixedPlayerName : AnsiString;
   procedure LoadBindings( aGame, aUI : TBindingContext );
   procedure ResetValues;
@@ -66,7 +62,6 @@ var iDisplayGroup  : TConfigurationGroup;
 begin
   inherited Create;
   FSettingsPath := aSettingsPath;
-  FLaunch.Fullscreen := -1;
 
   iDisplayGroup := AddGroup( GAME_CONFIGURATION_GROUP_DISPLAY );
   TIO.RegisterWindowSettings( iDisplayGroup );
@@ -128,15 +123,7 @@ end;
 
 function TGameConfiguration.GraphicsMode : Boolean;
 begin
-  if FLaunch.ForceGraphics then Exit( True );
-  if FLaunch.ForceConsole then Exit( False );
-  Result := not GetBoolean( 'ascii_mode' );
-end;
-
-function TGameConfiguration.Fullscreen : Boolean;
-begin
-  if FLaunch.Fullscreen >= 0 then Exit( FLaunch.Fullscreen = 1 );
-  Result := GetBoolean( 'fullscreen' );
+  Result := FLaunch.Display.GraphicsMode( not GetBoolean( 'ascii_mode' ) );
 end;
 
 function TGameConfiguration.FixedPlayerName : AnsiString;
