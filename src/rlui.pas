@@ -68,9 +68,8 @@ type
     function ChooseDirection( out aDirection : TDirection ) : Boolean;
     procedure RegisterLuaAPI( aLua : TLua );
   protected
-    procedure DisplayChanged( const aMetrics : TIODisplayMetrics ); override;
+    procedure DisplayChanged; override;
   private
-    procedure FitDisplay;
     function GetPlayer : TPlayer;
     function GetLevel : TLevel;
     function TranslateColor( aColor : Byte; aPosition : TCoord2D ) : Byte;
@@ -396,7 +395,7 @@ begin
       TGameSettingsView( FLayers.Top ).ApplyPending;
 end;
 
-procedure TGameUI.FitDisplay;
+procedure TGameUI.DisplayChanged;
 var iMinimum : TIOPoint;
     iDriver : TSDLIODriver;
 begin
@@ -407,8 +406,6 @@ begin
      (iDriver.Height < DWord( iMinimum.Y * 25 )) then Exit;
   TGLConsoleRenderer( FConsole ).FitToDevice( Point( 80, 25 ),
     FFontMultiplier );
-  // Resizing the renderer sets its cursor type and makes it visible.
-  HideCursor;
   FSizeX := FConsole.SizeX;
   FSizeY := FConsole.SizeY;
   if FMessages <> nil then FMessages.Resize( 2, FSizeX - 2 );
@@ -425,19 +422,10 @@ begin
   end;
 end;
 
-procedure TGameUI.DisplayChanged( const aMetrics : TIODisplayMetrics );
-begin
-  FitDisplay;
-end;
-
 procedure TGameUI.Reconfigure;
 begin
-  if FGraphicsMode then
-  begin
-    ApplyWindowSettings;
-    FFontMultiplier := FConfiguration.GetInteger( 'font_multiplier' );
-    FitDisplay;
-  end;
+  FFontMultiplier := FConfiguration.GetInteger( 'font_multiplier' );
+  ApplyDisplaySettings;
   FConfiguration.LoadBindings( GameBindings, UIBindings );
   SetSoundVolume( FConfiguration.GetInteger( 'sound_volume' ) );
   SetMusicVolume( FConfiguration.GetInteger( 'music_volume' ) );
