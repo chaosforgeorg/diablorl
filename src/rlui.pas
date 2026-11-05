@@ -50,7 +50,6 @@ type
     procedure Update( aMSec : DWord ); override;
     procedure Reconfigure;
     procedure ShowSettings;
-    procedure SaveWindowGeometry;
     procedure PostUpdate; override;
     procedure SetAudio( aAudio : TGameAudio );
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
@@ -68,8 +67,9 @@ type
     function ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : Boolean;
     function ChooseDirection( out aDirection : TDirection ) : Boolean;
     procedure RegisterLuaAPI( aLua : TLua );
+  protected
+    procedure DisplayChanged( const aMetrics : TIODisplayMetrics ); override;
   private
-    procedure ReconfigureDisplay;
     procedure FitDisplay;
     function GetPlayer : TPlayer;
     function GetLevel : TLevel;
@@ -83,9 +83,6 @@ type
     FSizeX, FSizeY : Word;
     FGraphicsMode  : Boolean;
     FTargetMode    : Byte;
-    FDisplaySize   : TIOPoint;
-    FWindowSize    : TIOPoint;
-    FRequestedSize : TIOPoint;
     FFontMultiplier : Integer;
     FAudio         : TGameAudio; // borrowed from Runtime
     FManualPath    : AnsiString;
@@ -119,8 +116,7 @@ end;
 { TGameUI }
 
 constructor TGameUI.Create( aConfig : TGameConfiguration; const aDataPath : AnsiString );
-var iFlags : TSDLIOFlags;
-    iWidth, iHeight : Word;
+var iSetup : TIOWindowSetup;
 begin
   Log( LOGINFO, 'Creating game UI...' );
 
@@ -145,17 +141,13 @@ begin
     {$ENDIF}
 
     FGraphicsMode := True;
-    iFlags := [ SDLIO_OpenGL, SDLIO_Resizable ];
-    iWidth := aConfig.GetInteger( 'screen_width' );
-    iHeight := aConfig.GetInteger( 'screen_height' );
-    if aConfig.Fullscreen then
-    begin
-      Include( iFlags, SDLIO_DesktopFullScreen );
-      iWidth := 0;
-      iHeight := 0;
-    end;
+    iSetup := TIO.WindowSetup( aConfig );
+    // Launch flags override the saved mode for this session.
+    iSetup.Fullscreen    := aConfig.Fullscreen;
+    // 80x25 glyphs of font10x18.png.
+    iSetup.MinimumPixels := Point( 80 * 10, 25 * 18 );
     Log( LOGINFO, 'Initializing driver...' );
-    FIODriver := TSDLIODriver.Create( iWidth, iHeight, 32, iFlags );
+    FIODriver := TSDLIODriver.CreateWindow( iSetup, False );
     Log( LOGINFO, 'Creating renderer, using font file "'+aDataPath+'font10x18.png"...' );
     FConsole := TGLConsoleRenderer.Create( FIODriver, aDataPath+'font10x18.png',32,256-32,32, FSizeX, FSizeY, 0, [VIO_CON_CURSOR, VIO_CON_EXTCOLOR] );
   end
@@ -219,6 +211,7 @@ begin
 
   Log( LOGINFO, 'Initializing core driver...' );
   inherited Create( FIODriver, FConsole );
+  BindWindowSettings( aConfig );
   Log( LOGINFO, 'Configuring...' );
   Configure( aConfig.LuaConfig );
   Reconfigure;
@@ -373,18 +366,8 @@ begin
 end;
 
 procedure TGameUI.Update( aMSec : DWord );
-var iDriver : TSDLIODriver;
 begin
   FAnimTime := Driver.GetMs;
-  if FGraphicsMode then
-  begin
-    iDriver := TSDLIODriver( FIODriver );
-    if iDriver.RefreshWindowSize then
-    begin
-      if FDisplaySize <> Point( iDriver.Width, iDriver.Height ) then FitDisplay;
-      if not iDriver.FullScreen then FWindowSize := Point( iDriver.Width, iDriver.Height );
-    end;
-  end;
   inherited Update( aMSec );
   // Restore Look after VTIG releases the string-entry cursor.
   if (FTargetMode = TM_LOOK) and not IsModal then ShowCursor;
@@ -423,7 +406,6 @@ begin
     iMinimum := Point( X, Y );
   if (iDriver.Width < DWord( iMinimum.X * 80 )) or
      (iDriver.Height < DWord( iMinimum.Y * 25 )) then Exit;
-  FDisplaySize := Point( iDriver.Width, iDriver.Height );
   TGLConsoleRenderer( FConsole ).FitToDevice( Point( 80, 25 ),
     FFontMultiplier );
   // Resizing the renderer sets its cursor type and makes it visible.
@@ -444,58 +426,19 @@ begin
   end;
 end;
 
-procedure TGameUI.ReconfigureDisplay;
-var iDriver : TSDLIODriver;
-    iFlags, iOldFlags : TSDLIOFlags;
-    iSize, iOldSize, iMinimum : TIOPoint;
-    iFullscreen : Boolean;
+procedure TGameUI.DisplayChanged( const aMetrics : TIODisplayMetrics );
 begin
-  if not FGraphicsMode then Exit;
-  iDriver := TSDLIODriver( FIODriver );
-  with TGLConsoleRenderer( FConsole ).Font.GylphSize do
-    iMinimum := Point( X, Y );
-  if not iDriver.SetMinimumSize( Point( iMinimum.X * 80, iMinimum.Y * 25 ) ) then
-    raise EIOException.Create( 'Could not set the minimum window size.' );
-  iFullscreen := FConfiguration.Fullscreen;
-  iFlags := [SDLIO_OpenGL, SDLIO_Resizable];
-  iSize := Point( FConfiguration.GetInteger( 'screen_width' ),
-    FConfiguration.GetInteger( 'screen_height' ) );
-  if (iSize = FRequestedSize) and (FWindowSize.X > 0) then iSize := FWindowSize;
-  iOldFlags := iDriver.Flags;
-  if not iDriver.RefreshWindowSize then
-    raise EIOException.Create( 'Could not read the current window size.' );
-  iOldSize := Point( iDriver.Width, iDriver.Height );
-  if iFullscreen then Include( iFlags, SDLIO_DesktopFullScreen );
-  if not iDriver.ResetVideoMode( iSize.X, iSize.Y, iDriver.BPP, iFlags ) or
-     not iDriver.SynchronizeWindow then
-  begin
-    if not iDriver.ResetVideoMode( iOldSize.X, iOldSize.Y, iDriver.BPP, iOldFlags ) or
-       not iDriver.SynchronizeWindow then
-      raise EIOException.Create( 'Display change and restoration both failed.' );
-    iDriver.RefreshWindowSize;
-    FitDisplay;
-    raise EIOException.Create( 'Could not apply the display mode; previous mode restored.' );
-  end;
-  FRequestedSize := Point( FConfiguration.GetInteger( 'screen_width' ),
-    FConfiguration.GetInteger( 'screen_height' ) );
-  iDriver.RefreshWindowSize;
-  if iFullscreen then FWindowSize := iSize
-  else FWindowSize := Point( iDriver.Width, iDriver.Height );
-  FFontMultiplier := FConfiguration.GetInteger( 'font_multiplier' );
   FitDisplay;
-end;
-
-procedure TGameUI.SaveWindowGeometry;
-begin
-  if not FGraphicsMode or (FWindowSize.X <= 0) or (FWindowSize.Y <= 0) then Exit;
-  FConfiguration.AccessInteger( 'screen_width' )^ := FWindowSize.X;
-  FConfiguration.AccessInteger( 'screen_height' )^ := FWindowSize.Y;
-  FRequestedSize := FWindowSize;
 end;
 
 procedure TGameUI.Reconfigure;
 begin
-  ReconfigureDisplay;
+  if FGraphicsMode then
+  begin
+    ApplyWindowSettings;
+    FFontMultiplier := FConfiguration.GetInteger( 'font_multiplier' );
+    FitDisplay;
+  end;
   FConfiguration.LoadBindings( GameBindings, UIBindings );
   SetSoundVolume( FConfiguration.GetInteger( 'sound_volume' ) );
   SetMusicVolume( FConfiguration.GetInteger( 'music_volume' ) );

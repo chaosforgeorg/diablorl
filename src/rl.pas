@@ -18,10 +18,7 @@ uses
   {$IFDEF HEAPTRACE} heaptrc, {$ENDIF}
   rlapplication;
 
-//{$IFDEF WINDOWS}{$R rl.rc}{$ENDIF}
-{$IFDEF WINDOWS}
-{$R *.res}
-{$ENDIF}
+{$IFDEF WINDOWS}{$R rl.rc}{$ENDIF}
 
 var Application : TGameApplication;
 

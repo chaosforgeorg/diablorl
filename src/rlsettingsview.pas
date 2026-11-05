@@ -21,7 +21,6 @@ type TGameSettingsApply = procedure of object;
        procedure ReportError( const aError : AnsiString );
      private
        FConfiguration  : TGameConfiguration;
-       FResolutions : array of TIOPoint;
        FOriginalValues : TConfigurationValueMap;
        FEditEntry      : TConfigurationEntry;
        FEditError      : AnsiString;
@@ -65,7 +64,7 @@ const CStates : array[ TGameSettingsState ] of record
         State : TGameSettingsState;
         Name, Description : AnsiString;
       end = (
-        ( State: GSS_DISPLAY;  Name: 'Display'; Description: 'Resolution, fullscreen, font multiplier and native terminal settings.' ),
+        ( State: GSS_DISPLAY;  Name: 'Display'; Description: 'Fullscreen, font multiplier and native terminal settings.' ),
         ( State: GSS_GAME;     Name: 'Gameplay'; Description: 'Name, run delay and town reveal.' ),
         ( State: GSS_AUDIO;    Name: 'Audio'; Description: 'Walking sound and sound/music volume.' ),
         ( State: GSS_INPUT;    Name: 'Input'; Description: 'Configure keyboard input.' ),
@@ -82,7 +81,6 @@ begin
   inherited Create;
   FConfiguration := aConfiguration;
   FOnApply := aOnApply;
-  UpdateDisplayChoices;
   FOriginalValues := FConfiguration.SnapshotValues;
   SetState( GSS_GENERAL );
   VTIG_EventClear;
@@ -90,35 +88,8 @@ end;
 
 procedure TGameSettingsView.UpdateDisplayChoices;
 var iNames : TStringArray;
-    i, iCount, iSelected, iMaximum : Integer;
-    iSize : TIOPoint;
+    i, iMaximum : Integer;
 begin
-  iCount := 0;
-  if UI.Driver.DisplayModes <> nil then iCount := UI.Driver.DisplayModes.Size;
-  SetLength( FResolutions, iCount + 1 );
-  SetLength( iNames, iCount + 1 );
-  FResolutions[0] := Point( 0, 0 );
-  iNames[0] := 'Native';
-  iSize := Point( FConfiguration.GetInteger( 'screen_width' ),
-    FConfiguration.GetInteger( 'screen_height' ) );
-  iSelected := 0;
-  for i := 1 to iCount do
-  begin
-    with UI.Driver.DisplayModes[i - 1] do FResolutions[i] := Point( Width, Height );
-    iNames[i] := Format( '%dx%d', [FResolutions[i].X, FResolutions[i].Y] );
-    if FResolutions[i] = iSize then iSelected := i;
-  end;
-  if (iSelected = 0) and (iSize.X > 0) and (iSize.Y > 0) then
-  begin
-    Inc( iCount );
-    SetLength( FResolutions, iCount + 1 );
-    SetLength( iNames, iCount + 1 );
-    FResolutions[iCount] := iSize;
-    iNames[iCount] := Format( '%dx%d (custom)', [iSize.X, iSize.Y] );
-    iSelected := iCount;
-  end;
-  FConfiguration.CastInteger( 'display_mode' ).SetNames( iNames );
-  FConfiguration.AccessInteger( 'display_mode' )^ := iSelected;
   iMaximum := 1;
   if UI.Console is TGLConsoleRenderer then
     iMaximum := TGLConsoleRenderer( UI.Console ).MaxScaleForDevice( Point( 80, 25 ) );
@@ -178,7 +149,6 @@ begin
     Exit;
   end;
   FOnApply;
-  UI.SaveWindowGeometry;
   FreeAndNil( FOriginalValues );
   FOriginalValues := FConfiguration.SnapshotValues;
   if not FConfiguration.WriteSettings then
@@ -361,12 +331,7 @@ begin
                 if Length( Names ) > 0 then
                 begin
                   iWasOpen := FEnumOpen;
-                  if VTIG_EnumInput( Access, iIndex = iSelected, @FEnumOpen, Names ) then
-                    if iEntry.ID = 'display_mode' then
-                    begin
-                      FConfiguration.AccessInteger( 'screen_width' )^ := FResolutions[Value].X;
-                      FConfiguration.AccessInteger( 'screen_height' )^ := FResolutions[Value].Y;
-                    end;
+                  VTIG_EnumInput( Access, iIndex = iSelected, @FEnumOpen, Names );
                   if iWasOpen and not FEnumOpen then VTIG_EventClear;
                 end
                 else VTIG_IntInput( Access, iIndex = iSelected, Min, Max, Step )

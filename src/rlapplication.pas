@@ -115,7 +115,6 @@ begin
   end;
   iUI.UnPrepare;
   iUI.Clear;
-  iUI.SaveWindowGeometry;
   if not TGameConfiguration( Configuration ).WriteSettings then
     Log( 'Could not save settings on shutdown.' );
 end;

@@ -25,3 +25,4 @@ PRODUCTVERSION 1,0,0,0
 }
 
 MAINICON ICON "rl.ico"
+1 24 "rl.manifest"

@@ -56,7 +56,7 @@ end;
 
 implementation
 
-uses SysUtils, vutil, vdebug, rlglobal;
+uses SysUtils, vutil, vdebug, vio, rlglobal;
 
 constructor TGameConfiguration.Create( const aConfigurationPath,
   aSettingsPath, aGodModeFile : AnsiString );
@@ -69,14 +69,9 @@ begin
   FLaunch.Fullscreen := -1;
 
   iDisplayGroup := AddGroup( GAME_CONFIGURATION_GROUP_DISPLAY );
-  iDisplayGroup.AddInteger( 'display_mode', 0 ).SetName( 'Resolution' )
-    .SetDescription( 'Native desktop size or a window resolution.' );
-  iDisplayGroup.AddInteger( 'screen_width', 0 );
-  iDisplayGroup.AddInteger( 'screen_height', 0 );
-  iDisplayGroup.AddToggle( 'fullscreen', True ).SetName( 'Fullscreen' )
-    .SetDescription( 'Use native desktop fullscreen. Launch flags override this setting.' );
+  TIO.RegisterWindowSettings( iDisplayGroup );
   iDisplayGroup.AddInteger( 'font_multiplier', 0 ).SetRange( 0, 255 ).SetName( 'Font size multiplier' )
-    .SetDescription( 'Automatic uses the largest font that fits at least 80x25 characters.' );
+    .SetDescription( 'Automatic uses the largest font that fits 80x25 characters on the display.' );
   iDisplayGroup.AddToggle( 'ascii_mode', False ).SetName( 'ASCII mode' )
     .SetDescription( 'Use the native text terminal. Requires restart.' );
   iDisplayGroup.AddInteger( 'ascii_width', 100 ).SetRange( 80, 240 ).SetName( 'ASCII columns' )
@@ -263,9 +258,6 @@ begin
     (FRunModifier.Value in [Ord(Low(TGameMovementModifier))..Ord(High(TGameMovementModifier))]) and
     (FAttackModifier.Value in [Ord(Low(TGameMovementModifier))..Ord(High(TGameMovementModifier))]) and
     ((FRunModifier.Value = Ord(GMM_NONE)) or (FRunModifier.Value <> FAttackModifier.Value));
-  Result := Result and (GetInteger( 'display_mode' ) >= 0) and
-    (GetInteger( 'screen_width' ) >= 0) and (GetInteger( 'screen_width' ) <= High(Word)) and
-    (GetInteger( 'screen_height' ) >= 0) and (GetInteger( 'screen_height' ) <= High(Word));
   for iGroup in Groups do
     for iEntry in iGroup.Entries do
       if iEntry is TIntegerConfigurationEntry then
