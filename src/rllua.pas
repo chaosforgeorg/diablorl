@@ -112,7 +112,6 @@ begin
   RegisterMathAuxFunctions( Raw );
   RegisterCoordClass( Raw );
   RegisterAreaClass( Raw );
-  RegisterAreaFull( Raw, NewArea( NewCoord2D( 1, 1 ), NewCoord2D( MapSizeX, MapSizeY ) ) );
   RegisterDungenClass( Raw, 'generator' );
 
   RegisterType( TLevel, 'level', 'levels' );
