@@ -31,12 +31,13 @@ function generator.tile_place_hotspots( level, pos, tile )
 	local cell_marker = cells["marker"].nid
 	local cell_wall   = cells["stone_wall"].nid
 	local place_area  = area( pos, pos - coord.UNIT + tile:get_size_coord() )
+	local inner_area  = level:get_area():shrinked()
 	generator.tile_place( level, pos, tile )
 
 	for c in place_area() do
 		if level:get_cell( c ) == cell_marker then
 			level:set_cell( c, cell_wall )
-			if area.FULL_SHRINKED:contains( c ) then
+			if inner_area:contains( c ) then
 				table.insert( world.hotspots, c:clone() )
 			end
 		end
@@ -230,7 +231,7 @@ end
 
 function generator.contd_drunkard_walks( self, amount, steps, cell, edges1, edges2, ignore, break_on_edge )
 	if amount <= 0 then return end
-	local drunk_area = area.FULL_SHRINKED
+	local drunk_area = self:get_area():shrinked()
 	local c
 	for i=1,amount do
 		repeat
@@ -303,7 +304,7 @@ function generator.cave_level( self, gen_type )
 	sub_area:shrink( 4 )
 	self:fill( wall_cell, sub_area )
 
-	--generator.run_drunkard_walk( self, area.FULL_SHRINKED, coord( math.floor(w/2), math.floor(h/2) ), math.random(100)+400, floor_cell, nil, true )
+	--generator.run_drunkard_walk( self, self:get_area():shrinked(), coord( math.floor(w/2), math.floor(h/2) ), math.random(100)+400, floor_cell, nil, true )
 	drunk( 10, math.random(100)+400, floor_cell )
 --	drunk( amount, step,   fluid )
 	drunk( 50, math.random(100)+200, floor_cell )
@@ -337,10 +338,11 @@ function generator.cave_level( self, gen_type )
 
 	self:transmute( marker, wall_cell )
 
+	local inner_area = self:get_area():shrinked()
 	local count = 0
 	for i = 1,1000 do
 		local dim = coord( math.random( 6, 8 ), math.random( 6, 8 ) )
-		local a = area.FULL_SHRINKED:random_subarea( dim )
+		local a = inner_area:random_subarea( dim )
 		if self:scan( a, floor_cell ) then
 			a:shrink()
 			self:fill( grate, a )

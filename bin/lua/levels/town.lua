@@ -201,7 +201,7 @@ SSSSSSSSSSSSSSSSSSSSSSS==SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 			self:remove_travel_point(coord(64,43))
 		end
 		if TOWN_REVEAL then
-			for c in area.FULL() do
+			for c in self:get_area():coords() do
 				self:set_light_flag( c, vlfExplored, true )
 			end
 			self:add_travel_point( self:find_coord("stairs_down"), cells["stairs_down"].OnTravelName(self) )
